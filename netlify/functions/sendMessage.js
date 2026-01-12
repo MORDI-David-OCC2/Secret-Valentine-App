@@ -66,8 +66,8 @@ function buildBaseUrl(event) {
 // --- Resend sender (secure server-side) ---
 // Version A (no dependency): use fetch directly (works on Netlify Node 18)
 async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
+  const apiKey = process.env.API_EMAIL_KEY;
+  const from = process.env.EMAIL_VALENTINE;
 
   if (!apiKey) throw new Error("Missing RESEND_API_KEY env var");
   if (!from) throw new Error("Missing EMAIL_FROM env var");

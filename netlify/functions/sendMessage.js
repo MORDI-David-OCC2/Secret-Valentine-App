@@ -156,7 +156,7 @@ event.headers.host;
 const proto =
 event.headers["x-forwarded-proto"] || "https";
 
-const baseUrl = process.env.APP_BASE_URL || `${proto}://${host}`;
+const baseUrl = process.env.URL_DE_BASE || `${proto}://${host}`;
 
 // If you're running Live Server from /public locally, keep /public.
 // If your local URL serves index.html directly, remove "/public".

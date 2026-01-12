@@ -148,8 +148,22 @@ exports.handler = async (event) => {
       // messageId: msgRef.id,
     });
 
-    const baseUrl = process.env.APP_BASE_URL || "http://localhost:5500/public";
-    const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
+    // Build base URL from the incoming request (works on Netlify + locally)
+const host =
+event.headers["x-forwarded-host"] ||
+event.headers.host;
+
+const proto =
+event.headers["x-forwarded-proto"] || "https";
+
+const baseUrl = process.env.APP_BASE_URL || `${proto}://${host}`;
+
+// If you're running Live Server from /public locally, keep /public.
+// If your local URL serves index.html directly, remove "/public".
+const localPath = baseUrl.includes("localhost") ? "/public" : "";
+
+const link = `${baseUrl}${localPath}/#/inbox?t=${encodeURIComponent(token)}`;
+
 
     // For now return link for testing.
     // Next step: send the email from here.

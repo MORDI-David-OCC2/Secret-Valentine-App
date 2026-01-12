@@ -52,7 +52,7 @@ function getClientIp(event) {
 
 function buildBaseUrl(event) {
   // Prefer explicit config; fallback to request host
-  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL;
+  if (process.env.URL_DE_BASE) return process.env.URL_DE_BASE;
 
   const proto = event.headers["x-forwarded-proto"] || "https";
   let host = event.headers["x-forwarded-host"] || event.headers.host || "";

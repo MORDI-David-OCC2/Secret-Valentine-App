@@ -1,6 +1,8 @@
 // public/js/auth.js
 import { apiPost } from "./crypto.js";
 
+const LS_SESSION = "sv_sessionToken"
+
 const KEYS = {
   inboxId: "sv_inboxId",
   messages: "sv_messages",

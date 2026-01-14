@@ -1,6 +1,6 @@
 // public/js/settings.js
-import { escapeHtml, isValidPin } from "./crypto.js";
-import { getInboxId, clearLocalSession, apiPost, setSessionToken, getSessionToken } from "./auth.js";
+import { escapeHtml, isValidPin, apiPost} from "./crypto.js";
+import { getInboxId, clearLocalSession, setSessionToken, getSessionToken } from "./auth.js";
 
 export function renderSettings(root) {
   const inboxId = getInboxId();

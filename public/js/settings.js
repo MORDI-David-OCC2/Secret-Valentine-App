@@ -63,7 +63,7 @@ export function renderSettings(root) {
       setStatus("Saving PIN…");
 
       // Server sets PIN (requires current session token if already set, see server)
-      const res = await apiPost("/.netlify/functions/setPin", {
+      const res = await apiPost("/.netlify/functions/verifyPin", {
         inboxId,
         pin,
         sessionToken: getSessionToken() || null,

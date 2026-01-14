@@ -8,6 +8,7 @@ import {
   verifyPin,
   getMessageById,
   clearLocalSession,
+  getSessionToken,
 } from "./auth.js";
 
 function typeEmoji(type) {
@@ -134,8 +135,9 @@ export function renderInbox(root, ctx = {}) {
     return;
   }
 
+  const sessionToken = getSessionToken();
   // If locked, show PIN gate (messages must NOT be shown)
-  if (isPinRequired()) {
+  if (isPinRequired() && !sessionToken) {
     root.innerHTML = renderPinGate(inboxId);
 
     const status = root.querySelector("#pinStatus");

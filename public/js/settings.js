@@ -67,6 +67,7 @@ export function renderSettings(root) {
         inboxId,
         pin,
         sessionToken: getSessionToken() || null,
+        mode: "set"
       });
 
       if (!res.ok) return setStatus(res.error || "Failed to set PIN.", false);

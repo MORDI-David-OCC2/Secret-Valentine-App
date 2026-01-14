@@ -79,7 +79,7 @@ export async function verifyPin(inboxId, pin) {
     mode: "verify",
   });
   console.log("verifyPin response:", data);
-  
+
   if (!res.ok || !data.ok) {
     throw new Error(data.error || `verifyPin failed (${res.status})`);
   }
@@ -95,7 +95,7 @@ export async function listInbox() {
   const sessionToken = getSessionToken();
 
   if (!inboxId) throw new Error("No inbox selected.");
-
+  console.log("listInbox using sessionToken:", sessionToken);
   const { res, data } = await apiPost("/.netlify/functions/listInbox", {
     inboxId,
     sessionToken,

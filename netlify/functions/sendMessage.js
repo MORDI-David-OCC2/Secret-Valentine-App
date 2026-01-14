@@ -1,10 +1,6 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 
-// If you want to use Resend SDK, uncomment the next 2 lines and run: npm i resend
-// const { Resend } = require("resend");
-// const resend = new Resend(process.env.RESEND_API_KEY);
-
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
@@ -39,38 +35,27 @@ function initAdmin() {
 
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
+
   admin.initializeApp({
     credential: admin.credential.cert(JSON.parse(raw)),
   });
 }
 
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"];
-  if (xf) return xf.split(",")[0].trim();
-  return event.headers["client-ip"] || "unknown";
-}
-
 function buildBaseUrl(event) {
-  // Prefer explicit config; fallback to request host
   if (process.env.URL_DE_BASE) return process.env.URL_DE_BASE;
 
   const proto = event.headers["x-forwarded-proto"] || "https";
   let host = event.headers["x-forwarded-host"] || event.headers.host || "";
-
-  // Fix the weird case you saw: "xxx.netlify" -> "xxx.netlify.app"
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
-
   return `${proto}://${host}`;
 }
 
-// --- Resend sender (secure server-side) ---
-// Version A (no dependency): use fetch directly (works on Netlify Node 18)
 async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY;
-  const from = process.env.EMAIL_VALENTINE;
-  console.log(apiKey)
-  if (!apiKey) throw new Error("Missing RESEND_API_KEY env var");
-  if (!from) throw new Error("Missing EMAIL_FROM env var");
+  const apiKey = process.env.API_EMAIL_KEY;     // your Resend key
+  const from = process.env.EMAIL_VALENTINE;     // e.g. "Secret Valentine <hello@secretvalentines.fr>"
+
+  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
+  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -86,47 +71,12 @@ async function sendWithResend({ to, subject, html }) {
   return data;
 }
 
-// Version B (SDK): if you installed `resend`, you can use this instead:
-// async function sendWithResend({ to, subject, html }) {
-//   const from = process.env.EMAIL_FROM;
-//   if (!process.env.RESEND_API_KEY) throw new Error("Missing RESEND_API_KEY env var");
-//   if (!from) throw new Error("Missing EMAIL_FROM env var");
-//   const result = await resend.emails.send({ from, to, subject, html });
-//   return result;
-// }
-
 function subjectForType(type) {
   if (type === "love") return "💘 Someone sent you a Secret Valentine message";
   if (type === "friendship") return "🫶 You got a Secret Valentine friendship message";
   if (type === "family") return "👨‍👩‍👧‍👦 You got a Secret Valentine family message";
   if (type === "crush") return "😳 Someone sent you a Secret Valentine message";
   return "💌 You received a Secret Valentine message";
-}
-
-function emailHtml({ fromName, type, link }) {
-  const label =
-    type === "love" ? "💘 Love" :
-    type === "friendship" ? "🫶 Friendship" :
-    type === "family" ? "👨‍👩‍👧‍👦 Family" :
-    "😳 Crush";
-
-  return `
-  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5;color:#111">
-    <h2 style="margin:0 0 12px 0;">${label} message</h2>
-    <p style="margin:0 0 10px 0;"><strong>${escapeHtml(fromName)}</strong> sent you a Secret Valentine message.</p>
-    <p style="margin:0 0 14px 0;">Open your inbox with this link:</p>
-    <p style="margin:0 0 18px 0;">
-      <a href="${link}" style="display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;background:#ff4d6d;color:#fff;">
-        Open my inbox
-      </a>
-    </p>
-    <p style="margin:0 0 6px 0;color:#666;font-size:12px;">Or copy/paste:</p>
-    <p style="margin:0;color:#666;font-size:12px;word-break:break-all;">${link}</p>
-    <hr style="border:none;border-top:1px solid #eee;margin:18px 0;" />
-    <p style="margin:0;color:#888;font-size:12px;">
-      If you didn’t expect this email, you can ignore it.
-    </p>
-  </div>`;
 }
 
 function escapeHtml(str) {
@@ -138,13 +88,56 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
+function emailHtml({ fromName, type, link }) {
+  const label =
+    type === "love" ? "💘 Love" :
+    type === "friendship" ? "🫶 Friendship" :
+    type === "family" ? "👨‍👩‍👧‍👦 Family" :
+    "😳 Crush";
+
+  return `
+  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5;color:#111">
+    <div style="max-width:560px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden">
+      <div style="background:#ff4d6d;color:#fff;padding:18px;text-align:center">
+        <div style="font-size:34px">💌</div>
+        <div style="font-size:18px;font-weight:800;margin-top:4px">${label} message</div>
+      </div>
+
+      <div style="padding:18px">
+        <p style="margin:0 0 10px 0"><strong>${escapeHtml(fromName)}</strong> sent you a message.</p>
+        <p style="margin:0 0 16px 0">Open your inbox using this secure link:</p>
+
+        <p style="margin:0 0 18px 0">
+          <a href="${link}" style="display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;background:#ff4d6d;color:#fff;font-weight:700">
+            Open my inbox
+          </a>
+        </p>
+
+        <p style="margin:0 0 6px 0;color:#666;font-size:12px">Or copy/paste:</p>
+        <p style="margin:0;color:#666;font-size:12px;word-break:break-all">${link}</p>
+
+        <hr style="border:none;border-top:1px solid #eee;margin:18px 0" />
+        <p style="margin:0;color:#888;font-size:12px">
+          If you didn’t expect this email, you can ignore it.
+        </p>
+      </div>
+    </div>
+  </div>`;
+}
+
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: {
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    }, body: "" };
+    if (event.httpMethod === "OPTIONS") {
+      return {
+        statusCode: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-headers": "content-type",
+        },
+        body: "",
+      };
+    }
 
     if (event.httpMethod !== "POST") {
       return jsonResponse(405, { ok: false, error: "Use POST" });
@@ -154,11 +147,15 @@ exports.handler = async (event) => {
     const db = admin.firestore();
 
     let payload;
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return jsonResponse(400, { ok: false, error: "Invalid JSON body" }); }
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
+    }
 
     const toEmail = normalizeEmail(payload.toEmail);
     const fromName = String(payload.fromName || "Someone").trim().slice(0, 40);
+
     const type = String(payload.type || "love").trim();
     const stickerId = String(payload.stickerId || "heart_01").trim();
     const body = String(payload.body || "").trim();
@@ -166,8 +163,8 @@ exports.handler = async (event) => {
     if (!toEmail || !toEmail.includes("@")) {
       return jsonResponse(400, { ok: false, error: "Invalid toEmail" });
     }
-    if (!body || body.length < 1 || body.length > 500) {
-      return jsonResponse(400, { ok: false, error: "Message body must be 1..500 chars" });
+    if (!body || body.length < 1 || body.length > 2000) {
+      return jsonResponse(400, { ok: false, error: "Message body must be 1..2000 chars" });
     }
 
     const allowedTypes = ["love", "friendship", "family", "crush"];
@@ -181,6 +178,7 @@ exports.handler = async (event) => {
     const emailIndexSnap = await emailIndexRef.get();
 
     let inboxId;
+
     if (emailIndexSnap.exists) {
       inboxId = emailIndexSnap.data().inboxId;
     } else {
@@ -191,12 +189,15 @@ exports.handler = async (event) => {
       batch.set(inboxRef, {
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         pinHash: null,
+        pinSalt: null,
+        pinIter: null,
         pinSetAt: null,
       });
       batch.set(emailIndexRef, {
         inboxId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+
       await batch.commit();
     }
 
@@ -207,7 +208,7 @@ exports.handler = async (event) => {
       fromName,
       type,
       stickerId,
-      body, // Later: ciphertext + iv
+      body,
       unread: true,
     });
 
@@ -215,7 +216,6 @@ exports.handler = async (event) => {
     const token = randomTokenBase64Url(32);
     const tokenHash = sha256Hex(token);
 
-    // For security, consider shorter expiry than 30 days (e.g. 1–7 days).
     const expiresDays = 7;
     const expiresAt = admin.firestore.Timestamp.fromDate(
       new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
@@ -226,28 +226,23 @@ exports.handler = async (event) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt,
       purpose: "open",
-      ipHash: sha256Hex(getClientIp(event)),
-      messageId: msgRef.id,
     });
 
     // 4) Build link
     const baseUrl = buildBaseUrl(event);
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
-    // 5) Send email (server-side)
+    // 5) Send email
     const subject = subjectForType(type);
     const html = emailHtml({ fromName, type, link });
-
     await sendWithResend({ to: toEmail, subject, html });
 
-    // 6) Return minimal info (don’t leak link in production)
-    const devReturnLink = process.env.RETURN_LINK === "1";
+    // 6) Return minimal info
     return jsonResponse(200, {
       ok: true,
       inboxId,
       messageId: msgRef.id,
       emailed: true,
-      ...(devReturnLink ? { link } : {}),
     });
   } catch (err) {
     console.error(err);

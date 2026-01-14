@@ -91,7 +91,7 @@ export function renderSettings(root) {
       if (!confirmRemove) return;
 
       setStatus("Removing PIN…");
-      const res = await apiPost("/.netlify/functions/setPin", {
+      const res = await apiPost("/.netlify/functions/verifyPin", {
         inboxId,
         pin: null,                 // signal removal
         sessionToken: getSessionToken() || null,

@@ -147,17 +147,26 @@ export function renderInbox(root, ctx = {}) {
 
     root.querySelector("#unlockBtn").addEventListener("click", async () => {
       const pin = root.querySelector("#pinInput").value.trim();
+    
       try {
         setStatus("Verifying…");
+    
+        // 1) Verify PIN -> should store sessionToken via auth.js
         await verifyPin(inboxId, pin);
-        setStatus("✅ Unlocked.");
+    
+        setStatus("Unlocked. Loading messages…");
+    
+        // 2) Immediately load inbox now that we have a session
+        await listInbox();
+    
+        // 3) Re-render inbox route (so list appears)
         location.hash = "#/inbox";
-        listInbox();
       } catch (e) {
         console.error(e);
         setStatus(e.message || "Incorrect PIN.", false);
       }
     });
+    
 
     root.querySelector("#logoutBtn").addEventListener("click", () => {
       clearLocalSession();

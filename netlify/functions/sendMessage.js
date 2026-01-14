@@ -68,7 +68,7 @@ function buildBaseUrl(event) {
 async function sendWithResend({ to, subject, html }) {
   const apiKey = process.env.API_EMAIL_KEY;
   const from = process.env.EMAIL_VALENTINE;
-  console.log(apiKey, from)
+  console.log(apiKey)
   if (!apiKey) throw new Error("Missing RESEND_API_KEY env var");
   if (!from) throw new Error("Missing EMAIL_FROM env var");
 

@@ -78,7 +78,8 @@ export async function verifyPin(inboxId, pin) {
     pin,
     mode: "verify",
   });
-
+  console.log("verifyPin response:", data);
+  
   if (!res.ok || !data.ok) {
     throw new Error(data.error || `verifyPin failed (${res.status})`);
   }

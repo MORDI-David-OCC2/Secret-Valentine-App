@@ -8,6 +8,10 @@ export function escapeHtml(str) {
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
+
+export function isValidPin(pin) {
+  return /^[0-9]{4,8}$/.test(String(pin || "").trim());
+}
   
   export function getTokenFromUrl() {
     // supports /#/inbox?t=TOKEN

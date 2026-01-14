@@ -6,14 +6,13 @@ export function renderCompose(root) {
   root.innerHTML = `
     <section class="card">
       <h1 class="h1">✍️ Compose</h1>
-      <p class="p">This sends a message and returns a shareable link (email sending comes next).</p>
+      <p class="p">This sends an email with a secure link to the recipient’s inbox.</p>
 
       <div style="height:12px"></div>
 
       <div class="row">
         <input class="input" id="toEmail" type="email" placeholder="Recipient email" autocomplete="email" />
-        <input class="input" id="fromName" type="text" placeholder="Your name (optional)" autocomplete="name" />
-
+        <input class="input" id="fromName" type="text" placeholder="Your name (optional)" />
         <div class="row row-2">
           <select class="input" id="msgType">
             <option value="love">Love 💘</option>
@@ -28,24 +27,21 @@ export function renderCompose(root) {
           </select>
         </div>
 
-        <textarea class="input" id="msgBody" rows="5" placeholder="Write your message..."></textarea>
-
+        <textarea class="input" id="msgBody" rows="6" placeholder="Write your message..."></textarea>
         <button class="btn" type="button" id="sendBtn">Send 💌</button>
-
-        <p class="p" id="sendStatus" style="display:none;margin-top:8px"></p>
-        <div id="sendLinkWrap" style="display:none;margin-top:10px"></div>
+        <p class="p" id="sendStatus" style="display:none"></p>
       </div>
     </section>
   `;
 
   const status = root.querySelector("#sendStatus");
-  const linkWrap = root.querySelector("#sendLinkWrap");
-
-  async function handleSend() {
+  const setStatus = (msg, ok = true) => {
     status.style.display = "block";
-    linkWrap.style.display = "none";
-    status.textContent = "Sending…";
+    status.textContent = msg;
+    status.style.color = ok ? "" : "#b00020";
+  };
 
+  root.querySelector("#sendBtn").addEventListener("click", async () => {
     const toEmail = root.querySelector("#toEmail").value.trim();
     const fromName = root.querySelector("#fromName").value.trim() || "Someone";
     const type = root.querySelector("#msgType").value;
@@ -53,36 +49,15 @@ export function renderCompose(root) {
     const body = root.querySelector("#msgBody").value.trim();
 
     try {
+      setStatus("Sending…");
+
       const data = await sendMessage({ toEmail, fromName, type, stickerId, body });
 
-      status.textContent = "✅ Sent! Copy the link below.";
-      linkWrap.style.display = "block";
-      linkWrap.innerHTML = `
-        <div class="card" style="padding:12px">
-          <div class="p" style="margin-bottom:8px">Message link:</div>
-          <input class="input" id="generatedLink" readonly value="${escapeHtml(data.link)}" />
-          <div style="height:10px"></div>
-          <button class="btn btn--ghost" type="button" id="copyLinkBtn">Copy link</button>
-        </div>
-      `;
-
-      root.querySelector("#copyLinkBtn").addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(data.link);
-          alert("Copied!");
-        } catch {
-          const input = root.querySelector("#generatedLink");
-          input.focus();
-          input.select();
-          document.execCommand("copy");
-          alert("Copied!");
-        }
-      });
+      setStatus("✅ Email sent (or queued).");
+      root.querySelector("#msgBody").value = "";
     } catch (e) {
       console.error(e);
-      status.textContent = `❌ ${e.message || "Failed to send"}`;
+      setStatus(e.message || "Failed to send.", false);
     }
-  }
-
-  root.querySelector("#sendBtn").addEventListener("click", handleSend);
+  });
 }

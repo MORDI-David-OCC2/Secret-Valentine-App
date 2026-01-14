@@ -15,6 +15,15 @@ export function setInboxId(inboxId) {
   localStorage.setItem(KEYS.inboxId, inboxId);
 }
 
+export function getSessionToken() {
+  return localStorage.getItem(LS_SESSION);
+}
+export function setSessionToken(token) {
+  if (!token) localStorage.removeItem(LS_SESSION);
+  else localStorage.setItem(LS_SESSION, token);
+}
+
+
 export function clearLocalSession() {
   localStorage.removeItem(KEYS.inboxId);
   localStorage.removeItem(KEYS.messages);

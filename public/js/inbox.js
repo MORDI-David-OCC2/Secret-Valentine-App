@@ -152,6 +152,7 @@ export function renderInbox(root, ctx = {}) {
         await verifyPin(inboxId, pin);
         setStatus("✅ Unlocked.");
         location.hash = "#/inbox";
+        listInbox();
       } catch (e) {
         console.error(e);
         setStatus(e.message || "Incorrect PIN.", false);

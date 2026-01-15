@@ -26,6 +26,18 @@ export function renderCompose(root) {
             <option value="cat_01">Sticker: cat_01</option>
           </select>
         </div>
+        <label style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        <input type="checkbox" id="replyAllowed" />
+        <span class="p" style="margin:0">Allow replies (optional)</span>
+        </label>
+
+        <div id="fromEmailWrap" style="display:none">
+        <input class="input" id="fromEmail" type="email"
+        placeholder="Your email (only if you want replies)" autocomplete="email" />
+        <p class="p" style="opacity:.8;margin-top:6px">
+        Your email is not shown to the recipient. It’s only used to receive replies in your inbox.
+        </p>
+        </div>
 
         <textarea class="input" id="msgBody" rows="6" placeholder="Write your message..."></textarea>
         <button class="btn" type="button" id="sendBtn">Send 💌</button>

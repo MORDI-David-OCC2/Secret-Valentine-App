@@ -129,7 +129,7 @@ export async function getMessageById(messageId) {
   if (!res.ok) throw new Error(res.error || "Failed to load message");
 
   // ✅ Backend returns { message, replies }
-  return res;
+  return (res, data);
 }
 
 export async function setPin(newPinOrNull) {

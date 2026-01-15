@@ -157,10 +157,10 @@ export function renderInbox(root, ctx = {}) {
         await verifyPin(inboxId, pin);
     
         setStatus("Unlocked. Loading messages…");
-    
+        
         // 2) Immediately load inbox now that we have a session
         await listInbox();
-    
+        window.dispatchEvent(new Event("app.refresh"));
         // 3) Re-render inbox route (so list appears)
         location.hash = "#/inbox";
       } catch (e) {

@@ -172,35 +172,6 @@ export function renderInbox(root, ctx = {}) {
             replyStatus.textContent = msg;
             replyStatus.style.color = ok ? "" : "#b00020";
           };
-    
-          replyBtn.addEventListener("click", async () => {
-            const body = (replyBody.value || "").trim();
-            if (!body) return setReplyStatus("Write something first.", false);
-    
-            try {
-              replyBtn.disabled = true;
-              setReplyStatus("Sending…");
-    
-              await sendReply({
-                inboxId: getInboxId(),
-                messageId: id,
-                body,
-                sessionToken: getSessionToken(),
-              });
-    
-              replyBody.value = "";
-              setReplyStatus("Reply sent ✅");
-    
-              // Optional: refresh message (if you later render threads)
-              // const refreshed = await getMessageById(id);
-              // root.querySelector("#msgDetail").innerHTML = renderMessageDetail(refreshed.message);
-            } catch (e) {
-              console.error(e);
-              setReplyStatus(e.message || "Failed to send reply.", false);
-            } finally {
-              replyBtn.disabled = false;
-            }
-          });
         }
       } catch (e) {
         console.error(e);

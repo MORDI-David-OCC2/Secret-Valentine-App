@@ -55,7 +55,7 @@ async function requireValidSessionIfPinned(db, inboxId, sessionToken) {
   }
 
   const sessionHash = sha256Hex(sessionToken);
-  const sessionSnap = await db.collection("sessions").doc(sessionHash).get();
+  const sessionSnap = await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).get();
   if (!sessionSnap.exists) {
     const err = new Error("Invalid session");
     err.code = 401;

@@ -76,59 +76,77 @@ function renderMessageDetailShell() {
   `;
 }
 
-function renderMessageDetail(m, replies = []) {
-  const when = m.createdAt ? formatWhen(m.createdAt) : "";
+function renderMessageDetail(m, replies = [], viewerInboxId = "") {
+  // Treat this view as a conversation thread (chat-style)
+  const headerWhen = m.createdAt ? formatWhen(m.createdAt) : "";
 
-  const repliesHtml = (replies && replies.length)
-    ? `
-      <div style="margin-top:16px; padding-top:12px; border-top:1px solid #eee;">
-        <div style="font-weight:600; margin-bottom:8px;">Replies</div>
-        ${replies
-          .slice()
-          .sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0))
-          .map(r => `
-            <div style="padding:10px 12px; margin:8px 0; background:#fafafa; border:1px solid #eee; border-radius:10px;">
-              <div style="white-space:pre-wrap;">${escapeHtml(r.body || "")}</div>
-              <div style="opacity:.6; font-size:12px; margin-top:6px;">
-                ${r.createdAt ? escapeHtml(formatWhen(r.createdAt)) : ""}
-              </div>
-            </div>
-          `).join("")}
-      </div>
-    `
-    : `
-      <div style="margin-top:16px; padding-top:12px; border-top:1px solid #eee; opacity:.7;">
-        No replies yet.
-      </div>
-    `;
+  const items = [];
+  // first message in thread
+  items.push({
+    id: "root",
+    body: m.body || "",
+    createdAt: m.createdAt || null,
+    from: (m.fromName === "You") ? "you" : "them",
+    label: (m.fromName === "You") ? "You" : (m.fromName || "Someone"),
+  });
+
+  (replies || []).forEach(r => {
+    // backend now writes from: "you" or "them" per-inbox
+    const from = (r.from === "you" || r.from === "them") ? r.from : "them";
+    items.push({
+      id: r.id,
+      body: r.body || "",
+      createdAt: r.createdAt || null,
+      from,
+      label: from === "you" ? "You" : "Them",
+    });
+  });
+
+  const bubbles = items
+    .slice()
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+    .map(it => {
+      const isYou = it.from === "you";
+      const when = it.createdAt ? formatWhen(it.createdAt) : "";
+      return `
+        <div style="display:flex;justify-content:${isYou ? "flex-end" : "flex-start"};margin:10px 0">
+          <div style="max-width:82%;padding:10px 12px;border-radius:16px;${isYou
+            ? "background:rgba(255,77,109,0.14);border:1px solid rgba(255,77,109,0.25);"
+            : "background:rgba(255,255,255,0.75);border:1px solid rgba(0,0,0,0.06);"}">
+            <div style="font-size:12px;opacity:.75;margin-bottom:6px">${escapeHtml(it.label)}${when ? " · " + escapeHtml(when) : ""}</div>
+            <div class="p" style="white-space:pre-wrap;line-height:1.55">${escapeHtml(it.body)}</div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
 
   const replyComposer = m.replyEnabled ? `
     <div style="height:12px"></div>
     <div class="card" style="background:rgba(255,255,255,0.65)">
-      <h2 class="h1" style="font-size:18px;margin:0 0 10px 0">↩️ Reply</h2>
-      <textarea class="input" id="replyBody" rows="4" placeholder="Write a reply..."></textarea>
+      <h2 class="h1" style="font-size:18px;margin:0 0 10px 0">💬 Continue the conversation</h2>
+      <textarea class="input" id="replyBody" rows="3" placeholder="Type a message..."></textarea>
       <div style="height:10px"></div>
-      <button class="btn" id="replyBtn" type="button">Send reply</button>
+      <button class="btn" id="replyBtn" type="button">Send</button>
       <p class="p" id="replyStatus" style="display:none"></p>
     </div>
   ` : `
     <div style="height:12px"></div>
     <div class="card" style="opacity:.8;background:rgba(255,255,255,0.65)">
-      <p class="p">Replies are not enabled for this message.</p>
+      <p class="p">Replies are not enabled for this conversation.</p>
     </div>
   `;
 
   return `
     <div>
-      <h1 class="h1">${typeEmoji(m.type)} ${escapeHtml(m.fromName || "Someone")}</h1>
-      <p class="p" style="opacity:.75">${escapeHtml(when)}</p>
+      <h1 class="h1">${typeEmoji(m.type)} Conversation</h1>
+      <p class="p" style="opacity:.75">${escapeHtml(headerWhen)}</p>
 
       <div style="height:12px"></div>
-      <div class="card" style="background:rgba(255,255,255,0.65)">
-        <div class="p" style="white-space:pre-wrap;line-height:1.6">${escapeHtml(m.body || "")}</div>
+      <div id="thread" style="padding:6px 0">
+        ${bubbles}
       </div>
 
-      ${repliesHtml}
       ${replyComposer}
     </div>
   `;
@@ -159,20 +177,37 @@ export function renderInbox(root, ctx = {}) {
         setStatus("Loading…");
         const data =  await getMessageById(id);
         root.querySelector("#msgDetail").innerHTML =
-        renderMessageDetail(data.message, data.replies || []);
-        wireReplyUI({root, messageId: id, renderMessageDetail, sendReply});
+          renderMessageDetail(data.message, data.replies || [], getInboxId());
+        wireReplyUI({ root, messageId: id, renderMessageDetail, sendReply });
+
+        // auto-scroll to the latest bubble
+        const thread = root.querySelector("#thread");
+        if (thread) thread.scrollIntoView({ block: "end" });
+
+        // lightweight polling: keeps the thread feeling like a chat
+        let lastCount = (data.replies || []).length;
+        const poll = async () => {
+          // stop polling if user navigated away
+          if (!location.hash.includes("#/message")) return;
+          try {
+            const fresh = await getMessageById(id);
+            const freshCount = (fresh.replies || []).length;
+            if (freshCount !== lastCount) {
+              lastCount = freshCount;
+              root.querySelector("#msgDetail").innerHTML =
+                renderMessageDetail(fresh.message, fresh.replies || [], getInboxId());
+              wireReplyUI({ root, messageId: id, renderMessageDetail, sendReply });
+              const t = root.querySelector("#thread");
+              if (t) t.scrollIntoView({ block: "end" });
+            }
+          } catch (e) {
+            // ignore transient errors
+          }
+        };
+
+        const interval = setInterval(poll, 5000);
+        window.addEventListener("hashchange", () => clearInterval(interval), { once: true });
         status.style.display = "none";
-        if (data.message && data.message.replyEnabled) {
-          const replyBtn = root.querySelector("#replyBtn");
-          const replyBody = root.querySelector("#replyBody");
-          const replyStatus = root.querySelector("#replyStatus");
-    
-          const setReplyStatus = (msg, ok = true) => {
-            replyStatus.style.display = "block";
-            replyStatus.textContent = msg;
-            replyStatus.style.color = ok ? "" : "#b00020";
-          };
-        }
       } catch (e) {
         console.error(e);
         setStatus(e.message || "Failed to load message.", false);
@@ -270,6 +305,7 @@ export function renderInbox(root, ctx = {}) {
       setStatus("Loading…");
       const data = await listInbox();
       const list = root.querySelector("#list");
+      if (!list) return; // route changed / list not rendered
       list.innerHTML = renderMessageList(data.messages || []);
       status.style.display = "none";
     } catch (e) {

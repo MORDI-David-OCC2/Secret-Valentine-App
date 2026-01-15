@@ -34,6 +34,59 @@ function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
 
+function getClientIp(event) {
+  const xf = event.headers["x-forwarded-for"];
+  if (xf) return xf.split(",")[0].trim();
+  return event.headers["client-ip"] || "unknown";
+}
+
+/**
+ * ✅ Session verification
+ * Assumes you store sessions in:
+ *   sessions/{sessionHash} => { inboxId, expiresAt }
+ *
+ * If your current project already returns sessionToken from verifyPin
+ * and listInbox checks it, you very likely already have this.
+ */
+async function requireValidSession(db, inboxId, sessionToken) {
+  if (!sessionToken) throw new Error("Missing sessionToken");
+
+  const sessionHash = sha256Hex(sessionToken);
+  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
+  const snap = await sessionRef.get();
+
+  if (!snap.exists) {
+    const err = new Error("Invalid session");
+    err.code = 401;
+    throw err;
+  }
+
+  const s = snap.data() || {};
+  // accept both legacy (inboxId1) and current (inboxId) session docs.
+  const sessionInboxId =
+    (typeof s.inboxId === "string" && s.inboxId) ||
+    (typeof s.inboxId1 === "string" && s.inboxId1) ||
+    null;
+
+  // Only enforce mismatch if the field exists (keeps legacy sessions working).
+  if (sessionInboxId && sessionInboxId !== inboxId) {
+    const err = new Error(`Session does not match inbox: ${sessionInboxId} =/= ${inboxId}`);
+    err.code = 401;
+    throw err;
+  }
+
+  // expiresAt should be a Firestore Timestamp
+  if (s.expiresAt && typeof s.expiresAt.toMillis === "function") {
+    if (s.expiresAt.toMillis() < Date.now()) {
+      const err = new Error("Session expired");
+      err.code = 401;
+      throw err;
+    }
+  }
+
+  return true;
+}
+
 function buildBaseUrl(event) {
   if (process.env.URL_DE_BASE) return process.env.URL_DE_BASE;
 
@@ -44,8 +97,8 @@ function buildBaseUrl(event) {
 }
 
 async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY; // Resend API key
-  const from = process.env.EMAIL_VALENTINE; // e.g. "Secret Valentine <hello@secretvalentines.fr>"
+  const apiKey = process.env.API_EMAIL_KEY;
+  const from = process.env.EMAIL_VALENTINE;
 
   if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
   if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
@@ -80,74 +133,18 @@ function replyEmailHtml({ link, preview }) {
     <div style="max-width:560px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden">
       <div style="background:#ff4d6d;color:#fff;padding:18px;text-align:center">
         <div style="font-size:34px">💬</div>
-        <div style="font-size:18px;font-weight:800;margin-top:4px">You received a reply</div>
+        <div style="font-size:18px;font-weight:800;margin-top:4px">New reply</div>
       </div>
-
       <div style="padding:18px">
-        <p style="margin:0 0 10px 0">Someone replied to your message:</p>
+        <p style="margin:0 0 10px 0">Someone replied:</p>
         <div style="padding:12px;border:1px solid #eee;border-radius:10px;background:#fafafa;white-space:pre-wrap">${safePrev}</div>
-
         <p style="margin:16px 0 18px 0">
-          <a href="${link}" style="display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;background:#ff4d6d;color:#fff;font-weight:700">
-            Open my inbox
-          </a>
+          <a href="${link}" style="display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;background:#ff4d6d;color:#fff;font-weight:700">Open conversation</a>
         </p>
-
         <p style="margin:0;color:#666;font-size:12px;word-break:break-all">${link}</p>
       </div>
     </div>
   </div>`;
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"];
-  if (xf) return xf.split(",")[0].trim();
-  return event.headers["client-ip"] || "unknown";
-}
-
-/**
- * ✅ Session verification
- * Assumes you store sessions in:
- *   sessions/{sessionHash} => { inboxId, expiresAt }
- */
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) throw new Error("Missing sessionToken");
-
-  const sessionHash = sha256Hex(sessionToken);
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await sessionRef.get();
-
-  if (!snap.exists) {
-    const err = new Error("Invalid session");
-    err.code = 401;
-    throw err;
-  }
-
-  const s = snap.data() || {};
-
-  // ✅ Accept both legacy (inboxId1) and current (inboxId) session shapes.
-  // Only enforce mismatch if the field exists.
-  const sessionInboxId =
-    (typeof s.inboxId === "string" && s.inboxId) ||
-    (typeof s.inboxId1 === "string" && s.inboxId1) ||
-    null;
-
-  if (sessionInboxId && sessionInboxId !== inboxId) {
-    const err = new Error(`Session does not match inbox: ${sessionInboxId} =/= ${inboxId}`);
-    err.code = 401;
-    throw err;
-  }
-
-  // expiresAt should be a Firestore Timestamp
-  if (s.expiresAt && typeof s.expiresAt.toMillis === "function") {
-    if (s.expiresAt.toMillis() < Date.now()) {
-      const err = new Error("Session expired");
-      err.code = 401;
-      throw err;
-    }
-  }
-
-  return true;
 }
 
 exports.handler = async (event) => {
@@ -226,59 +223,47 @@ exports.handler = async (event) => {
       return jsonResponse(403, { ok: false, error: "Replies are disabled for this message" });
     }
 
-    // 2) Write reply into sender inbox thread (under same messageId)
-    const destMessageRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(messageId);
-    const replyRef = destMessageRef.collection("replies").doc();
+    // 2) Append to the thread in BOTH inboxes (chat-style)
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const replyId = crypto.randomBytes(9).toString("hex");
 
-    // Make sure parent doc exists (nice for console browsing)
-    await destMessageRef.set(
-      {
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        hasReplies: true,
-      },
-      { merge: true }
-    );
+    const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
+    const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(messageId);
 
-    await replyRef.set({
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      body,
-      from: "recipient",
-      sourceInboxId: inboxId,
-    });
+    const meReplyRef = meThreadRef.collection("replies").doc(replyId);
+    const themReplyRef = themThreadRef.collection("replies").doc(replyId);
 
-    // Optional: mark sender inbox as having unread activity
-    await db.collection("inboxes").doc(replyToInboxId).set(
-      { lastActivityAt: admin.firestore.FieldValue.serverTimestamp() },
-      { merge: true }
-    );
+    const batch = db.batch();
+    // ensure thread docs exist / get updated
+    batch.set(meThreadRef, { updatedAt: now, hasReplies: true }, { merge: true });
+    batch.set(themThreadRef, { updatedAt: now, hasReplies: true }, { merge: true });
+    // write replies with perspective-friendly "from"
+    batch.set(meReplyRef, { createdAt: now, body, from: "you" });
+    batch.set(themReplyRef, { createdAt: now, body, from: "them" });
+    await batch.commit();
 
-    // ✅ Goal 1: Notify sender by email on *first reply* if their inbox is not activated.
-    // openLink sets activatedAt. We also guard against spamming with a marker doc per thread.
+    // 3) Email notification on first reply if the OTHER inbox isn't activated
+    // (keeps email as notification layer, not the chat itself)
     try {
-      const senderInboxRef = db.collection("inboxes").doc(replyToInboxId);
-      const senderSnap = await senderInboxRef.get();
-      const senderData = senderSnap.data() || {};
-      const senderActivated = !!senderData.activatedAt;
+      const otherInboxRef = db.collection("inboxes").doc(replyToInboxId);
+      const otherSnap = await otherInboxRef.get();
+      const otherData = otherSnap.data() || {};
+      const otherActivated = !!otherData.activatedAt;
 
-      if (!senderActivated && replyToEmail.includes("@")) {
-        const notifRef = senderInboxRef.collection("replyNotifs").doc(messageId);
+      if (!otherActivated && replyToEmail.includes("@")) {
+        const markerRef = otherInboxRef.collection("replyNotifs").doc(messageId);
         let shouldSend = false;
 
         await db.runTransaction(async (tx) => {
-          const n = await tx.get(notifRef);
-          if (n.exists) return;
-          tx.set(notifRef, {
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            sourceInboxId: inboxId,
-          });
+          const m = await tx.get(markerRef);
+          if (m.exists) return;
+          tx.set(markerRef, { createdAt: now });
           shouldSend = true;
         });
 
         if (shouldSend) {
-          // Create a fresh open token for the sender inbox
           const token = randomTokenBase64Url(32);
           const tokenHash = sha256Hex(token);
-
           const expiresDays = 7;
           const expiresAt = admin.firestore.Timestamp.fromDate(
             new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
@@ -293,7 +278,6 @@ exports.handler = async (event) => {
 
           const baseUrl = buildBaseUrl(event);
           const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
-
           await sendWithResend({
             to: replyToEmail,
             subject: "💬 You got a reply",
@@ -302,14 +286,10 @@ exports.handler = async (event) => {
         }
       }
     } catch (notifyErr) {
-      // Never fail the reply if email notification fails.
       console.error("Reply notification error:", notifyErr);
     }
 
-    return jsonResponse(200, {
-      ok: true,
-      replyId: replyRef.id,
-    });
+    return jsonResponse(200, { ok: true, replyId });
   } catch (err) {
     console.error(err);
     const status = err.code && Number.isInteger(err.code) ? err.code : 500;

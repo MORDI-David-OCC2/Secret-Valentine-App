@@ -49,7 +49,7 @@ async function requireValidSession(db, inboxId, sessionToken) {
 
   const sessionHash = sha256Hex(sessionToken);
   const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await scopedRef.get();
+  const snap = await sessionRef.get();
 
   if (!snap.exists) {
     const err = new Error("Invalid session");

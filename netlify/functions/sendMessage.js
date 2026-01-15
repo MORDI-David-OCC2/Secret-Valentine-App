@@ -51,7 +51,7 @@ function buildBaseUrl(event) {
 }
 
 async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY;     // your Resend key
+  const apiKey = process.env.API_EMAIL_KEY;     // Resend API key
   const from = process.env.EMAIL_VALENTINE;     // e.g. "Secret Valentine <hello@secretvalentines.fr>"
 
   if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
@@ -125,6 +125,38 @@ function emailHtml({ fromName, type, link }) {
   </div>`;
 }
 
+/**
+ * Reusable helper: email -> inboxId (create if missing)
+ */
+async function getOrCreateInboxIdForEmail(db, email) {
+  const emailHash = sha256Hex(email);
+  const emailIndexRef = db.collection("emailIndex").doc(emailHash);
+  const emailIndexSnap = await emailIndexRef.get();
+
+  if (emailIndexSnap.exists) {
+    return emailIndexSnap.data().inboxId;
+  }
+
+  const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
+  const inboxRef = db.collection("inboxes").doc(inboxId);
+
+  const batch = db.batch();
+  batch.set(inboxRef, {
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    pinHash: null,
+    pinSalt: null,
+    pinIter: null,
+    pinSetAt: null,
+  });
+  batch.set(emailIndexRef, {
+    inboxId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  await batch.commit();
+  return inboxId;
+}
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
@@ -156,6 +188,10 @@ exports.handler = async (event) => {
     const toEmail = normalizeEmail(payload.toEmail);
     const fromName = String(payload.fromName || "Someone").trim().slice(0, 40);
 
+    // ✅ Use consistent naming:
+    const replyAllowed = !!payload.replyAllowed; // client should send replyAllowed
+    const fromEmail = normalizeEmail(payload.fromEmail);
+
     const type = String(payload.type || "love").trim();
     const stickerId = String(payload.stickerId || "heart_01").trim();
     const body = String(payload.body || "").trim();
@@ -172,36 +208,21 @@ exports.handler = async (event) => {
       return jsonResponse(400, { ok: false, error: "Invalid type" });
     }
 
-    // 1) emailHash -> inboxId (create if missing)
-    const emailHash = sha256Hex(toEmail);
-    const emailIndexRef = db.collection("emailIndex").doc(emailHash);
-    const emailIndexSnap = await emailIndexRef.get();
-
-    let inboxId;
-
-    if (emailIndexSnap.exists) {
-      inboxId = emailIndexSnap.data().inboxId;
-    } else {
-      inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
-      const inboxRef = db.collection("inboxes").doc(inboxId);
-
-      const batch = db.batch();
-      batch.set(inboxRef, {
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        pinHash: null,
-        pinSalt: null,
-        pinIter: null,
-        pinSetAt: null,
-      });
-      batch.set(emailIndexRef, {
-        inboxId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      await batch.commit();
+    // If replies are allowed, sender must provide email (to receive replies)
+    if (replyAllowed && (!fromEmail || !fromEmail.includes("@"))) {
+      return jsonResponse(400, { ok: false, error: "fromEmail required when replyAllowed is true" });
     }
 
-    // 2) Store message under inbox
+    // 1) recipient email -> recipient inboxId
+    const inboxId = await getOrCreateInboxIdForEmail(db, toEmail);
+
+    // 1b) optional: sender email -> sender inboxId (only if replyAllowed)
+    let senderInboxId = null;
+    if (replyAllowed) {
+      senderInboxId = await getOrCreateInboxIdForEmail(db, fromEmail);
+    }
+
+    // 2) Store message under recipient inbox
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc();
     await msgRef.set({
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -210,9 +231,13 @@ exports.handler = async (event) => {
       stickerId,
       body,
       unread: true,
+
+      // ✅ reply metadata
+      replyEnabled: replyAllowed,
+      replyToInboxId: replyAllowed ? senderInboxId : null,
     });
 
-    // 3) Create token (store only hash)
+    // 3) Create open token (store only hash)
     const token = randomTokenBase64Url(32);
     const tokenHash = sha256Hex(token);
 
@@ -237,7 +262,7 @@ exports.handler = async (event) => {
     const html = emailHtml({ fromName, type, link });
     await sendWithResend({ to: toEmail, subject, html });
 
-    // 6) Return minimal info
+    // 6) Return minimal info (don’t return link in prod)
     return jsonResponse(200, {
       ok: true,
       inboxId,

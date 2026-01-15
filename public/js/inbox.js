@@ -134,6 +134,46 @@ export function renderInbox(root, ctx = {}) {
         renderMessageDetail(root, data.message, data.replies);
         root.querySelector("#msgDetail").innerHTML = renderMessageDetail(data.message);
         status.style.display = "none";
+        if (data.message && data.message.replyEnabled) {
+          const replyBtn = root.querySelector("#replyBtn");
+          const replyBody = root.querySelector("#replyBody");
+          const replyStatus = root.querySelector("#replyStatus");
+    
+          const setReplyStatus = (msg, ok = true) => {
+            replyStatus.style.display = "block";
+            replyStatus.textContent = msg;
+            replyStatus.style.color = ok ? "" : "#b00020";
+          };
+    
+          replyBtn.addEventListener("click", async () => {
+            const body = (replyBody.value || "").trim();
+            if (!body) return setReplyStatus("Write something first.", false);
+    
+            try {
+              replyBtn.disabled = true;
+              setReplyStatus("Sending…");
+    
+              await sendReply({
+                inboxId: getInboxId(),
+                messageId: id,
+                body,
+                sessionToken: getSessionToken(),
+              });
+    
+              replyBody.value = "";
+              setReplyStatus("Reply sent ✅");
+    
+              // Optional: refresh message (if you later render threads)
+              // const refreshed = await getMessageById(id);
+              // root.querySelector("#msgDetail").innerHTML = renderMessageDetail(refreshed.message);
+            } catch (e) {
+              console.error(e);
+              setReplyStatus(e.message || "Failed to send reply.", false);
+            } finally {
+              replyBtn.disabled = false;
+            }
+          });
+        }
       } catch (e) {
         console.error(e);
         setStatus(e.message || "Failed to load message.", false);
@@ -247,4 +287,18 @@ export function renderInbox(root, ctx = {}) {
 
   // Auto refresh once on render
   refresh();
+}
+
+async function sendReply({ inboxId, messageId, body, sessionToken }) {
+  const res = await fetch("/.netlify/functions/sendReply", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ inboxId, messageId, body, sessionToken }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || `Send failed (${res.status})`);
+  }
+  return data;
 }

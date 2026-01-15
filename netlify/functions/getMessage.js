@@ -63,7 +63,7 @@ async function requireValidSessionIfPinned(db, inboxId, sessionToken) {
   }
 
   const s = sessionSnap.data() || {};
-  if (s.inboxId !== inboxId) {
+  if (s.inboxId && s.inboxId !== inboxId) {
     const err = new Error("Session mismatch");
     err.code = 401;
     throw err;

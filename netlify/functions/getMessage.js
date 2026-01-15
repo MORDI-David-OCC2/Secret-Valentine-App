@@ -150,7 +150,7 @@ exports.handler = async (event) => {
       return {
         id: d.id,
         body: r.body || "",
-        from: r.from || "recipient",
+        from: r.from || "them",
         createdAt: toMillisMaybe(r.createdAt),
       };
     });

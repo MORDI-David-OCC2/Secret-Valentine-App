@@ -32,11 +32,20 @@ export function wireReplyUI({ root, messageId, renderMessageDetail, sendReply })
       const refreshed = await getMessageById(messageId);
       root.querySelector("#msgDetail").innerHTML = renderMessageDetail(
         refreshed.message,
-        refreshed.replies || []
+        refreshed.replies || [],
+        getInboxId()
       );
+
+      // keep it feeling chatty
+      const t = root.querySelector("#thread");
+      if (t) t.scrollIntoView({ block: "end" });
 
       // re-wire after rerender
       wireReplyUI({ root, messageId, renderMessageDetail, sendReply });
+
+      // focus input for quick back-and-forth
+      const inp = root.querySelector("#replyBody");
+      if (inp) inp.focus();
     } catch (e) {
       console.error(e);
       setReplyStatus(e.message || "Failed to send reply.", false);

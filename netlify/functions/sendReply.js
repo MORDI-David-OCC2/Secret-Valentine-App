@@ -30,6 +30,10 @@ function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
 
+function randomTokenBase64Url(bytes = 32) {
+  return crypto.randomBytes(bytes).toString("base64url");
+}
+
 function getClientIp(event) {
   const xf = event.headers["x-forwarded-for"];
   if (xf) return xf.split(",")[0].trim();
@@ -58,10 +62,15 @@ async function requireValidSession(db, inboxId, sessionToken) {
   }
 
   const s = snap.data() || {};
-  console.log("SESSION RAW DATA:", JSON.stringify(s, null, 2));
-  if (s.inboxId1 !== inboxId) {
-    console.log(s.inboxId1, inboxId);
-    const err = new Error(`Session does not match inbox: ${s.inboxId1} =/= ${inboxId}`);
+  // accept both legacy (inboxId1) and current (inboxId) session docs.
+  const sessionInboxId =
+    (typeof s.inboxId === "string" && s.inboxId) ||
+    (typeof s.inboxId1 === "string" && s.inboxId1) ||
+    null;
+
+  // Only enforce mismatch if the field exists (keeps legacy sessions working).
+  if (sessionInboxId && sessionInboxId !== inboxId) {
+    const err = new Error(`Session does not match inbox: ${sessionInboxId} =/= ${inboxId}`);
     err.code = 401;
     throw err;
   }
@@ -76,6 +85,66 @@ async function requireValidSession(db, inboxId, sessionToken) {
   }
 
   return true;
+}
+
+function buildBaseUrl(event) {
+  if (process.env.URL_DE_BASE) return process.env.URL_DE_BASE;
+
+  const proto = event.headers["x-forwarded-proto"] || "https";
+  let host = event.headers["x-forwarded-host"] || event.headers.host || "";
+  if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
+  return `${proto}://${host}`;
+}
+
+async function sendWithResend({ to, subject, html }) {
+  const apiKey = process.env.API_EMAIL_KEY;
+  const from = process.env.EMAIL_VALENTINE;
+
+  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
+  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from, to, subject, html }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
+  return data;
+}
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function replyEmailHtml({ link, preview }) {
+  const safePrev = escapeHtml(String(preview || "").slice(0, 180));
+  return `
+  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5;color:#111">
+    <div style="max-width:560px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden">
+      <div style="background:#ff4d6d;color:#fff;padding:18px;text-align:center">
+        <div style="font-size:34px">💬</div>
+        <div style="font-size:18px;font-weight:800;margin-top:4px">New reply</div>
+      </div>
+      <div style="padding:18px">
+        <p style="margin:0 0 10px 0">Someone replied:</p>
+        <div style="padding:12px;border:1px solid #eee;border-radius:10px;background:#fafafa;white-space:pre-wrap">${safePrev}</div>
+        <p style="margin:16px 0 18px 0">
+          <a href="${link}" style="display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;background:#ff4d6d;color:#fff;font-weight:700">Open conversation</a>
+        </p>
+        <p style="margin:0;color:#666;font-size:12px;word-break:break-all">${link}</p>
+      </div>
+    </div>
+  </div>`;
 }
 
 exports.handler = async (event) => {
@@ -147,44 +216,80 @@ exports.handler = async (event) => {
     const msg = msgSnap.data() || {};
     const replyEnabled = !!msg.replyEnabled;
     const replyToInboxId = String(msg.replyToInboxId || "").trim();
+    const replyToEmail = String(msg.replyToEmail || "").trim().toLowerCase();
 
     // ✅ Replies only if sender opted in
     if (!replyEnabled || !replyToInboxId.startsWith("inbox_")) {
       return jsonResponse(403, { ok: false, error: "Replies are disabled for this message" });
     }
 
-    // 2) Write reply into sender inbox thread (under same messageId)
-    const destMessageRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(messageId);
-    const replyRef = destMessageRef.collection("replies").doc();
+    // 2) Append to the thread in BOTH inboxes (chat-style)
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const replyId = crypto.randomBytes(9).toString("hex");
 
-    // Make sure parent doc exists (nice for console browsing)
-    await destMessageRef.set(
-      {
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        hasReplies: true,
-      },
-      { merge: true }
-    );
+    const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
+    const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(messageId);
 
-    await replyRef.set({
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      body,
-      // keep it role-based (no identity leakage)
-      from: "recipient",
-      // optional for anti-abuse / analytics (can store hash instead):
-      sourceInboxId: inboxId,
-    });
+    const meReplyRef = meThreadRef.collection("replies").doc(replyId);
+    const themReplyRef = themThreadRef.collection("replies").doc(replyId);
 
-    // Optional: mark sender inbox as having unread activity (if you want badges later)
-    await db.collection("inboxes").doc(replyToInboxId).set(
-      { lastActivityAt: admin.firestore.FieldValue.serverTimestamp() },
-      { merge: true }
-    );
+    const batch = db.batch();
+    // ensure thread docs exist / get updated
+    batch.set(meThreadRef, { updatedAt: now, hasReplies: true }, { merge: true });
+    batch.set(themThreadRef, { updatedAt: now, hasReplies: true }, { merge: true });
+    // write replies with perspective-friendly "from"
+    batch.set(meReplyRef, { createdAt: now, body, from: "you" });
+    batch.set(themReplyRef, { createdAt: now, body, from: "them" });
+    await batch.commit();
 
-    return jsonResponse(200, {
-      ok: true,
-      replyId: replyRef.id,
-    });
+    // 3) Email notification on first reply if the OTHER inbox isn't activated
+    // (keeps email as notification layer, not the chat itself)
+    try {
+      const otherInboxRef = db.collection("inboxes").doc(replyToInboxId);
+      const otherSnap = await otherInboxRef.get();
+      const otherData = otherSnap.data() || {};
+      const otherActivated = !!otherData.activatedAt;
+
+      if (!otherActivated && replyToEmail.includes("@")) {
+        const markerRef = otherInboxRef.collection("replyNotifs").doc(messageId);
+        let shouldSend = false;
+
+        await db.runTransaction(async (tx) => {
+          const m = await tx.get(markerRef);
+          if (m.exists) return;
+          tx.set(markerRef, { createdAt: now });
+          shouldSend = true;
+        });
+
+        if (shouldSend) {
+          const token = randomTokenBase64Url(32);
+          const tokenHash = sha256Hex(token);
+          const expiresDays = 7;
+          const expiresAt = admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
+          );
+
+          await db.collection("tokens").doc(tokenHash).set({
+            inboxId: replyToInboxId,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt,
+            purpose: "open",
+          });
+
+          const baseUrl = buildBaseUrl(event);
+          const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
+          await sendWithResend({
+            to: replyToEmail,
+            subject: "💬 You got a reply",
+            html: replyEmailHtml({ link, preview: body }),
+          });
+        }
+      }
+    } catch (notifyErr) {
+      console.error("Reply notification error:", notifyErr);
+    }
+
+    return jsonResponse(200, { ok: true, replyId });
   } catch (err) {
     console.error(err);
     const status = err.code && Number.isInteger(err.code) ? err.code : 500;

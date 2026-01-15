@@ -235,7 +235,38 @@ exports.handler = async (event) => {
       // ✅ reply metadata
       replyEnabled: replyAllowed,
       replyToInboxId: replyAllowed ? senderInboxId : null,
+      // ✅ used for "first reply" email notification
+      replyToEmail: replyAllowed ? fromEmail : null,
     });
+
+    // If replies are enabled, create a "thread copy" in the sender inbox so
+    // the conversation exists on both sides.
+    if (replyAllowed && senderInboxId) {
+      const senderThreadRef = db
+        .collection("inboxes")
+        .doc(senderInboxId)
+        .collection("messages")
+        .doc(msgRef.id);
+
+      await senderThreadRef.set(
+        {
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          fromName: "You",
+          type,
+          stickerId,
+          body,
+          unread: false,
+
+          // allow continuing the conversation from the sender side too
+          replyEnabled: true,
+          replyToInboxId: inboxId,
+          replyToEmail: toEmail,
+
+          sentCopy: true,
+        },
+        { merge: true }
+      );
+    }
 
     // 3) Create open token (store only hash)
     const token = randomTokenBase64Url(32);

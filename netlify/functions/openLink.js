@@ -95,11 +95,18 @@ exports.handler = async (event) => {
       );
 
       await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).set({
-        inboxId1:inboxId,
+        // store canonical inbox id (legacy used inboxId1)
+        inboxId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         expiresAt: expiresAtSession,
       });
     }
+
+    // mark inbox as "activated" the first time a user opens a secure link
+    await db.collection("inboxes").doc(inboxId).set(
+      { activatedAt: admin.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
 
     return jsonResponse(200, { ok: true, inboxId, pinRequired, sessionToken });
   } catch (err) {

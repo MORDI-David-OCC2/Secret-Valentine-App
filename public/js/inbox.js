@@ -10,6 +10,7 @@ import {
   clearLocalSession,
   getSessionToken,
 } from "./auth.js";
+import { wireReplyUI } from "./reply-ui.js";
 
 function typeEmoji(type) {
   return type === "love" ? "💘"

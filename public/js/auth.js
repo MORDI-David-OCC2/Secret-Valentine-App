@@ -159,3 +159,13 @@ export async function sendMessage(payload) {
 
   return data;
 }
+
+export async function sendReply(inboxId, messageId, body) {
+  const sessionToken = getSessionToken();
+  return apiPost("./netlify/functions/sendReply", {
+    inboxId,
+    messageId,
+    body,
+    sessionToken,
+  });
+}

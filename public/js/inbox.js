@@ -75,10 +75,33 @@ function renderMessageDetailShell() {
   `;
 }
 
-function renderMessageDetail(m) {
+function renderMessageDetail(m, replies = []) {
   const when = m.createdAt ? formatWhen(m.createdAt) : "";
 
-  const replyBlock = m.replyEnabled ? `
+  const repliesHtml = (replies && replies.length)
+    ? `
+      <div style="margin-top:16px; padding-top:12px; border-top:1px solid #eee;">
+        <div style="font-weight:600; margin-bottom:8px;">Replies</div>
+        ${replies
+          .slice()
+          .sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0))
+          .map(r => `
+            <div style="padding:10px 12px; margin:8px 0; background:#fafafa; border:1px solid #eee; border-radius:10px;">
+              <div style="white-space:pre-wrap;">${escapeHtml(r.body || "")}</div>
+              <div style="opacity:.6; font-size:12px; margin-top:6px;">
+                ${r.createdAt ? escapeHtml(formatWhen(r.createdAt)) : ""}
+              </div>
+            </div>
+          `).join("")}
+      </div>
+    `
+    : `
+      <div style="margin-top:16px; padding-top:12px; border-top:1px solid #eee; opacity:.7;">
+        No replies yet.
+      </div>
+    `;
+
+  const replyComposer = m.replyEnabled ? `
     <div style="height:12px"></div>
     <div class="card" style="background:rgba(255,255,255,0.65)">
       <h2 class="h1" style="font-size:18px;margin:0 0 10px 0">↩️ Reply</h2>
@@ -98,11 +121,14 @@ function renderMessageDetail(m) {
     <div>
       <h1 class="h1">${typeEmoji(m.type)} ${escapeHtml(m.fromName || "Someone")}</h1>
       <p class="p" style="opacity:.75">${escapeHtml(when)}</p>
+
       <div style="height:12px"></div>
       <div class="card" style="background:rgba(255,255,255,0.65)">
         <div class="p" style="white-space:pre-wrap;line-height:1.6">${escapeHtml(m.body || "")}</div>
       </div>
-      ${replyBlock}
+
+      ${repliesHtml}
+      ${replyComposer}
     </div>
   `;
 }

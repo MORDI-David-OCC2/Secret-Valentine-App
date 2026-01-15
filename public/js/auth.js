@@ -95,7 +95,6 @@ export async function listInbox() {
   const sessionToken = getSessionToken();
 
   if (!inboxId) throw new Error("No inbox selected.");
-  console.log("listInbox using sessionToken:", sessionToken);
   const { res, data } = await apiPost("/.netlify/functions/listInbox", {
     inboxId,
     sessionToken,

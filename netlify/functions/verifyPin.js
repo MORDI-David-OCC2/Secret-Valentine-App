@@ -108,6 +108,7 @@ exports.handler = async (event) => {
     );
 
     await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).set({
+      inboxId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt,
     });

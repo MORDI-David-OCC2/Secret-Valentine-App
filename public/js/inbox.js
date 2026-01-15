@@ -158,8 +158,8 @@ export function renderInbox(root, ctx = {}) {
       try {
         setStatus("Loading…");
         const data =  await getMessageById(id);
-        renderMessageDetail(root, data.message, data.replies);
-        root.querySelector("#msgDetail").innerHTML = renderMessageDetail(data.message);
+        root.querySelector("#msgDetail").innerHTML =
+        renderMessageDetail(data.message, data.replies || []);
         wireReplyUI({root, messageId: id, renderMessageDetail, sendReply});
         status.style.display = "none";
         if (data.message && data.message.replyEnabled) {

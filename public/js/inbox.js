@@ -113,7 +113,7 @@ export function renderInbox(root, ctx = {}) {
       try {
         setStatus("Loading…");
         const m = await getMessageById(id);
-        root.querySelector("#msgDetail").innerHTML = renderMessageDetail(m);
+        root.querySelector("#msgDetail").innerHTML = renderMessageDetail(data.message);
         status.style.display = "none";
       } catch (e) {
         console.error(e);

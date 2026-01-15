@@ -160,7 +160,7 @@ export function renderInbox(root, ctx = {}) {
         const data =  await getMessageById(id);
         renderMessageDetail(root, data.message, data.replies);
         root.querySelector("#msgDetail").innerHTML = renderMessageDetail(data.message);
-        wireReplyUI(root, id);
+        wireReplyUI(root, id, renderMessageDetail, sendReply);
         status.style.display = "none";
         if (data.message && data.message.replyEnabled) {
           const replyBtn = root.querySelector("#replyBtn");

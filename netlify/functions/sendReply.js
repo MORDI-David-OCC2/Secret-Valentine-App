@@ -61,7 +61,7 @@ async function requireValidSession(db, inboxId, sessionToken) {
   console.log("SESSION RAW DATA:", JSON.stringify(s, null, 2));
   if (s.inboxId !== inboxId) {
     console.log(s.inboxId, inboxId);
-    const err = new Error(`Session does not match inbox: ${s.inboxId} =/= ${inboxId}`);
+    const err = new Error(`Session does not match inbox: ${s} =/= ${inboxId}`);
     err.code = 401;
     throw err;
   }

@@ -126,15 +126,7 @@ export async function getMessageById(messageId) {
     sessionToken,
   });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load message");
-=======
-  if (!res.ok) throw new Error(res.error || "Failed to load message");
->>>>>>> parent of 018c5fd (Correction du type du return de getmessage)
-=======
-  if (!res.ok || !data.ok) throw new Error(res.error || "Failed to load message");
->>>>>>> 018c5fdad7f998e8349bf42e7c6d7398f7cdd97c
 
   // ✅ Backend returns { message, replies }
   return data;

@@ -41,9 +41,24 @@ export function renderCompose(root) {
     status.style.color = ok ? "" : "#b00020";
   };
 
+  const replyAllowed2 = root.querySelector("#replyAllowed");
+  const fromEmail2 = root.querySelector("#fromEmail2");
+  const fromEmail3 = root.querySelector("#fromEmail");
+
+  replyAllowed2.addEventListener("change", () => {
+    const on = replyAllowed2.checked;
+    fromEmail2.style.display = on ? "block" : "none";
+    if (!on) fromEmail3.value = "";
+  });
+
+  function isValidEmail(e) {
+    //Check de l'email de retour
+    return typeof e === "string" && e.includes("@") && e.includes(".");
+  }
+
   root.querySelector("#sendBtn").addEventListener("click", async () => {
     const toEmail = root.querySelector("#toEmail").value.trim();
-    const replyAllowed = root.querySelector("#replyAllowed").checked;
+    const replyAllowed = replyAllowed2.checked;
     const fromEmail = replyAllowed ? root.querySelector("#fromEmail").value.trim(): "";
     const fromName = root.querySelector("#fromName").value.trim() || "Someone";
     const type = root.querySelector("#msgType").value;

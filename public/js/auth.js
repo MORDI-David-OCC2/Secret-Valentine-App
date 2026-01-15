@@ -51,6 +51,7 @@ export function clearLocalSession() {
 
 /**
  * Called when user clicks email link: #/inbox?t=TOKEN
+ * Exchanges token -> inboxId (+ maybe pinRequired and maybe sessionToken if no PIN)
  */
 export async function openEmailLink(token) {
   const { res, data } = await apiPost("/.netlify/functions/openLink", { token });
@@ -62,10 +63,13 @@ export async function openEmailLink(token) {
   setInboxId(data.inboxId || null);
   setPinRequired(!!data.pinRequired);
 
+  // If server gives a sessionToken (e.g., inbox has no PIN), store it.
   if (data.sessionToken) setSessionToken(data.sessionToken);
 
+  // Never trust cached bodies when locked. We cache list previews only after listInbox.
   setCachedMessages([]);
-  return data;
+
+  return data; // { ok, inboxId, pinRequired, sessionToken? }
 }
 
 export async function verifyPin(inboxId, pin) {
@@ -83,7 +87,7 @@ export async function verifyPin(inboxId, pin) {
   if (data.sessionToken) setSessionToken(data.sessionToken);
   setPinRequired(true);
 
-  return data;
+  return data; // { ok, verified:true, sessionToken }
 }
 
 export async function listInbox() {
@@ -97,14 +101,17 @@ export async function listInbox() {
   });
 
   if (!res.ok || !data.ok) {
+    // If server says locked, update flag
     if (data.pinRequired) setPinRequired(true);
     throw new Error(data.error || `listInbox failed (${res.status})`);
   }
 
   setCachedMessages(data.messages || []);
   setPinRequired(!!data.pinRequired);
-  return data;
+
+  return data; // { ok, messages, pinRequired }
 }
+
 
 export async function getMessageById(messageId) {
   const inboxId = getInboxId();
@@ -113,15 +120,33 @@ export async function getMessageById(messageId) {
 
   const sessionToken = getSessionToken() || null;
 
-  const { res, data } = await apiPost("/.netlify/functions/getMessage", {
+  const res = await apiPost("/.netlify/functions/getMessage", {
     inboxId,
     messageId,
     sessionToken,
   });
 
-  if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load message");
+  if (!res.ok) throw new Error(res.error || "Failed to load message");
 
-  // ✅ return data, which contains { ok, message, replies }
+  // ✅ Backend returns { message, replies }
+  return (res, data);
+}
+
+export async function setPin(newPinOrNull) {
+  const inboxId = getInboxId();
+  const sessionToken = getSessionToken();
+  if (!inboxId) throw new Error("No inbox selected.");
+
+  const { res, data } = await apiPost("/.netlify/functions/setPin", {
+    inboxId,
+    pin: newPinOrNull, // string or null to remove
+    sessionToken: sessionToken || null,
+  });
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || `setPin failed (${res.status})`);
+  }
+
   return data;
 }
 
@@ -136,15 +161,11 @@ export async function sendMessage(payload) {
 }
 
 export async function sendReply(inboxId, messageId, body) {
-  const sessionToken = getSessionToken() || null;
-
-  const { res, data } = await apiPost("/.netlify/functions/sendReply", {
+  const sessionToken = getSessionToken();
+  return apiPost("/.netlify/functions/sendReply", {
     inboxId,
     messageId,
     body,
     sessionToken,
   });
-
-  if (!res.ok || !data.ok) throw new Error(data.error || "Failed to send reply");
-  return data;
 }

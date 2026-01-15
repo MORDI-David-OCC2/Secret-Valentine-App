@@ -65,10 +65,16 @@ export function renderCompose(root) {
     const stickerId = root.querySelector("#stickerId").value;
     const body = root.querySelector("#msgBody").value.trim();
 
+    if (!isValidEmail(toEmail)) return setStatus("Le mail du destinataire semble invalide.", false);
+    if (!body) return setStatus("Le message est vide !");
+    if (replyAllowed && !isValidEmail(fromEmail)) {
+      return setStatus("Vous devez mettre votre Email pour obtenir une réponse");
+    }
+
     try {
       setStatus("Sending…");
 
-      const data = await sendMessage({ toEmail, fromName, type, stickerId, body });
+      const data = await sendMessage({ toEmail, fromName, type, stickerId, body, replyAllowed,  });
 
       setStatus("✅ Email sent (or queued).");
       root.querySelector("#msgBody").value = "";

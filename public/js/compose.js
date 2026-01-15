@@ -73,8 +73,11 @@ export function renderCompose(root) {
 
     try {
       setStatus("Sending…");
-
-      const data = await sendMessage({ toEmail, fromName, type, stickerId, body, replyAllowed,  });
+      const payload_final = { toEmail, fromName, type, stickerId, body, replyAllowed };
+      if (replyAllowed) {
+        payload_final.fromEmail = fromEmail;
+      }
+      const data = await sendMessage(payload_final);
 
       setStatus("✅ Email sent (or queued).");
       root.querySelector("#msgBody").value = "";

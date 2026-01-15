@@ -77,6 +77,23 @@ function renderMessageDetailShell() {
 
 function renderMessageDetail(m) {
   const when = m.createdAt ? formatWhen(m.createdAt) : "";
+
+  const replyBlock = m.replyEnabled ? `
+    <div style="height:12px"></div>
+    <div class="card" style="background:rgba(255,255,255,0.65)">
+      <h2 class="h1" style="font-size:18px;margin:0 0 10px 0">↩️ Reply</h2>
+      <textarea class="input" id="replyBody" rows="4" placeholder="Write a reply..."></textarea>
+      <div style="height:10px"></div>
+      <button class="btn" id="replyBtn" type="button">Send reply</button>
+      <p class="p" id="replyStatus" style="display:none"></p>
+    </div>
+  ` : `
+    <div style="height:12px"></div>
+    <div class="card" style="opacity:.8;background:rgba(255,255,255,0.65)">
+      <p class="p">Replies are not enabled for this message.</p>
+    </div>
+  `;
+
   return `
     <div>
       <h1 class="h1">${typeEmoji(m.type)} ${escapeHtml(m.fromName || "Someone")}</h1>
@@ -85,6 +102,7 @@ function renderMessageDetail(m) {
       <div class="card" style="background:rgba(255,255,255,0.65)">
         <div class="p" style="white-space:pre-wrap;line-height:1.6">${escapeHtml(m.body || "")}</div>
       </div>
+      ${replyBlock}
     </div>
   `;
 }
@@ -112,7 +130,8 @@ export function renderInbox(root, ctx = {}) {
     (async () => {
       try {
         setStatus("Loading…");
-        const data = await getMessageById(id);
+        const data =  await getMessageById(id);
+        renderMessageDetail(root, data.message, data.replies);
         root.querySelector("#msgDetail").innerHTML = renderMessageDetail(data.message);
         status.style.display = "none";
       } catch (e) {

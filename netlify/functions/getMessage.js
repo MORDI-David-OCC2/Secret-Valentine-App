@@ -78,8 +78,19 @@ exports.handler = async (event) => {
       stickerId: d.stickerId || "heart_01",
       body: d.body || "",
       unread: d.unread !== false,
+      replyEnabled: !!d.replyEnabled,
     };
 
+    const reponses = [];
+    repliesSnap.forEach((r) => {
+      const rd = r.data() || {};
+      replies.push({
+        id: r.id,
+        createdAt: rd.createdAt && rd.createdAt.toMillis ? rd.createdAt.toMillis() : null,
+        body: rd.body || "",
+        from: rd.from || "recipient",
+      });
+    })
     return jsonResponse(200, { ok: true, message });
   } catch (err) {
     console.error(err);

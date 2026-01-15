@@ -88,6 +88,7 @@ exports.handler = async (event) => {
         stickerId: d.stickerId || "heart_01",
         body: d.body || "", // preview is handled client-side; still okay since unlocked
         unread: d.unread !== false,
+        replyEnabled: !!d.replyEnabled,
       });
     });
 

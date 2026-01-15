@@ -65,3 +65,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   navigate();
 });
+
+window.addEventListener("app.refresh", () => {
+  navigate();
+});

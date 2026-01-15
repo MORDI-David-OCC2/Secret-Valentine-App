@@ -41,6 +41,7 @@ export function renderSettings(root) {
     clearLocalSession();
     alert("Local session cleared on this device.");
     location.hash = "#/inbox";
+    window.dispatchEvent(new Event("app.refresh"));
   });
 
   const status = root.querySelector("#pinStatus");

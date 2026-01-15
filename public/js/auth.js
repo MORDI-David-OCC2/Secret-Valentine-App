@@ -126,10 +126,10 @@ export async function getMessageById(messageId) {
     sessionToken,
   });
 
-  if (!res.ok) throw new Error(res.error || "Failed to load message");
+  if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load message");
 
   // ✅ Backend returns { message, replies }
-  return (res, data);
+  return data;
 }
 
 export async function setPin(newPinOrNull) {

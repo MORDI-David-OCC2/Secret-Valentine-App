@@ -120,7 +120,7 @@ export async function getMessageById(messageId) {
 
   const sessionToken = getSessionToken() || null;
 
-  const res = await apiPost("/.netlify/functions/getMessage", {
+  const {res, data} = await apiPost("/.netlify/functions/getMessage", {
     inboxId,
     messageId,
     sessionToken,

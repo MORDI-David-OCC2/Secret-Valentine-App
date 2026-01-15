@@ -59,7 +59,7 @@ async function requireValidSession(db, inboxId, sessionToken) {
 
   const s = snap.data() || {};
   console.log("SESSION RAW DATA:", JSON.stringify(s, null, 2));
-  if (s.inboxId !== inboxId) {
+  if (s.inboxId1 !== inboxId) {
     console.log(s.inboxId1, inboxId);
     const err = new Error(`Session does not match inbox: ${s} =/= ${inboxId}`);
     err.code = 401;

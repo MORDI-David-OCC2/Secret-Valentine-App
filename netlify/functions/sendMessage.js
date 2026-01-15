@@ -235,6 +235,9 @@ exports.handler = async (event) => {
       // ✅ reply metadata
       replyEnabled: replyAllowed,
       replyToInboxId: replyAllowed ? senderInboxId : null,
+      // ✅ minimal for reply notifications (Goal 1)
+      // Stored only when replyAllowed is true.
+      replyToEmail: replyAllowed ? fromEmail : null,
     });
 
     // 3) Create open token (store only hash)

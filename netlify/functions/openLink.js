@@ -78,6 +78,12 @@ exports.handler = async (event) => {
     const inboxSnap = await inboxRef.get();
     if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
+    // ✅ Mark inbox as activated (used to decide whether to email on first reply)
+    await inboxRef.set(
+      { activatedAt: admin.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
     const inbox = inboxSnap.data() || {};
     const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
 
@@ -95,7 +101,8 @@ exports.handler = async (event) => {
       );
 
       await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).set({
-        inboxId1:inboxId,
+        // ✅ consistent field name (legacy sessions used inboxId1)
+        inboxId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         expiresAt: expiresAtSession,
       });

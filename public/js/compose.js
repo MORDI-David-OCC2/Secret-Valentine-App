@@ -41,7 +41,7 @@ export function renderCompose(root) {
     status.style.color = ok ? "" : "#b00020";
   };
 
-  const replyAllowed2 = root.querySelector("#replyAllowed");
+  const replyAllowed2 = root.querySelector("#replyAllowed2");
   const fromEmail2 = root.querySelector("#fromEmail2");
   const fromEmail3 = root.querySelector("#fromEmail");
 

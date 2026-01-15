@@ -27,11 +27,11 @@ export function renderCompose(root) {
           </select>
         </div>
         <label style="display:flex;align-items:center;gap:10px;margin-top:4px">
-        <input type="checkbox" id="replyAllowed" />
+        <input type="checkbox" id="replyAllowed2" />
         <span class="p" style="margin:0">Allow replies (optional)</span>
         </label>
 
-        <div id="fromEmailWrap" style="display:none">
+        <div id="fromEmail2" style="display:none">
         <input class="input" id="fromEmail" type="email"
         placeholder="Your email (only if you want replies)" autocomplete="email" />
         <p class="p" style="opacity:.8;margin-top:6px">

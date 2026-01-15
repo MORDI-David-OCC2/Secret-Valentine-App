@@ -112,23 +112,24 @@ export async function listInbox() {
   return data; // { ok, messages, pinRequired }
 }
 
+
 export async function getMessageById(messageId) {
   const inboxId = getInboxId();
-  const sessionToken = getSessionToken();
-  if (!inboxId) throw new Error("No inbox selected.");
+  if (!inboxId) throw new Error("Not connected (missing inboxId)");
+  if (!messageId) throw new Error("Missing messageId");
 
-  const { res, data } = await apiPost("/.netlify/functions/getMessage", {
+  const sessionToken = getSessionToken() || null;
+
+  const res = await apiPost("/.netlify/functions/getMessage", {
     inboxId,
     messageId,
     sessionToken,
   });
 
-  if (!res.ok || !data.ok) {
-    if (data.pinRequired) setPinRequired(true);
-    throw new Error(data.error || `getMessage failed (${res.status})`);
-  }
+  if (!res.ok) throw new Error(res.error || "Failed to load message");
 
-  return data.message; // full message
+  // ✅ Backend returns { message, replies }
+  return res;
 }
 
 export async function setPin(newPinOrNull) {

@@ -43,6 +43,8 @@ export function renderCompose(root) {
 
   root.querySelector("#sendBtn").addEventListener("click", async () => {
     const toEmail = root.querySelector("#toEmail").value.trim();
+    const ReplyAllowed = root.querySelector("#ReplyAllowed").checked;
+    const fromEmail = ReplyAllowed ? root.querySelector("#fromEmail").value.trim(): "";
     const fromName = root.querySelector("#fromName").value.trim() || "Someone";
     const type = root.querySelector("#msgType").value;
     const stickerId = root.querySelector("#stickerId").value;

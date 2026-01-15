@@ -48,7 +48,7 @@ async function requireValidSession(db, inboxId, sessionToken) {
   if (!sessionToken) throw new Error("Missing sessionToken");
 
   const sessionHash = sha256Hex(sessionToken);
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(inboxId1);
+  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
   const snap = await sessionRef.get();
 
   if (!snap.exists) {
@@ -60,7 +60,7 @@ async function requireValidSession(db, inboxId, sessionToken) {
   const s = snap.data() || {};
   console.log("SESSION RAW DATA:", JSON.stringify(s, null, 2));
   if (s.inboxId !== inboxId) {
-    console.log(s.inboxId, inboxId);
+    console.log(s.inboxId1, inboxId);
     const err = new Error(`Session does not match inbox: ${s} =/= ${inboxId}`);
     err.code = 401;
     throw err;

@@ -8,7 +8,7 @@ import { renderSettings } from "./settings.js";
 import { dictionaries } from "./dictio.js";
 
 function $(sel) { return document.querySelector(sel); }
-language = "en";
+let language = "en";
 const view = $("#view");
 const titleEl = $("#screenTitle");
 

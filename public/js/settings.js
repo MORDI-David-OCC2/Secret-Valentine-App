@@ -16,8 +16,8 @@ export function renderSettings(root) {
         <div class="p"><strong>Inbox:</strong> ${inboxId ? escapeHtml(inboxId.slice(0,10)) : "not connected"}</div>
         <div class="p"><strong>Status:</strong> ${inboxId ? (isPinRequired() ? "Locked" : "Unlocked") : "-"}</div>
         <select class="input" id="Language">
-            <option value="en">English &#x1F1FA / &#x1F1EC</option>
-            <option value="fr">Français &#x1F1EB</option>
+            <option value="en">English 	&#x1F1FA; &#x1F1F8; / &#x1F1EC; &#x1F1E7;</option>
+            <option value="fr">Français &#x1F1EB; &#x1F1F7;</option>
           </select>
         <button class="btn btn--ghost" type="button" id="clearAll">Log out on this device</button>
       </div>

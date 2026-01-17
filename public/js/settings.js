@@ -3,6 +3,7 @@ import { escapeHtml, isValidPin } from "./crypto.js";
 import { getInboxId, clearLocalSession, setPin, isPinRequired } from "./auth.js";
 import { dictionaries } from "./dictio.js";
 
+let language = "fr";
 export function renderSettings(root) {
   const inboxId = getInboxId();
 

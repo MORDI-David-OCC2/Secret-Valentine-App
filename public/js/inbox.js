@@ -11,6 +11,7 @@ import {
   getSessionToken,
 } from "./auth.js";
 import { wireReplyUI } from "./reply-ui.js";
+import { dictionaries } from "./dictio.js";
 
 function typeEmoji(type) {
   return type === "love" ? "💘"
@@ -18,7 +19,7 @@ function typeEmoji(type) {
     : type === "family" ? "👨‍👩‍👧‍👦"
     : "😳";
 }
-
+let language="fr";
 function renderMessageRow(m) {
   const when = m.createdAt ? formatWhen(m.createdAt) : "";
   const bodyPrev = previewText(m.body || "", 120);
@@ -49,12 +50,12 @@ function renderPinGate(inboxId) {
   return `
     <section class="card">
       <h1 class="h1">🔒 Inbox locked</h1>
-      <p class="p">Enter your PIN to unlock inbox <strong>${escapeHtml(inboxId)}</strong>.</p>
+      <p class="p">Enter your PIN to unlock inbox <strong>${escapeHtml(inboxId.slice(0,10))}</strong>.</p>
 
       <div style="height:10px"></div>
 
       <div class="row">
-        <input class="input" id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="PIN (4–8 digits)" />
+        <input class="input" id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="PIN..." />
         <button class="btn" type="button" id="unlockBtn">Unlock</button>
         <p class="p" id="pinStatus" style="display:none"></p>
       </div>

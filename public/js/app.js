@@ -8,14 +8,14 @@ import { renderSettings } from "./settings.js";
 import { dictionaries } from "./dictio.js";
 
 function $(sel) { return document.querySelector(sel); }
-let language = "en";
+let language = "fr";
 const view = $("#view");
 const titleEl = $("#screenTitle");
 
 const ROUTES = {
-  inbox: { title: dictionaries[language]["Inbox"], render: renderInbox },
-  compose: { title: "Compose", render: renderCompose },
-  settings: { title: "Settings", render: renderSettings },
+  inbox: { title: dictionaries[language]["inbox"], render: renderInbox },
+  compose: { title: dictionaries[language]["compose"], render: renderCompose },
+  settings: { title: dictionaries[language]["settings"], render: renderSettings },
   message: { title: "Message", render: renderInbox }, // inbox.js handles message screen too
 };
 

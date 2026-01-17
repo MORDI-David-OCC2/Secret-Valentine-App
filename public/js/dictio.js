@@ -16,6 +16,7 @@ export const dictionaries = {
         status: "Status",
         recipientEmail: "Recipient email",
         yourName: "Your name (optional)",
+        yourEmail: "Your Email (for Answer)",
         types: {
             love: "Love",
             friendship: "Friendship",
@@ -46,6 +47,7 @@ export const dictionaries = {
         status: "Statut",
         recipientEmail: "Email du destinataire",
         yourName: "Ton nom (facultatif)",
+        yourEmail: "Ton email (pour les réponses)",
         types: {
             love: "Amour 💘",
             friendship: "Amitié 🫶",

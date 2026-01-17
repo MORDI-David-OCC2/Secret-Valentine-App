@@ -1,24 +1,25 @@
 // public/js/compose.js
 import { escapeHtml } from "./crypto.js";
 import { sendMessage } from "./auth.js";
+import { dictionaries } from "./dictio.js";
 
 export function renderCompose(root) {
   root.innerHTML = `
     <section class="card">
       <h1 class="h1">✍️ Compose</h1>
-      <p class="p">This sends an email with a secure link to the recipient’s inbox.</p>
+      <p class="p">${escapeHtml(dictionaries[language]["recipientNotif"])}</p>
 
       <div style="height:12px"></div>
 
       <div class="row">
-        <input class="input" id="toEmail" type="email" placeholder="Recipient email" autocomplete="email" />
-        <input class="input" id="fromName" type="text" placeholder="Your name (optional)" />
+        <input class="input" id="toEmail" type="email" placeholder="${escapeHtml(dictionaries[language]["recipientEmail"])}" autocomplete="email" />
+        <input class="input" id="fromName" type="text" placeholder="${escapeHtml(dictionaries[language]["yourEmail"])}" />
         <div class="row row-2">
           <select class="input" id="msgType">
-            <option value="love">Love 💘</option>
-            <option value="friendship">Friendship 🫶</option>
-            <option value="family">Family 👨‍👩‍👧‍👦</option>
-            <option value="crush">Crush 😳</option>
+            <option value="love">${escapeHtml(dictionaries[language]["types"]["love"])} 💘</option>
+            <option value="friendship">${escapeHtml(dictionaries[language]["types"]["friendship"])} 🫶</option>
+            <option value="family">${escapeHtml(dictionaries[language]["types"]["family"])} 👨‍👩‍👧‍👦</option>
+            <option value="crush">${escapeHtml(dictionaries[language]["types"]["crush"])} 😳</option>
           </select>
           <select class="input" id="stickerId">
             <option value="heart_01">Sticker: heart_01</option>

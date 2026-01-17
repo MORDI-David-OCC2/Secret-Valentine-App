@@ -5,14 +5,15 @@ import { openEmailLink } from "./auth.js";
 import { renderInbox } from "./inbox.js";
 import { renderCompose } from "./compose.js";
 import { renderSettings } from "./settings.js";
+import { dictionaries } from "./dictio.js";
 
 function $(sel) { return document.querySelector(sel); }
-
+language = "en";
 const view = $("#view");
 const titleEl = $("#screenTitle");
 
 const ROUTES = {
-  inbox: { title: "Inbox", render: renderInbox },
+  inbox: { title: dictionaries[language][Inbox], render: renderInbox },
   compose: { title: "Compose", render: renderCompose },
   settings: { title: "Settings", render: renderSettings },
   message: { title: "Message", render: renderInbox }, // inbox.js handles message screen too

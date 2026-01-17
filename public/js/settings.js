@@ -9,7 +9,7 @@ export function renderSettings(root) {
 
   root.innerHTML = `
     <section class="card">
-      <h1 class="h1">⚙️ Settings</h1>
+      <h1 class="h1">Settings</h1>
       <p class="p">PIN lock protects your inbox. You can change/remove it after unlocking.</p>
 
       <div style="height:12px"></div>

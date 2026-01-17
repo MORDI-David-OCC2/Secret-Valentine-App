@@ -275,7 +275,7 @@ export function renderInbox(root, ctx = {}) {
   // Unlocked: show list
   root.innerHTML = `
     <section class="card">
-      <h1 class="h1">📥 Inbox</h1>
+      <h1 class="h1"> Inbox</h1>
       <p class="p">Inbox: <strong>${escapeHtml(inboxId)}</strong></p>
 
       <div style="height:10px"></div>

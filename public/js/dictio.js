@@ -70,7 +70,7 @@ export const dictionaries = {
         },
         replyAllowed: "Autoriser les réponses (facultatif)",
         writemessage: "Ecris ton message...",
-        send: "Envoyer 💌",
+        send: "Envoyer",
         recipientNotif: "Le destinataire sera notifié par mail.",
         refresh: "Rafraîchir",
         logout: "Déconnecter",

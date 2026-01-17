@@ -6,7 +6,7 @@ let language = "fr"
 export function renderCompose(root) {
   root.innerHTML = `
     <section class="card">
-      <h1 class="h1">✍️ Compose</h1>
+      <h1 class="h1">Compose</h1>
       <p class="p">${escapeHtml(dictionaries[language]["recipientNotif"])}</p>
 
       <div style="height:12px"></div>

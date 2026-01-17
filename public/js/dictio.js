@@ -1,0 +1,62 @@
+export const dictionaries = {
+    en: {
+        lockedInbox: "🔒 Inbox locked",
+        unlock: "Unlock",
+        sendReply: "Send Reply",
+        UnlokedInbox: "Unlocked",
+        Inbox: "📥 Inbox",
+        compose: "✍️ Compose",
+        settings: "⚙️ Settings",
+        pinLock: "PIN lock",
+        setPin: "Set a 4-8 digit PIN.",
+        newPin: "New Pin (4-8 digits)",
+        confirmPin: "Confirm PIN",
+        setPin: "Set/Change PIN",
+        removePin: "Remove PIN",
+        status: "Status",
+        recipientEmail: "Recipient email",
+        yourName: "Your name (optional)",
+        types: {
+            love: "Love",
+            friendship: "Friendship",
+            family: "Family",
+            crush: "Crush"
+        },
+        replyAllowed: "Allow replies (optional)",
+        writemessage: "Write your message...",
+        send: "Send",
+        recipientNotif: "The recipient will be notified by email",
+        refresh: "Refresh",
+        logout: "Log out"
+    },
+    fr: {
+        lockedInbox: "🔒 Boîte verrouillée",
+        unlock: "Déverrouillée",
+        sendReply: "Envoyer une réponse",
+        UnlokedInbox: "Déverrouillée",
+        Inbox: "📥 Boîte de réception",
+        compose: "✍️ Ecrire",
+        settings: "⚙️ Paramètres",
+        pinLock: "Verr. PIN",
+        setPin: "Configurer un PIN à  4-8 chiffres",
+        newPin: "Nouveau Pin (4-8 dchiffres)",
+        confirmPin: "Confirmer PIN",
+        setPin: "Changer PIN",
+        removePin: "Retirer le PIN",
+        status: "Statut",
+        recipientEmail: "Email du destinataire",
+        yourName: "Ton nom (facultatif)",
+        types: {
+            love: "Amour 💘",
+            friendship: "Amitié 🫶",
+            family: "Famille 👨‍👩‍👧‍👦",
+            crush: "Crush 😳"
+        },
+        replyAllowed: "Autoriser les réponses (facultatif)",
+        writemessage: "Ecris ton message...",
+        send: "Send 💌",
+        recipientNotif: "The recipient will be notified by email",
+        refresh: "Rafraîchir",
+        logout: "Déconnecter"
+    }
+}

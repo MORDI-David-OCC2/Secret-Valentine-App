@@ -13,7 +13,7 @@ export function renderCompose(root) {
 
       <div class="row">
         <input class="input" id="toEmail" type="email" placeholder="${escapeHtml(dictionaries[language]["recipientEmail"])}" autocomplete="email" />
-        <input class="input" id="fromName" type="text" placeholder="${escapeHtml(dictionaries[language]["yourEmail"])}" />
+        <input class="input" id="fromName" type="text" placeholder="${escapeHtml(dictionaries[language]["yourName"])}" />
         <div class="row row-2">
           <select class="input" id="msgType">
             <option value="love">${escapeHtml(dictionaries[language]["types"]["love"])} 💘</option>
@@ -36,7 +36,7 @@ export function renderCompose(root) {
         <input class="input" id="fromEmail" type="email"
         placeholder="${escapeHtml(dictionaries[language]["yourEmail"])}" autocomplete="email" />
         <p class="p" style="opacity:.8;margin-top:6px">
-        Your email is not shown to the recipient. It’s only used to receive replies in your inbox.
+        ${escapeHtml(dictionaries[language]["anonymity"])}
         </p>
         </div>
 
@@ -81,18 +81,18 @@ export function renderCompose(root) {
     if (!isValidEmail(toEmail)) return setStatus("Le mail du destinataire semble invalide.", false);
     if (!body) return setStatus("Le message est vide !");
     if (replyAllowed && !isValidEmail(fromEmail)) {
-      return setStatus("Vous devez mettre votre Email pour obtenir une réponse");
+      return setStatus(escapeHtml(dictionaries[language][answerEmail]));
     }
 
     try {
-      setStatus("Sending…");
+      setStatus(escapeHtml(dictionaries[language]["sending"]));
       const payload_final = { toEmail, fromName, type, stickerId, body, replyAllowed };
       if (replyAllowed) {
         payload_final.fromEmail = fromEmail;
       }
       const data = await sendMessage(payload_final);
 
-      setStatus("✅ Email sent (or queued).");
+      setStatus("✅"+ escapeHtml(dictionaries[language]["sent"]));
       root.querySelector("#msgBody").value = "";
     } catch (e) {
       console.error(e);

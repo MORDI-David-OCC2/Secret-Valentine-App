@@ -1,6 +1,7 @@
 // public/js/settings.js
 import { escapeHtml, isValidPin } from "./crypto.js";
 import { getInboxId, clearLocalSession, setPin, isPinRequired } from "./auth.js";
+import { dictionaries } from "./dictio.js";
 
 export function renderSettings(root) {
   const inboxId = getInboxId();
@@ -65,7 +66,7 @@ export function renderSettings(root) {
       if (!isValidPin(pin)) return setStatus(escapeHtml(dictionaries[language]["incPinFormat"]), false);
       if (pin !== pin2) return setStatus(escapeHtml(dictionaries[language]["incPinMatch"]), false);
 
-      setStatus("Saving PIN…");
+      setStatus(escapeHtml(dictionaries[language]["savingPin"]));
       await setPin(pin);
 
       root.querySelector("#pin").value = "";
@@ -73,7 +74,7 @@ export function renderSettings(root) {
       setStatus("✅" + escapeHtml(dictionaries[language]["confirmedPin"]));
     } catch (e) {
       console.error(e);
-      setStatus(e.message || "Failed to set PIN.", false);
+      setStatus(e.message || escapeHtml(dictionaries[language]["confirmedPinFailed"], false));
     }
   });
 
@@ -88,7 +89,7 @@ export function renderSettings(root) {
       setStatus("✅" + escapeHtml(dictionaries[language]["removedPin"]));
     } catch (e) {
       console.error(e);
-      setStatus(e.message || "Failed to remove PIN.", false);
+      setStatus(e.message || escapeHtml(dictionaries[language][removedPinFailed]), false);
     }
   });
 }

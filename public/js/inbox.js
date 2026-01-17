@@ -41,7 +41,7 @@ function renderMessageRow(m) {
 
 function renderMessageList(messages) {
   if (!messages || messages.length === 0) {
-    return `<p class="p">No messages yet.</p>`;
+    return `<p class="p"> ${escapeHtml(dictionaries[language]["emptyInbox"])} </p>`;
   }
   return messages.map(renderMessageRow).join("");
 }

@@ -28,7 +28,11 @@ export const dictionaries = {
         send: "Send",
         recipientNotif: "The recipient will be notified by email",
         refresh: "Refresh",
-        logout: "Log out"
+        logout: "Log out",
+        removedPin: "Pin removed",
+        confirmedPin: "Pin confirmed",
+        incPinFormat: "Incorrect Pin Format (4-8 digits)",
+        incPinMatch: "PINs do not match"
     },
     fr: {
         lockedInbox: "🔒 Boîte verrouillée",
@@ -49,15 +53,15 @@ export const dictionaries = {
         yourName: "Ton nom (facultatif)",
         yourEmail: "Ton email (pour les réponses)",
         types: {
-            love: "Amour 💘",
-            friendship: "Amitié 🫶",
-            family: "Famille 👨‍👩‍👧‍👦",
-            crush: "Crush 😳"
+            love: "Amour",
+            friendship: "Amitié",
+            family: "Famille",
+            crush: "Crush"
         },
         replyAllowed: "Autoriser les réponses (facultatif)",
         writemessage: "Ecris ton message...",
-        send: "Send 💌",
-        recipientNotif: "The recipient will be notified by email",
+        send: "Envoyer 💌",
+        recipientNotif: "Le destinataire sera notifié par mail",
         refresh: "Rafraîchir",
         logout: "Déconnecter"
     }

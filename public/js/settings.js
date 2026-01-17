@@ -30,11 +30,11 @@ export function renderSettings(root) {
 
         <div class="row">
           <input class="input" id="pin" type="password" inputmode="numeric" autocomplete="one-time-code"
-            placeholder="New PIN (4–8 digits)" ${!inboxId ? "disabled" : ""}/>
+            placeholder="${escapeHtml(dictionaries[language]["newPin"])}" ${!inboxId ? "disabled" : ""}/>
           <input class="input" id="pin2" type="password" inputmode="numeric" autocomplete="one-time-code"
-            placeholder="Confirm PIN" ${!inboxId ? "disabled" : ""}/>
+            placeholder="${escapeHtml(dictionaries[language]["confirmPin"])}" ${!inboxId ? "disabled" : ""}/>
           <button class="btn" type="button" id="setPinBtn" ${!inboxId ? "disabled" : ""}>Set / Change PIN</button>
-          <button class="btn btn--ghost" type="button" id="removePinBtn" ${!inboxId ? "disabled" : ""}>Remove PIN</button>
+          <button class="btn btn--ghost" type="button" id="removePinBtn" ${!inboxId ? "disabled" : ""}>${escapeHtml(dictionaries[language]["removePin"])}</button>
           <p class="p" id="pinStatus" style="display:none"></p>
         </div>
       </section>
@@ -62,15 +62,15 @@ export function renderSettings(root) {
       const pin = root.querySelector("#pin").value.trim();
       const pin2 = root.querySelector("#pin2").value.trim();
 
-      if (!isValidPin(pin)) return setStatus("PIN must be 4–8 digits.", false);
-      if (pin !== pin2) return setStatus("PINs do not match.", false);
+      if (!isValidPin(pin)) return setStatus(escapeHtml(dictionaries[language]["incPinFormat"]), false);
+      if (pin !== pin2) return setStatus(escapeHtml(dictionaries[language]["incPinMatch"]), false);
 
       setStatus("Saving PIN…");
       await setPin(pin);
 
       root.querySelector("#pin").value = "";
       root.querySelector("#pin2").value = "";
-      setStatus("✅ PIN updated.");
+      setStatus("✅" + escapeHtml(dictionaries[language]["confirmedPin"]));
     } catch (e) {
       console.error(e);
       setStatus(e.message || "Failed to set PIN.", false);
@@ -85,7 +85,7 @@ export function renderSettings(root) {
 
       setStatus("Removing PIN…");
       await setPin(null);
-      setStatus("✅ PIN removed.");
+      setStatus("✅" + escapeHtml(dictionaries[language]["removedPin"]));
     } catch (e) {
       console.error(e);
       setStatus(e.message || "Failed to remove PIN.", false);

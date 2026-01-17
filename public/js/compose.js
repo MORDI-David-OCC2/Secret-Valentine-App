@@ -2,7 +2,7 @@
 import { escapeHtml } from "./crypto.js";
 import { sendMessage } from "./auth.js";
 import { dictionaries } from "./dictio.js";
-
+let language = "fr"
 export function renderCompose(root) {
   root.innerHTML = `
     <section class="card">
@@ -29,19 +29,19 @@ export function renderCompose(root) {
         </div>
         <label style="display:flex;align-items:center;gap:10px;margin-top:4px">
         <input type="checkbox" id="replyAllowed2" />
-        <span class="p" style="margin:0">Allow replies (optional)</span>
+        <span class="p" style="margin:0">${escapeHtml(dictionaries[language]["replyAllowed"])}</span>
         </label>
 
         <div id="fromEmail2" style="display:none">
         <input class="input" id="fromEmail" type="email"
-        placeholder="Your email (only if you want replies)" autocomplete="email" />
+        placeholder="${escapeHtml(dictionaries[language]["yourEmail"])}" autocomplete="email" />
         <p class="p" style="opacity:.8;margin-top:6px">
         Your email is not shown to the recipient. It’s only used to receive replies in your inbox.
         </p>
         </div>
 
-        <textarea class="input" id="msgBody" rows="6" placeholder="Write your message..."></textarea>
-        <button class="btn" type="button" id="sendBtn">Send 💌</button>
+        <textarea class="input" id="msgBody" rows="6" placeholder="${escapeHtml(dictionaries[language]["writemessage"])}"></textarea>
+        <button class="btn" type="button" id="sendBtn">${escapeHtml(dictionaries[language]["send"])} 💌</button>
         <p class="p" id="sendStatus" style="display:none"></p>
       </div>
     </section>

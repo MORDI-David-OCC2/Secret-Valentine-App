@@ -13,8 +13,12 @@ export function renderSettings(root) {
       <div style="height:12px"></div>
 
       <div class="row">
-        <div class="p"><strong>Inbox:</strong> ${inboxId ? escapeHtml(inboxId) : "not connected"}</div>
+        <div class="p"><strong>Inbox:</strong> ${inboxId ? escapeHtml(inboxId.slice(0,10)) : "not connected"}</div>
         <div class="p"><strong>Status:</strong> ${inboxId ? (isPinRequired() ? "Locked" : "Unlocked") : "-"}</div>
+        <select class="input" id="Language">
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+          </select>
         <button class="btn btn--ghost" type="button" id="clearAll">Log out on this device</button>
       </div>
 

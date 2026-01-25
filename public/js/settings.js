@@ -1,7 +1,7 @@
 // public/js/settings.js
 import { escapeHtml, isValidPin } from "./crypto.js";
 import { getInboxId, clearLocalSession, setPin, isPinRequired } from "./auth.js";
-import { dictionaries, getLang, setLang } from "./dictio.js";
+import { dictionaries, getLang, setLang, t } from "./dictio.js";
 
 let language = "fr";
 export function renderSettings(root) {

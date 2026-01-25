@@ -11,7 +11,7 @@ import {
   getSessionToken,
 } from "./auth.js";
 import { wireReplyUI } from "./reply-ui.js";
-import { dictionaries, setLang, getLang } from "./dictio.js";
+import { dictionaries, setLang, getLang, t } from "./dictio.js";
 
 function typeEmoji(type) {
   return type === "love" ? "💘"

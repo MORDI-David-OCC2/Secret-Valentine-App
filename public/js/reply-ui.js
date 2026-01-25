@@ -1,5 +1,5 @@
 import { getInboxId, getSessionToken, getMessageById } from "./auth.js";
-import { dictionaries, setLang, getLang } from "./dictio.js";
+import { dictionaries, setLang, getLang, t } from "./dictio.js";
 
 export function wireReplyUI({ root, messageId, renderMessageDetail, sendReply }) {
   const replyBtn = root.querySelector("#replyBtn");

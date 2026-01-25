@@ -1,7 +1,7 @@
 // public/js/compose.js
 import { escapeHtml } from "./crypto.js";
 import { sendMessage } from "./auth.js";
-import { dictionaries, setLang, getLang } from "./dictio.js";
+import { dictionaries, setLang, getLang, t } from "./dictio.js";
 let language = "fr"
 export function renderCompose(root) {
   root.innerHTML = `

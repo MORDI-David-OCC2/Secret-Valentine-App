@@ -100,3 +100,26 @@ export const dictionaries = {
         language: "Langue",
     }
 }
+
+const LANG_KEY = "sv.lang";
+const DEFAULT_LANG = "en";
+
+export function getLang() {
+    const saved = localStorage.getitem(LANG_KEY);
+    return (saved && dictionaries[saved]) ? saved: DEFAULT_LANG;
+}
+
+export function setLang(lang) {
+    localStorage.setItem(LANG_KEY, lang);
+    window.dispatchEvent(new CustomEvent("lang.change", {detail: { lang: lang}}));
+}
+
+export function t(key, vars = {}) {
+    const lang = getLang();
+    const dict = dictionaries[lang] || dictionaries[DEFAULT_LANG];
+    const fallback = dictionaries.en || dict;
+    let s = (dict[key] ?? fallback[key] ?? key);
+
+    s = String(s).replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? '{${k}}'));
+    return s;
+}

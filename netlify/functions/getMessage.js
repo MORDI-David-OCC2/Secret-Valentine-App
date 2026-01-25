@@ -136,8 +136,8 @@ exports.handler = async (event) => {
       return jsonResponse(404, { ok: false, error: "Message not found" });
     }
 
-    if(message.unread === true) {
-      await messageRef.update({
+    if(m.unread === true) {
+      await msgRef.update({
         unread: false,
         readAt: admin.firestore.FieldValue.serverTimestamp()
       })

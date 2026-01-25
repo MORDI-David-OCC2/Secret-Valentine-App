@@ -178,6 +178,7 @@ export function renderInbox(root, ctx = {}) {
       try {
         setStatus("Loading…");
         const data =  await getMessageById(id);
+        const m = data.message;
         root.querySelector("#msgDetail").innerHTML =
           renderMessageDetail(data.message, data.replies || [], getInboxId());
         wireReplyUI({ root, messageId: id, renderMessageDetail, sendReply });

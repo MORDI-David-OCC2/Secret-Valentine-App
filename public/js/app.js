@@ -70,7 +70,7 @@ window.addEventListener("app.refresh", () => {
   navigate();
 });
 window.addEventListener("lang.change", (e) => {
-  language_selected = e.detail?.lang || language;
+  language = e.detail?.lang || language;
   navigate();
 })
 

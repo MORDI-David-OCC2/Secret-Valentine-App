@@ -11,7 +11,7 @@ import {
   getSessionToken,
 } from "./auth.js";
 import { wireReplyUI } from "./reply-ui.js";
-import { dictionaries } from "./dictio.js";
+import { dictionaries, setLang, getLang } from "./dictio.js";
 
 function typeEmoji(type) {
   return type === "love" ? "💘"
@@ -42,7 +42,7 @@ function renderMessageRow(m) {
 
 function renderMessageList(messages) {
   if (!messages || messages.length === 0) {
-    return `<p class="p"> ${escapeHtml(dictionaries[language]["emptyInbox"])} </p>`;
+    return `<p class="p"> ${t("emptyInbox")} </p>`;
   }
   return messages.map(renderMessageRow).join("");
 }
@@ -50,19 +50,19 @@ function renderMessageList(messages) {
 function renderPinGate(inboxId) {
   return `
     <section class="card">
-      <h1 class="h1">🔒 Inbox locked</h1>
-      <p class="p">Enter your PIN to unlock inbox <strong>${escapeHtml(inboxId.slice(0,10))}</strong>.</p>
+      <h1 class="h1">🔒 ${t("lockedInbox")}</h1>
+      <p class="p">${t("enterPin")}</strong>.</p>
 
       <div style="height:10px"></div>
 
       <div class="row">
         <input class="input" id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="PIN..." />
-        <button class="btn" type="button" id="unlockBtn">Unlock</button>
+        <button class="btn" type="button" id="unlockBtn">${t("unlock")}</button>
         <p class="p" id="pinStatus" style="display:none"></p>
       </div>
 
       <div style="height:12px"></div>
-      <button class="btn btn--ghost" type="button" id="logoutBtn">Log out on this device</button>
+      <button class="btn btn--ghost" type="button" id="logoutBtn">${t("logout")}</button>
     </section>
   `;
 }
@@ -70,7 +70,7 @@ function renderPinGate(inboxId) {
 function renderMessageDetailShell() {
   return `
     <section class="card">
-      <a class="btn btn--ghost" href="#/inbox">← Back</a>
+      <a class="btn btn--ghost" href="#/inbox">← ${t("back")}</a>
       <div style="height:10px"></div>
       <div id="msgDetail"></div>
       <p class="p" id="msgStatus" style="display:none"></p>
@@ -127,15 +127,15 @@ function renderMessageDetail(m, replies = [], viewerInboxId = "") {
     <div style="height:12px"></div>
     <div class="card" style="background:rgba(255,255,255,0.65)">
       <h2 class="h1" style="font-size:18px;margin:0 0 10px 0">💬 Continue the conversation</h2>
-      <textarea class="input" id="replyBody" rows="3" placeholder="Type a message..."></textarea>
+      <textarea class="input" id="replyBody" rows="3" placeholder=${t("writeMessage")}></textarea>
       <div style="height:10px"></div>
-      <button class="btn" id="replyBtn" type="button">Send</button>
+      <button class="btn" id="replyBtn" type="button">${t("send")}</button>
       <p class="p" id="replyStatus" style="display:none"></p>
     </div>
   ` : `
     <div style="height:12px"></div>
     <div class="card" style="opacity:.8;background:rgba(255,255,255,0.65)">
-      <p class="p">Replies are not enabled for this conversation.</p>
+      <p class="p">${t("replyNotAllowed")}</p>
     </div>
   `;
 
@@ -176,7 +176,7 @@ export function renderInbox(root, ctx = {}) {
 
     (async () => {
       try {
-        setStatus("Loading…");
+        setStatus(t("loading"));
         const data =  await getMessageById(id);
         const m = data.message;
         root.querySelector("#msgDetail").innerHTML =
@@ -224,8 +224,8 @@ export function renderInbox(root, ctx = {}) {
   if (!inboxId) {
     root.innerHTML = `
       <section class="card">
-        <h1 class="h1">📥 Inbox</h1>
-        <p class="p">Open the link you received by email to connect your inbox.</p>
+        <h1 class="h1">${t("Inbox")}</h1>
+        <p class="p">${t("openLinktoEnter")}</p>
       </section>
     `;
     return;
@@ -247,12 +247,12 @@ export function renderInbox(root, ctx = {}) {
       const pin = root.querySelector("#pinInput").value.trim();
     
       try {
-        setStatus("Verifying…");
+        setStatus(t("verifying"));
     
         // 1) Verify PIN -> should store sessionToken via auth.js
         await verifyPin(inboxId, pin);
     
-        setStatus("Unlocked. Loading messages…");
+        setStatus(t("UnlockedInbox")+". "+t("loading")+ " " + "messages…");
         
         // 2) Immediately load inbox now that we have a session
         await listInbox();
@@ -261,7 +261,7 @@ export function renderInbox(root, ctx = {}) {
         location.hash = "#/inbox";
       } catch (e) {
         console.error(e);
-        setStatus(e.message || "Incorrect PIN.", false);
+        setStatus(e.message || t("incorrectPin"), false);
       }
     });
     
@@ -284,7 +284,7 @@ export function renderInbox(root, ctx = {}) {
 
       <div class="row">
         <button class="btn" type="button" id="refreshBtn">Refresh</button>
-        <button class="btn btn--ghost" type="button" id="logoutBtn">Log out on this device</button>
+        <button class="btn btn--ghost" type="button" id="logoutBtn">${t("logout")}</button>
         <p class="p" id="status" style="display:none"></p>
       </div>
     </section>
@@ -305,7 +305,7 @@ export function renderInbox(root, ctx = {}) {
 
   async function refresh() {
     try {
-      setStatus("Loading…");
+      setStatus(t("loading"));
       const data = await listInbox();
       const list = root.querySelector("#list");
       if (!list) return; // route changed / list not rendered
@@ -336,7 +336,7 @@ async function sendReply({ inboxId, messageId, body, sessionToken }) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.ok) {
-    throw new Error(data.error || `Send failed (${res.status})`);
+    throw new Error(data.error || t("notSent") + `(${res.status})`);
   }
   return data;
 }

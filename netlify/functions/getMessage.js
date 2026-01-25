@@ -136,6 +136,13 @@ exports.handler = async (event) => {
       return jsonResponse(404, { ok: false, error: "Message not found" });
     }
 
+    if(message.unread === true) {
+      await messageRef.update({
+        unread: false,
+        readAt: admin.firestore.FieldValue.serverTimestamp()
+      })
+    }
+
     const m = msgSnap.data() || {};
 
     // Fetch replies (optional)

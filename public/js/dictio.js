@@ -127,7 +127,7 @@ const LANG_KEY = "sv.lang";
 const DEFAULT_LANG = "en";
 
 export function getLang() {
-    const saved = localStorage.getitem(LANG_KEY);
+    const saved = localStorage.getItem(LANG_KEY);
     return (saved && dictionaries[saved]) ? saved: DEFAULT_LANG;
 }
 

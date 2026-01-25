@@ -40,6 +40,8 @@ export const dictionaries = {
         answerEmail: "Insert an email to receive answers",
         sending: "Sending…",
         sent: "Email sent",
+        replySent: "Reply sent",
+        replyFailed: "Failed to send reply",
         sessionCleared: "Session disconnected",
         replyEmpty: "Write a message before replying",
         emptyInbox: "No messages yet",
@@ -48,6 +50,7 @@ export const dictionaries = {
         back: "Back",
         open: "Open",
         language: "Language",
+        confirmRemovePin: "Remove the PIN for the inbox ?",
     },
     fr: {
         lockedInbox: "🔒 Boîte verrouillée",
@@ -90,6 +93,8 @@ export const dictionaries = {
         answerEmail: "Vous devez mettre votre Email pour obtenir une réponse",
         sending: "Envoi en cours",
         sent: "Email envoyé",
+        replySent: "Réponse envoyée",
+        replyFailed: "Réponse non envoyée",
         sessionCleared: "Session déconnectée",
         replyEmpty: "Ecris un message avant de répondre",
         emptyInbox: "Pas encore de messages",
@@ -98,6 +103,7 @@ export const dictionaries = {
         back: "Retour",
         open: "Ouvrir",
         language: "Langue",
+        confirmRemovePin: "Retirer le PINpour la boîte ?",
     }
 }
 

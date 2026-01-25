@@ -231,7 +231,7 @@ exports.handler = async (event) => {
       stickerId,
       body,
       unread: true,
-      lastActiveAt: createdAt,
+      lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
       lastMessage: body.slice(0, 25),
       // ✅ reply metadata
       replyEnabled: replyAllowed,
@@ -257,7 +257,7 @@ exports.handler = async (event) => {
           stickerId,
           body,
           unread: false,
-          lastActiveAt: createdAt,
+          lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
           lastMessage: body.slice(0, 25),
 
           // allow continuing the conversation from the sender side too

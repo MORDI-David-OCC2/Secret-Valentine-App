@@ -69,5 +69,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 window.addEventListener("app.refresh", () => {
   navigate();
 });
+window.addEventListener("lang.change", (e) => {
+  language_selected = e.detail?.lang || language;
+  navigate();
+})
 
 window.dispatchEvent(new Event("app:refresh"));

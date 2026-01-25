@@ -1,25 +1,25 @@
 // public/js/compose.js
 import { escapeHtml } from "./crypto.js";
 import { sendMessage } from "./auth.js";
-import { dictionaries } from "./dictio.js";
+import { dictionaries, setLang, getLang } from "./dictio.js";
 let language = "fr"
 export function renderCompose(root) {
   root.innerHTML = `
     <section class="card">
       <h1 class="h1">Compose</h1>
-      <p class="p">${escapeHtml(dictionaries[language]["recipientNotif"])}</p>
+      <p class="p">${t("recipientNotif")}</p>
 
       <div style="height:12px"></div>
 
       <div class="row">
-        <input class="input" id="toEmail" type="email" placeholder="${escapeHtml(dictionaries[language]["recipientEmail"])}" autocomplete="email" />
-        <input class="input" id="fromName" type="text" placeholder="${escapeHtml(dictionaries[language]["yourName"])}" />
+        <input class="input" id="toEmail" type="email" placeholder="${t("recipientEmail")}" autocomplete="email" />
+        <input class="input" id="fromName" type="text" placeholder="${t("yourName")}" />
         <div class="row row-2">
           <select class="input" id="msgType">
-            <option value="love">${escapeHtml(dictionaries[language]["types"]["love"])} 💘</option>
-            <option value="friendship">${escapeHtml(dictionaries[language]["types"]["friendship"])} 🫶</option>
-            <option value="family">${escapeHtml(dictionaries[language]["types"]["family"])} 👨‍👩‍👧‍👦</option>
-            <option value="crush">${escapeHtml(dictionaries[language]["types"]["crush"])} 😳</option>
+            <option value="love">${t("love")} 💘</option>
+            <option value="friendship">${t("friendship")} 🫶</option>
+            <option value="family">${t("family")} 👨‍👩‍👧‍👦</option>
+            <option value="crush">${t("crush")} 😳</option>
           </select>
           <select class="input" id="stickerId">
             <option value="heart_01">Sticker: heart_01</option>
@@ -29,19 +29,19 @@ export function renderCompose(root) {
         </div>
         <label style="display:flex;align-items:center;gap:10px;margin-top:4px">
         <input type="checkbox" id="replyAllowed2" />
-        <span class="p" style="margin:0">${escapeHtml(dictionaries[language]["replyAllowed"])}</span>
+        <span class="p" style="margin:0">${t("replyAllowed")}</span>
         </label>
 
         <div id="fromEmail2" style="display:none">
         <input class="input" id="fromEmail" type="email"
-        placeholder="${escapeHtml(dictionaries[language]["yourEmail"])}" autocomplete="email" />
+        placeholder="${t("yourEmail")}" autocomplete="email" />
         <p class="p" style="opacity:.8;margin-top:6px">
-        ${escapeHtml(dictionaries[language]["anonymity"])}
+        ${t("anonymity")}
         </p>
         </div>
 
-        <textarea class="input" id="msgBody" rows="6" placeholder="${escapeHtml(dictionaries[language]["writemessage"])}"></textarea>
-        <button class="btn" type="button" id="sendBtn">${escapeHtml(dictionaries[language]["send"])} 💌</button>
+        <textarea class="input" id="msgBody" rows="6" placeholder="${t("writeMessage")}"></textarea>
+        <button class="btn" type="button" id="sendBtn">${t("send")} 💌</button>
         <p class="p" id="sendStatus" style="display:none"></p>
       </div>
     </section>
@@ -78,25 +78,25 @@ export function renderCompose(root) {
     const stickerId = root.querySelector("#stickerId").value;
     const body = root.querySelector("#msgBody").value.trim();
 
-    if (!isValidEmail(toEmail)) return setStatus("Le mail du destinataire semble invalide.", false);
-    if (!body) return setStatus("Le message est vide !");
+    if (!isValidEmail(toEmail)) return setStatus(t("invalidEmail"), false);
+    if (!body) return setStatus(t("emptyMessage"));
     if (replyAllowed && !isValidEmail(fromEmail)) {
-      return setStatus(escapeHtml(dictionaries[language][answerEmail]));
+      return setStatus(t("answerEmail"));
     }
 
     try {
-      setStatus(escapeHtml(dictionaries[language]["sending"]));
+      setStatus(t("sending"));
       const payload_final = { toEmail, fromName, type, stickerId, body, replyAllowed };
       if (replyAllowed) {
         payload_final.fromEmail = fromEmail;
       }
       const data = await sendMessage(payload_final);
 
-      setStatus("✅"+ escapeHtml(dictionaries[language]["sent"]));
+      setStatus("✅"+ t("sent"));
       root.querySelector("#msgBody").value = "";
     } catch (e) {
       console.error(e);
-      setStatus(e.message || "Failed to send.", false);
+      setStatus(e.message || t("notSent"), false);
     }
   });
 }

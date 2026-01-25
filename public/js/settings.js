@@ -1,7 +1,7 @@
 // public/js/settings.js
 import { escapeHtml, isValidPin } from "./crypto.js";
 import { getInboxId, clearLocalSession, setPin, isPinRequired } from "./auth.js";
-import { dictionaries } from "./dictio.js";
+import { dictionaries, getLang, setLang } from "./dictio.js";
 
 let language = "fr";
 export function renderSettings(root) {
@@ -9,34 +9,34 @@ export function renderSettings(root) {
 
   root.innerHTML = `
     <section class="card">
-      <h1 class="h1">Settings</h1>
+      <h1 class="h1">${t("settings")}</h1>
       <p class="p">PIN lock protects your inbox. You can change/remove it after unlocking.</p>
 
       <div style="height:12px"></div>
 
       <div class="row">
-        <div class="p"><strong>Inbox:</strong> ${inboxId ? escapeHtml(inboxId.slice(0,10)) : "not connected"}</div>
-        <div class="p"><strong>Status:</strong> ${inboxId ? (isPinRequired() ? "Locked" : "Unlocked") : "-"}</div>
+        <div class="p"><strong>Inbox:</strong> ${inboxId ? escapeHtml(inboxId.slice(0,10)) : t("notConnected")}</div>
+        <div class="p"><strong>Status:</strong> ${inboxId ? (isPinRequired() ? t("lockedInbox") : t("UnlockedInbox")) : "-"}</div>
         <select class="input" id="Language">
             <option value="en">English 	🇬🇧 / 🇺🇸</option>
             <option value="fr">Français 🇫🇷</option>
           </select>
-        <button class="btn btn--ghost" type="button" id="clearAll">Log out on this device</button>
+        <button class="btn btn--ghost" type="button" id="clearAll">${t("logout")}</button>
       </div>
 
       <div style="height:14px"></div>
 
       <section class="card" style="background:rgba(255,255,255,0.65)">
-        <h2 class="h2">🔒 PIN lock</h2>
-        <p class="p" style="opacity:.9">Set a 4–8 digit PIN. If you’re locked, unlock first in Inbox.</p>
+        <h2 class="h2">🔒 ${t("pinLock")}</h2>
+        <p class="p" style="opacity:.9">${t("setPin")}.</p>
 
         <div class="row">
           <input class="input" id="pin" type="password" inputmode="numeric" autocomplete="one-time-code"
-            placeholder="${escapeHtml(dictionaries[language]["newPin"])}" ${!inboxId ? "disabled" : ""}/>
+            placeholder="${t("newPin")}" ${!inboxId ? "disabled" : ""}/>
           <input class="input" id="pin2" type="password" inputmode="numeric" autocomplete="one-time-code"
-            placeholder="${escapeHtml(dictionaries[language]["confirmPin"])}" ${!inboxId ? "disabled" : ""}/>
-          <button class="btn" type="button" id="setPinBtn" ${!inboxId ? "disabled" : ""}>Set / Change PIN</button>
-          <button class="btn btn--ghost" type="button" id="removePinBtn" ${!inboxId ? "disabled" : ""}>${escapeHtml(dictionaries[language]["removePin"])}</button>
+            placeholder="${t("confirmPin")}" ${!inboxId ? "disabled" : ""}/>
+          <button class="btn" type="button" id="setPinBtn" ${!inboxId ? "disabled" : ""}>${t("setPin2")}/button>
+          <button class="btn btn--ghost" type="button" id="removePinBtn" ${!inboxId ? "disabled" : ""}>${t("removePin")}</button>
           <p class="p" id="pinStatus" style="display:none"></p>
         </div>
       </section>
@@ -45,7 +45,7 @@ export function renderSettings(root) {
 
   root.querySelector("#clearAll").addEventListener("click", () => {
     clearLocalSession();
-    alert("Local session cleared on this device.");
+    alert(t("sessionCleared"));
     location.hash = "#/inbox";
     window.dispatchEvent(new Event("app.refresh"));
   });
@@ -64,18 +64,18 @@ export function renderSettings(root) {
       const pin = root.querySelector("#pin").value.trim();
       const pin2 = root.querySelector("#pin2").value.trim();
 
-      if (!isValidPin(pin)) return setStatus(escapeHtml(dictionaries[language]["incPinFormat"]), false);
-      if (pin !== pin2) return setStatus(escapeHtml(dictionaries[language]["incPinMatch"]), false);
+      if (!isValidPin(pin)) return setStatus(t("incPinFormat"), false);
+      if (pin !== pin2) return setStatus(t("incPinMatch"), false);
 
-      setStatus(escapeHtml(dictionaries[language]["savingPin"]));
+      setStatus(t("savingPin"));
       await setPin(pin);
 
       root.querySelector("#pin").value = "";
       root.querySelector("#pin2").value = "";
-      setStatus("✅" + escapeHtml(dictionaries[language]["confirmedPin"]));
+      setStatus("✅" + t("confirmedPin"));
     } catch (e) {
       console.error(e);
-      setStatus(e.message || escapeHtml(dictionaries[language]["confirmedPinFailed"], false));
+      setStatus(e.message || t("confirmedPinFailed"), false);
     }
   });
 
@@ -83,14 +83,14 @@ export function renderSettings(root) {
     try {
       if (!inboxId) return;
 
-      if (!confirm("Remove PIN lock for this inbox?")) return;
+      if (!t("confirmRemovePin")) return;
 
       setStatus("Removing PIN…");
       await setPin(null);
-      setStatus("✅" + escapeHtml(dictionaries[language]["removedPin"]));
+      setStatus("✅" + t("removedPin"));
     } catch (e) {
       console.error(e);
-      setStatus(e.message || escapeHtml(dictionaries[language][removedPinFailed]), false);
+      setStatus(e.message || t("removedPinFailed"), false);
     }
   });
 }

@@ -73,7 +73,7 @@ exports.handler = async (event) => {
     }
 
     const qs = await inboxRef.collection("messages")
-      .orderBy("createdAt", "desc")
+      .orderBy("lastAciveAt", "desc")
       .limit(50)
       .get();
 
@@ -88,6 +88,8 @@ exports.handler = async (event) => {
         stickerId: d.stickerId || "heart_01",
         body: d.body || "", // preview is handled client-side; still okay since unlocked
         unread: d.unread !== false,
+        lastActiveAt: d.lastActiveAt && d.lastActiveAt.toMillis ? d.lastActiveAt.toMillis(): null,
+        lastMessage: d.lastMessage || "",
         replyEnabled: !!d.replyEnabled,
       });
     });

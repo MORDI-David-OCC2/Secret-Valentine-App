@@ -12,9 +12,9 @@ const view = $("#view");
 const titleEl = $("#screenTitle");
 
 const ROUTES = {
-  inbox: { title: t("inbox"), render: renderInbox },
-  compose: { title: t("compose"), render: renderCompose },
-  settings: { title: t("settings"), render: renderSettings },
+  inbox: { title: () => t("inbox"), render: renderInbox },
+  compose: { title: () => t("compose"), render: renderCompose },
+  settings: { title: () => t("settings"), render: renderSettings },
   message: { title: "Message", render: renderInbox }, // inbox.js handles message screen too
 };
 
@@ -38,7 +38,7 @@ export function navigate() {
   setActiveTab(route);
 
   // Title can be overwritten in message view
-  titleEl.textContent = ROUTES[route].title;
+  titleEl.textContent = ROUTES[route].title();
 
   view.innerHTML = "";
   ROUTES[route].render(view, { route, getQueryParam });
@@ -69,8 +69,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 window.addEventListener("app.refresh", () => {
   navigate();
 });
-window.addEventListener("lang.change", (e) => {
-  language = e.detail?.lang || language;
+window.addEventListener("lang.change", () => {
   navigate();
 })
 

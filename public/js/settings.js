@@ -3,7 +3,6 @@ import { escapeHtml, isValidPin } from "./crypto.js";
 import { getInboxId, clearLocalSession, setPin, isPinRequired } from "./auth.js";
 import { dictionaries, getLang, setLang, t } from "./dictio.js";
 
-let language = "fr";
 export function renderSettings(root) {
   const inboxId = getInboxId();
 
@@ -42,7 +41,13 @@ export function renderSettings(root) {
       </section>
     </section>
   `;
-
+  const sel_lang = root.querySelector("#Language");
+  if (sel_lang) sel_lang.value = getLang();
+  if (sel_lang) {
+    sel_lang.addEventListener("change", (e) => {
+      setLang(e.target.value);
+    })
+  }
   root.querySelector("#clearAll").addEventListener("click", () => {
     clearLocalSession();
     alert(t("sessionCleared"));

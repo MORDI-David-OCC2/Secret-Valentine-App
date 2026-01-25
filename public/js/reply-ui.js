@@ -1,4 +1,5 @@
 import { getInboxId, getSessionToken, getMessageById } from "./auth.js";
+import { dictionaries, setLang, getLang } from "./dictio.js";
 
 export function wireReplyUI({ root, messageId, renderMessageDetail, sendReply }) {
   const replyBtn = root.querySelector("#replyBtn");
@@ -14,11 +15,11 @@ export function wireReplyUI({ root, messageId, renderMessageDetail, sendReply })
 
   replyBtn.addEventListener("click", async () => {
     const body = (replyBody.value || "").trim();
-    if (!body) return setReplyStatus("Write something first.", false);
+    if (!body) return setReplyStatus(t("replyEmpty"), false);
 
     try {
       replyBtn.disabled = true;
-      setReplyStatus("Sending…");
+      setReplyStatus(t("sending"));
 
       await sendReply({
         inboxId: getInboxId(),
@@ -27,7 +28,7 @@ export function wireReplyUI({ root, messageId, renderMessageDetail, sendReply })
         sessionToken: getSessionToken(),
       });
 
-      setReplyStatus("Reply sent ✅");
+      setReplyStatus(t("replySent")+"✅");
 
       const refreshed = await getMessageById(messageId);
       root.querySelector("#msgDetail").innerHTML = renderMessageDetail(
@@ -48,7 +49,7 @@ export function wireReplyUI({ root, messageId, renderMessageDetail, sendReply })
       if (inp) inp.focus();
     } catch (e) {
       console.error(e);
-      setReplyStatus(e.message || "Failed to send reply.", false);
+      setReplyStatus(e.message || t("replyFailed"), false);
     } finally {
       replyBtn.disabled = false;
     }

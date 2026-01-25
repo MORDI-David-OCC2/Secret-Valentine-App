@@ -135,7 +135,7 @@ exports.handler = async (event) => {
     if (!msgSnap.exists) {
       return jsonResponse(404, { ok: false, error: "Message not found" });
     }
-
+    const m = msgSnap.data() || {};
     if(m.unread === true) {
       await msgRef.update({
         unread: false,
@@ -143,7 +143,6 @@ exports.handler = async (event) => {
       })
     }
 
-    const m = msgSnap.data() || {};
 
     // Fetch replies (optional)
     const repliesSnap = await msgRef

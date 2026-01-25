@@ -236,7 +236,7 @@ exports.handler = async (event) => {
     const batch = db.batch();
     // ensure thread docs exist / get updated
     batch.set(meThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80) }, { merge: true });
-    batch.set(themThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80) }, { merge: true });
+    batch.set(themThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80), unread: true }, { merge: true });
     // write replies with perspective-friendly "from"
     batch.set(meReplyRef, { createdAt: now, body, from: "you" });
     batch.set(themReplyRef, { createdAt: now, body, from: "them" });

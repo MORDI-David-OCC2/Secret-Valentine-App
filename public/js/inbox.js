@@ -21,8 +21,9 @@ function typeEmoji(type) {
 }
 let language="fr";
 function renderMessageRow(m) {
-  const when = m.createdAt ? formatWhen(m.createdAt) : "";
-  const bodyPrev = previewText(m.body || "", 120);
+  const timestamp = m.lastActiveAt || m.createdAt
+  const when = timestamp ? formatWhen(timestamp) : "";
+  const bodyPrev = previewText(m.lastMessage || m.body || "", 120);
 
   return `
     <div style="padding:12px 0;border-top:1px solid rgba(0,0,0,0.06);display:flex;gap:12px;align-items:flex-start;justify-content:space-between">

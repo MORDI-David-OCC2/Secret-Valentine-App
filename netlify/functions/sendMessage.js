@@ -231,7 +231,8 @@ exports.handler = async (event) => {
       stickerId,
       body,
       unread: true,
-
+      lastActiveAt: createdAt,
+      lastMessage: body.slice(0, 25),
       // ✅ reply metadata
       replyEnabled: replyAllowed,
       replyToInboxId: replyAllowed ? senderInboxId : null,
@@ -256,6 +257,8 @@ exports.handler = async (event) => {
           stickerId,
           body,
           unread: false,
+          lastActiveAt: createdAt,
+          lastMessage: body.slice(0, 25),
 
           // allow continuing the conversation from the sender side too
           replyEnabled: true,

@@ -73,7 +73,7 @@ exports.handler = async (event) => {
     }
 
     const qs = await inboxRef.collection("messages")
-      .orderBy("lastAciveAt", "desc")
+      .orderBy("lastActiveAt", "desc")
       .limit(50)
       .get();
 

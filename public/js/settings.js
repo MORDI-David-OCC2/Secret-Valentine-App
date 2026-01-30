@@ -34,7 +34,7 @@ export function renderSettings(root) {
             placeholder="${t("newPin")}" ${!inboxId ? "disabled" : ""}/>
           <input class="input" id="pin2" type="password" inputmode="numeric" autocomplete="one-time-code"
             placeholder="${t("confirmPin")}" ${!inboxId ? "disabled" : ""}/>
-          <button class="btn" type="button" id="setPinBtn" ${!inboxId ? "disabled" : ""}>${t("setPin2")}/button>
+          <button class="btn" type="button" id="setPinBtn" ${!inboxId ? "disabled" : ""}>${t("setPin2")}</button>
           <button class="btn btn--ghost" type="button" id="removePinBtn" ${!inboxId ? "disabled" : ""}>${t("removePin")}</button>
           <p class="p" id="pinStatus" style="display:none"></p>
         </div>

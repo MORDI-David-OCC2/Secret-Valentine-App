@@ -15,7 +15,7 @@ const ROUTES = {
   inbox: { title: () => t("Inbox"), render: renderInbox },
   compose: { title: () => t("compose"), render: renderCompose },
   settings: { title: () => t("settings"), render: renderSettings },
-  message: { title: "Message", render: renderInbox }, // inbox.js handles message screen too
+  message: { title: () => t("message") ?? "Message", render: renderInbox }, // inbox.js handles message screen too
 };
 
 function getRoute() {

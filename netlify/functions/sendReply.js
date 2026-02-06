@@ -43,20 +43,6 @@ function getClientIp(event) {
   return event.headers["client-ip"] || "unknown";
 }
 
-/** ---------- ENCRYPTION HELPERS ---------- **/
-
-function sessionKey(sessionToken) {
-  return crypto.createHash("sha256").update(String(sessionToken || "")).digest(); // 32 bytes
-}
-
-function recoveryKey() {
-  const b64 = process.env.RECOVERY_KEY_B64;
-  if (!b64) throw new Error("Missing RECOVERY_KEY_B64 env var");
-  const k = Buffer.from(b64, "base64");
-  if (k.length !== 32) throw new Error("RECOVERY_KEY_B64 must be 32 bytes (base64)");
-  return k;
-}
-
 async function getInboxKeyFromSession(db, inboxId, sessionToken) {
   if (!sessionToken) return null;
   const sessionHash = sha256Hex(sessionToken);
@@ -67,7 +53,7 @@ async function getInboxKeyFromSession(db, inboxId, sessionToken) {
   if (!s.inboxKeyEnc) return null;
 
   const sk = sessionKey(sessionToken);
-  return open(sk, s.inboxKeyEnc); // Buffer(32)
+  return open(sk, s.inboxKeyEnc);
 }
 
 async function getInboxKeyViaRecovery(db, inboxId) {
@@ -76,7 +62,7 @@ async function getInboxKeyViaRecovery(db, inboxId) {
   if (!snap.exists) throw new Error("Inbox not found");
   const d = snap.data() || {};
   if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
-  return open(recoveryKey(), d.inboxKeyWrappedByRecovery); // Buffer(32)
+  return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
 }
 
 function encryptTextForInbox(inboxKeyBuf, text) {
@@ -86,19 +72,13 @@ function encryptTextForInbox(inboxKeyBuf, text) {
   return { bodyEnc, dekWrapped, cryptoVersion: 1 };
 }
 
-/**
- * ✅ Session verification (your existing logic)
- * Keeps legacy sessions working.
- */
 async function requireValidSession(db, inboxId, sessionToken) {
   if (!sessionToken) throw new Error("Missing sessionToken");
 
   const sessionHash = sha256Hex(sessionToken);
   const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
   const snap = await sessionRef.get();
-  if (sessionSnap.exists && sessionSnap.data().inboxKeyEnc) {
-    inboxKey = open(sessionKey(sessionToken), sessionSnap.data().inboxKeyEnc);
-  }
+
   if (!snap.exists) {
     const err = new Error("Invalid session");
     err.code = 401;
@@ -190,7 +170,6 @@ function replyEmailHtml({ link, preview }) {
 
 exports.handler = async (event) => {
   try {
-    // Preflight
     if (event.httpMethod === "OPTIONS") {
       return {
         statusCode: 204,
@@ -203,56 +182,33 @@ exports.handler = async (event) => {
       };
     }
 
-    if (event.httpMethod !== "POST") {
-      return jsonResponse(405, { ok: false, error: "Use POST" });
-    }
+    if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     initAdmin();
     const db = admin.firestore();
 
-    // Rate limit
     const ip = getClientIp(event);
-    const { allowed } = await rateLimit(db, {
-      action: "sendReply",
-      key: ip,
-      limit: 20,
-      windowSec: 60,
-    });
-    if (!allowed) {
-      return jsonResponse(429, { ok: false, error: "Too many replies. Try again later." });
-    }
+    const { allowed } = await rateLimit(db, { action: "sendReply", key: ip, limit: 20, windowSec: 60 });
+    if (!allowed) return jsonResponse(429, { ok: false, error: "Too many replies. Try again later." });
 
     let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    try { payload = JSON.parse(event.body || "{}"); }
+    catch { return jsonResponse(400, { ok: false, error: "Invalid JSON body" }); }
 
     const inboxId = String(payload.inboxId || "").trim();
     const messageId = String(payload.messageId || "").trim();
     const body = String(payload.body || "").trim();
     const sessionToken = String(payload.sessionToken || "").trim();
 
-    if (!inboxId.startsWith("inbox_")) {
-      return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
-    }
-    if (!messageId) {
-      return jsonResponse(400, { ok: false, error: "Missing messageId" });
-    }
-    if (!body || body.length < 1 || body.length > 2000) {
-      return jsonResponse(400, { ok: false, error: "Reply body must be 1..2000 chars" });
-    }
+    if (!inboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
+    if (!messageId) return jsonResponse(400, { ok: false, error: "Missing messageId" });
+    if (!body || body.length < 1 || body.length > 2000) return jsonResponse(400, { ok: false, error: "Reply body must be 1..2000 chars" });
 
-    // Require unlocked session
     await requireValidSession(db, inboxId, sessionToken);
 
-    // Load original message from recipient inbox
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
     const msgSnap = await msgRef.get();
-    if (!msgSnap.exists) {
-      return jsonResponse(404, { ok: false, error: "Message not found" });
-    }
+    if (!msgSnap.exists) return jsonResponse(404, { ok: false, error: "Message not found" });
 
     const msg = msgSnap.data() || {};
     const replyEnabled = !!msg.replyEnabled;
@@ -263,19 +219,14 @@ exports.handler = async (event) => {
       return jsonResponse(403, { ok: false, error: "Replies are disabled for this message" });
     }
 
-    // ---------- Get inbox keys ----------
-    // For "me": try session inboxKeyEnc, else recovery.
     let myInboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);
     if (!myInboxKey) myInboxKey = await getInboxKeyViaRecovery(db, inboxId);
 
-    // For "them": recovery is fine (server-side)
     const theirInboxKey = await getInboxKeyViaRecovery(db, replyToInboxId);
 
-    // ---------- Encrypt reply content for both sides ----------
     const encForMe = encryptTextForInbox(myInboxKey, body);
     const encForThem = encryptTextForInbox(theirInboxKey, body);
 
-    // Append to thread in BOTH inboxes (chat-style)
     const now = admin.firestore.FieldValue.serverTimestamp();
     const replyId = crypto.randomBytes(9).toString("hex");
 
@@ -287,25 +238,15 @@ exports.handler = async (event) => {
 
     const batch = db.batch();
 
-    // Thread updates (NOTE: lastMessage is plaintext leakage. Keep for compatibility, but you can remove later once listInbox decrypts latest reply.)
-    batch.set(
-      meThreadRef,
-      { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80) },
-      { merge: true }
-    );
-    batch.set(
-      themThreadRef,
-      { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80), unread: true },
-      { merge: true }
-    );
+    batch.set(meThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80) }, { merge: true });
+    batch.set(themThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80), unread: true }, { merge: true });
 
-    // Replies (encrypted)
     batch.set(meReplyRef, { createdAt: now, from: "you", ...encForMe });
     batch.set(themReplyRef, { createdAt: now, from: "them", ...encForThem });
 
     await batch.commit();
 
-    // Email notification on first reply if OTHER inbox isn't activated
+    // first reply notification (keep your logic)
     try {
       const otherInboxRef = db.collection("inboxes").doc(replyToInboxId);
       const otherSnap = await otherInboxRef.get();
@@ -340,11 +281,7 @@ exports.handler = async (event) => {
 
           const baseUrl = buildBaseUrl(event);
           const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
-          await sendWithResend({
-            to: replyToEmail,
-            subject: "💬 You got a reply",
-            html: replyEmailHtml({ link, preview: body }),
-          });
+          await sendWithResend({ to: replyToEmail, subject: "💬 You got a reply", html: replyEmailHtml({ link, preview: body }) });
         }
       }
     } catch (notifyErr) {

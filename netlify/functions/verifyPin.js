@@ -1,8 +1,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { ensureInboxCrypto, storeInboxKeyInSession } = require("./cryptageInbox");
-
+const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -54,11 +53,15 @@ function randomTokenBase64Url(bytes = 32) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: {
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "POST, OPTIONS",
-        "access-control-allow-headers": "content-type",
-      }, body: "" };
+      return {
+        statusCode: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-headers": "content-type",
+        },
+        body: "",
+      };
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
@@ -115,12 +118,10 @@ exports.handler = async (event) => {
       expiresAt,
     });
 
-    // After PIN is verified OK:
-const { inboxKey } = await ensureInboxCrypto(db, inboxId, pin);
-
-// Store inboxKey inside this session (encrypted with sessionToken-derived key)
-await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
-
+    // --- Encryption bootstrap + attach inboxKeyEnc to session ---
+    await ensureInboxCrypto(db, inboxId);
+    const inboxKey = await getInboxKeyViaRecovery(db, inboxId);
+    await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
 
     return jsonResponse(200, { ok: true, verified: true, pinRequired: true, sessionToken });
   } catch (err) {

@@ -1,5 +1,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const { rateLimit } = require("./rateLimit");
+
 
 function jsonResponse(statusCode, body) {
   return {
@@ -49,6 +51,17 @@ function buildBaseUrl(event) {
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
   return `${proto}://${host}`;
 }
+
+function getClientIp(event) {
+  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
+  if (xf) return String(xf).split(",")[0].trim();
+  return (
+    event.headers["client-ip"] ||
+    event.headers["x-real-ip"] ||
+    "unknown"
+  );
+}
+
 
 async function sendWithResend({ to, subject, html }) {
   const apiKey = process.env.API_EMAIL_KEY;     // Resend API key
@@ -177,6 +190,26 @@ exports.handler = async (event) => {
 
     initAdmin();
     const db = admin.firestore();
+
+    // --- Rate limit: sending messages ---
+const ip = getClientIp(event);
+
+// 10 messages per 60 seconds per IP (adjust if needed)
+const rl = await rateLimit(db, {
+  action: "sendMessage",
+  key: ip,
+  limit: 10,
+  windowSec: 60,
+});
+
+if (!rl.allowed) {
+  return jsonResponse(429, {
+    ok: false,
+    error: "Too many messages. Please wait a moment and try again.",
+    resetAt: rl.resetAt,
+  });
+}
+
 
     let payload;
     try {

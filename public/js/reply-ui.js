@@ -38,8 +38,8 @@ export function wireReplyUI({ root, messageId, renderMessageDetail, sendReply })
       );
 
       // keep it feeling chatty
-      const t = root.querySelector("#thread");
-      if (t) t.scrollIntoView({ block: "end" });
+      const threadE1 = root.querySelector("#thread");
+      if (threadE1) threadE1.scrollIntoView({ block: "end" });
 
       // re-wire after rerender
       wireReplyUI({ root, messageId, renderMessageDetail, sendReply });

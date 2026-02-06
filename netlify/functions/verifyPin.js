@@ -1,6 +1,8 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
+const { ensureInboxCrypto, storeInboxKeyInSession } = require("./cryptageInbox");
+
 
 function jsonResponse(statusCode, body) {
   return {
@@ -112,6 +114,13 @@ exports.handler = async (event) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt,
     });
+
+    // After PIN is verified OK:
+const { inboxKey } = await ensureInboxCrypto(db, inboxId, pin);
+
+// Store inboxKey inside this session (encrypted with sessionToken-derived key)
+await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
+
 
     return jsonResponse(200, { ok: true, verified: true, pinRequired: true, sessionToken });
   } catch (err) {

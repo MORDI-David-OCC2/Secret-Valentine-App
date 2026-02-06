@@ -1,6 +1,8 @@
+// netlify/functions/getMessage.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
+const { open } = require("./wrap");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -32,8 +34,40 @@ function getClientIp(event) {
   return event.headers["client-ip"] || "unknown";
 }
 
+function sessionKey(sessionToken) {
+  return crypto.createHash("sha256").update(String(sessionToken || "")).digest(); // 32 bytes
+}
+
+function recoveryKey() {
+  const b64 = process.env.RECOVERY_KEY_B64;
+  if (!b64) throw new Error("Missing RECOVERY_KEY_B64 env var");
+  const k = Buffer.from(b64, "base64");
+  if (k.length !== 32) throw new Error("RECOVERY_KEY_B64 must be 32 bytes (base64)");
+  return k;
+}
+
+async function getInboxKeyFromSession(db, inboxId, sessionToken) {
+  if (!sessionToken) return null;
+  const sessionHash = sha256Hex(sessionToken);
+  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
+  const snap = await sessionRef.get();
+  if (!snap.exists) return null;
+  const s = snap.data() || {};
+  if (!s.inboxKeyEnc) return null;
+  const sk = sessionKey(sessionToken);
+  return open(sk, s.inboxKeyEnc);
+}
+
+async function getInboxKeyViaRecovery(db, inboxId) {
+  const inboxRef = db.collection("inboxes").doc(inboxId);
+  const snap = await inboxRef.get();
+  if (!snap.exists) throw new Error("Inbox not found");
+  const d = snap.data() || {};
+  if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
+  return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
+}
+
 // If your project uses sessions/{sha256(sessionToken)} => { inboxId, expiresAt }
-// this enforces PIN gating when pinHash exists.
 async function requireValidSessionIfPinned(db, inboxId, sessionToken) {
   const inboxSnap = await db.collection("inboxes").doc(inboxId).get();
   if (!inboxSnap.exists) {
@@ -84,6 +118,16 @@ function toMillisMaybe(ts) {
   return null;
 }
 
+function decryptBodyMaybe(inboxKeyBuf, doc) {
+  // Legacy plaintext
+  if (!doc.bodyEnc || !doc.dekWrapped) return String(doc.body || "");
+
+  // Encrypted:
+  const dek = open(inboxKeyBuf, doc.dekWrapped);
+  const pt = open(dek, doc.bodyEnc).toString("utf8");
+  return pt;
+}
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
@@ -101,7 +145,7 @@ exports.handler = async (event) => {
     initAdmin();
     const db = admin.firestore();
 
-    // Rate limit (anti scraping / brute)
+    // Rate limit (anti scraping)
     const ip = getClientIp(event);
     const { allowed } = await rateLimit(db, {
       action: "getMessage",
@@ -119,49 +163,43 @@ exports.handler = async (event) => {
     const messageId = String(payload.messageId || "").trim();
     const sessionToken = payload.sessionToken ? String(payload.sessionToken).trim() : null;
 
-    if (!inboxId.startsWith("inbox_")) {
-      return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
-    }
-    if (!messageId) {
-      return jsonResponse(400, { ok: false, error: "Missing messageId" });
-    }
+    if (!inboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
+    if (!messageId) return jsonResponse(400, { ok: false, error: "Missing messageId" });
 
     // Enforce unlock only if PIN exists
     await requireValidSessionIfPinned(db, inboxId, sessionToken);
 
-    // Fetch message
+    // Load inbox key (session first; fallback to recovery so unlocked inboxes still work even if you haven't updated verifyPin yet)
+    let inboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);
+    if (!inboxKey) inboxKey = await getInboxKeyViaRecovery(db, inboxId);
+
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
     const msgSnap = await msgRef.get();
-    if (!msgSnap.exists) {
-      return jsonResponse(404, { ok: false, error: "Message not found" });
-    }
+    if (!msgSnap.exists) return jsonResponse(404, { ok: false, error: "Message not found" });
+
     const m = msgSnap.data() || {};
-    if(m.unread === true) {
+
+    if (m.unread === true) {
       await msgRef.update({
         unread: false,
-        readAt: admin.firestore.FieldValue.serverTimestamp()
-      })
+        readAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
     }
 
+    const body = decryptBodyMaybe(inboxKey, m);
 
-    // Fetch replies (optional)
-    const repliesSnap = await msgRef
-      .collection("replies")
-      .orderBy("createdAt", "asc")
-      .limit(200)
-      .get();
-
+    const repliesSnap = await msgRef.collection("replies").orderBy("createdAt", "asc").limit(200).get();
     const replies = repliesSnap.docs.map((d) => {
       const r = d.data() || {};
+      const rb = decryptBodyMaybe(inboxKey, r);
       return {
         id: d.id,
-        body: r.body || "",
+        body: rb,
         from: r.from || "them",
         createdAt: toMillisMaybe(r.createdAt),
       };
     });
 
-    // Return message (DO NOT return replyToInboxId)
     return jsonResponse(200, {
       ok: true,
       message: {
@@ -169,7 +207,7 @@ exports.handler = async (event) => {
         fromName: m.fromName || "Someone",
         type: m.type || "love",
         stickerId: m.stickerId || "heart_01",
-        body: m.body || "",
+        body,
         unread: !!m.unread,
         replyEnabled: !!m.replyEnabled,
         createdAt: toMillisMaybe(m.createdAt),

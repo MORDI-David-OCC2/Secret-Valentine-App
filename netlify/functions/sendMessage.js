@@ -1,6 +1,11 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
+const { moderateText } = require("./moderateText");
+const { seal } = require("./wrap");
+const { getInboxKeyViaRecovery } = require("./cryptageInbox");
+const { randomKey32 } = require("./keys");
+
 
 
 function jsonResponse(statusCode, body) {
@@ -229,6 +234,22 @@ if (!rl.allowed) {
     const stickerId = String(payload.stickerId || "heart_01").trim();
     const body = String(payload.body || "").trim();
 
+    // --- ENCRYPT BODY ---
+const recipientInboxId = inboxId;
+
+// Get recipient inbox key using server recovery (sender doesn’t have recipient session)
+const inboxKey = await getInboxKeyViaRecovery(db, recipientInboxId);
+
+// Generate a per-message DEK
+const dek = randomKey32();
+
+// Encrypt message body with DEK
+const bodyEnc = seal(dek, Buffer.from(body, "utf8"));
+
+// Wrap DEK with inboxKey
+const dekWrapped = seal(inboxKey, dek);
+
+
     if (!toEmail || !toEmail.includes("@")) {
       return jsonResponse(400, { ok: false, error: "Invalid toEmail" });
     }
@@ -262,7 +283,9 @@ if (!rl.allowed) {
       fromName,
       type,
       stickerId,
-      body,
+      bodyEnc,
+      dekWrapped,
+      cryptoVersion: 1,
       unread: true,
       lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
       lastMessage: body.slice(0, 25),

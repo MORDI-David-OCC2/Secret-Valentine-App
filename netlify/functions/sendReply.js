@@ -3,6 +3,7 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { seal, open } = require("./wrap");
+const { sessionKey, recoveryKey } = require("./keys");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -95,7 +96,9 @@ async function requireValidSession(db, inboxId, sessionToken) {
   const sessionHash = sha256Hex(sessionToken);
   const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
   const snap = await sessionRef.get();
-
+  if (sessionSnap.exists && sessionSnap.data().inboxKeyEnc) {
+    inboxKey = open(sessionKey(sessionToken), sessionSnap.data().inboxKeyEnc);
+  }
   if (!snap.exists) {
     const err = new Error("Invalid session");
     err.code = 401;

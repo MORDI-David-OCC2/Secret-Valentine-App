@@ -1,6 +1,8 @@
+// netlify/functions/sendReply.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
+const { seal, open } = require("./wrap");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -40,13 +42,52 @@ function getClientIp(event) {
   return event.headers["client-ip"] || "unknown";
 }
 
+/** ---------- ENCRYPTION HELPERS ---------- **/
+
+function sessionKey(sessionToken) {
+  return crypto.createHash("sha256").update(String(sessionToken || "")).digest(); // 32 bytes
+}
+
+function recoveryKey() {
+  const b64 = process.env.RECOVERY_KEY_B64;
+  if (!b64) throw new Error("Missing RECOVERY_KEY_B64 env var");
+  const k = Buffer.from(b64, "base64");
+  if (k.length !== 32) throw new Error("RECOVERY_KEY_B64 must be 32 bytes (base64)");
+  return k;
+}
+
+async function getInboxKeyFromSession(db, inboxId, sessionToken) {
+  if (!sessionToken) return null;
+  const sessionHash = sha256Hex(sessionToken);
+  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
+  const snap = await sessionRef.get();
+  if (!snap.exists) return null;
+  const s = snap.data() || {};
+  if (!s.inboxKeyEnc) return null;
+
+  const sk = sessionKey(sessionToken);
+  return open(sk, s.inboxKeyEnc); // Buffer(32)
+}
+
+async function getInboxKeyViaRecovery(db, inboxId) {
+  const inboxRef = db.collection("inboxes").doc(inboxId);
+  const snap = await inboxRef.get();
+  if (!snap.exists) throw new Error("Inbox not found");
+  const d = snap.data() || {};
+  if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
+  return open(recoveryKey(), d.inboxKeyWrappedByRecovery); // Buffer(32)
+}
+
+function encryptTextForInbox(inboxKeyBuf, text) {
+  const dek = crypto.randomBytes(32);
+  const bodyEnc = seal(dek, Buffer.from(String(text), "utf8"));
+  const dekWrapped = seal(inboxKeyBuf, dek);
+  return { bodyEnc, dekWrapped, cryptoVersion: 1 };
+}
+
 /**
- * ✅ Session verification
- * Assumes you store sessions in:
- *   sessions/{sessionHash} => { inboxId, expiresAt }
- *
- * If your current project already returns sessionToken from verifyPin
- * and listInbox checks it, you very likely already have this.
+ * ✅ Session verification (your existing logic)
+ * Keeps legacy sessions working.
  */
 async function requireValidSession(db, inboxId, sessionToken) {
   if (!sessionToken) throw new Error("Missing sessionToken");
@@ -62,20 +103,17 @@ async function requireValidSession(db, inboxId, sessionToken) {
   }
 
   const s = snap.data() || {};
-  // accept both legacy (inboxId1) and current (inboxId) session docs.
   const sessionInboxId =
     (typeof s.inboxId === "string" && s.inboxId) ||
     (typeof s.inboxId1 === "string" && s.inboxId1) ||
     null;
 
-  // Only enforce mismatch if the field exists (keeps legacy sessions working).
   if (sessionInboxId && sessionInboxId !== inboxId) {
     const err = new Error(`Session does not match inbox: ${sessionInboxId} =/= ${inboxId}`);
     err.code = 401;
     throw err;
   }
 
-  // expiresAt should be a Firestore Timestamp
   if (s.expiresAt && typeof s.expiresAt.toMillis === "function") {
     if (s.expiresAt.toMillis() < Date.now()) {
       const err = new Error("Session expired");
@@ -169,7 +207,7 @@ exports.handler = async (event) => {
     initAdmin();
     const db = admin.firestore();
 
-    // Rate limit (protect from reply spam)
+    // Rate limit
     const ip = getClientIp(event);
     const { allowed } = await rateLimit(db, {
       action: "sendReply",
@@ -203,10 +241,10 @@ exports.handler = async (event) => {
       return jsonResponse(400, { ok: false, error: "Reply body must be 1..2000 chars" });
     }
 
-    // ✅ Require unlocked session (recipient must have unlocked inbox)
+    // Require unlocked session
     await requireValidSession(db, inboxId, sessionToken);
 
-    // 1) Load original message from recipient inbox
+    // Load original message from recipient inbox
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
     const msgSnap = await msgRef.get();
     if (!msgSnap.exists) {
@@ -218,12 +256,23 @@ exports.handler = async (event) => {
     const replyToInboxId = String(msg.replyToInboxId || "").trim();
     const replyToEmail = String(msg.replyToEmail || "").trim().toLowerCase();
 
-    // ✅ Replies only if sender opted in
     if (!replyEnabled || !replyToInboxId.startsWith("inbox_")) {
       return jsonResponse(403, { ok: false, error: "Replies are disabled for this message" });
     }
 
-    // 2) Append to the thread in BOTH inboxes (chat-style)
+    // ---------- Get inbox keys ----------
+    // For "me": try session inboxKeyEnc, else recovery.
+    let myInboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);
+    if (!myInboxKey) myInboxKey = await getInboxKeyViaRecovery(db, inboxId);
+
+    // For "them": recovery is fine (server-side)
+    const theirInboxKey = await getInboxKeyViaRecovery(db, replyToInboxId);
+
+    // ---------- Encrypt reply content for both sides ----------
+    const encForMe = encryptTextForInbox(myInboxKey, body);
+    const encForThem = encryptTextForInbox(theirInboxKey, body);
+
+    // Append to thread in BOTH inboxes (chat-style)
     const now = admin.firestore.FieldValue.serverTimestamp();
     const replyId = crypto.randomBytes(9).toString("hex");
 
@@ -234,16 +283,26 @@ exports.handler = async (event) => {
     const themReplyRef = themThreadRef.collection("replies").doc(replyId);
 
     const batch = db.batch();
-    // ensure thread docs exist / get updated
-    batch.set(meThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80) }, { merge: true });
-    batch.set(themThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80), unread: true }, { merge: true });
-    // write replies with perspective-friendly "from"
-    batch.set(meReplyRef, { createdAt: now, body, from: "you" });
-    batch.set(themReplyRef, { createdAt: now, body, from: "them" });
+
+    // Thread updates (NOTE: lastMessage is plaintext leakage. Keep for compatibility, but you can remove later once listInbox decrypts latest reply.)
+    batch.set(
+      meThreadRef,
+      { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80) },
+      { merge: true }
+    );
+    batch.set(
+      themThreadRef,
+      { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80), unread: true },
+      { merge: true }
+    );
+
+    // Replies (encrypted)
+    batch.set(meReplyRef, { createdAt: now, from: "you", ...encForMe });
+    batch.set(themReplyRef, { createdAt: now, from: "them", ...encForThem });
+
     await batch.commit();
 
-    // 3) Email notification on first reply if the OTHER inbox isn't activated
-    // (keeps email as notification layer, not the chat itself)
+    // Email notification on first reply if OTHER inbox isn't activated
     try {
       const otherInboxRef = db.collection("inboxes").doc(replyToInboxId);
       const otherSnap = await otherInboxRef.get();

@@ -29,7 +29,7 @@ export function renderCompose(root) {
         </div>
         <label style="display:flex;align-items:center;gap:10px;margin-top:4px">
         <input type="checkbox" id="replyAllowed2" />
-        <span class="p" style="margin:0">${t("replyAllowed")}</span>
+        <span class="p" style="margin:0">${t("allowReply")}</span>
         </label>
 
         <div id="fromEmail2" style="display:none">

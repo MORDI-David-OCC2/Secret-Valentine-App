@@ -12,7 +12,7 @@ const view = $("#view");
 const titleEl = $("#screenTitle");
 
 const ROUTES = {
-  inbox: { title: () => t("inbox"), render: renderInbox },
+  inbox: { title: () => t("Inbox"), render: renderInbox },
   compose: { title: () => t("compose"), render: renderCompose },
   settings: { title: () => t("settings"), render: renderSettings },
   message: { title: "Message", render: renderInbox }, // inbox.js handles message screen too

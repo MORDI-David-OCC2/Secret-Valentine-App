@@ -1,83 +1,65 @@
-// netlify/functions/cryptoInbox.js
-const admin = require("firebase-admin");
-const { seal, open } = require("./cryptoWrap");
-const { pbkdf2Key, recoveryKey, sessionKey, randomKey32, randomSaltB64 } = require("./cryptoKeys");
-const { sha256Hex } = require("./sha256"); // if you already have; otherwise remove this import
+// netlify/functions/cryptageInbox.js
+const crypto = require("crypto");
+const { seal, open } = require("./wrap");
+const { sessionKey, recoveryKey } = require("./keys");
 
-async function ensureInboxCrypto(db, inboxId, pin) {
+function sha256Hex(input) {
+  return crypto.createHash("sha256").update(String(input)).digest("hex");
+}
+
+/**
+ * Ensure the inbox has an encryption key wrapped by the recovery key.
+ * Creates it if missing. Safe to call multiple times.
+ */
+async function ensureInboxCrypto(db, inboxId) {
   const inboxRef = db.collection("inboxes").doc(inboxId);
-  const snap = await inboxRef.get();
-  if (!snap.exists) throw new Error("Inbox not found");
 
-  const data = snap.data() || {};
-  let kekSalt = data.kekSalt;
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(inboxRef);
+    if (!snap.exists) throw new Error("Inbox not found");
 
-  if (!kekSalt) {
-    kekSalt = randomSaltB64();
-    await inboxRef.set({ kekSalt, cryptoVersion: 1 }, { merge: true });
-  }
+    const d = snap.data() || {};
+    if (d.inboxKeyWrappedByRecovery) return;
 
-  // If inboxKey is missing, create it and wrap it
-  if (!data.inboxKeyWrappedByPin || !data.inboxKeyWrappedByRecovery) {
-    const inboxKey = randomKey32(); // raw 32 bytes
-    const kekPin = pbkdf2Key(pin, kekSalt);
-    const wrapPin = seal(kekPin, inboxKey);
-    const wrapRecovery = seal(recoveryKey(), inboxKey);
+    const inboxKey = crypto.randomBytes(32);
+    const wrapped = seal(recoveryKey(), inboxKey);
 
-    await inboxRef.set(
+    tx.set(
+      inboxRef,
       {
-        inboxKeyWrappedByPin: wrapPin,
-        inboxKeyWrappedByRecovery: wrapRecovery,
+        inboxKeyWrappedByRecovery: wrapped,
         cryptoVersion: 1,
       },
       { merge: true }
     );
-
-    return { inboxKey, kekSalt };
-  }
-
-  // Otherwise unwrap using PIN KEK
-  const kekPin = pbkdf2Key(pin, kekSalt);
-  const inboxKey = open(kekPin, data.inboxKeyWrappedByPin);
-  return { inboxKey, kekSalt };
+  });
 }
 
+/**
+ * Store the (already decrypted) inboxKey inside the session document,
+ * encrypted with a key derived from the sessionToken.
+ */
 async function storeInboxKeyInSession(db, inboxId, sessionToken, inboxKeyBuf) {
-  // Your session docs are in: inboxes/{inboxId}/sessions/{sha256(sessionToken)}
-  // If you already have sha256Hex helper use it; else implement it same as elsewhere.
+  if (!sessionToken) throw new Error("Missing sessionToken");
+  if (!inboxKeyBuf || !Buffer.isBuffer(inboxKeyBuf)) throw new Error("Missing inboxKey");
+
   const sessionHash = sha256Hex(sessionToken);
   const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
 
   const sk = sessionKey(sessionToken);
   const inboxKeyEnc = seal(sk, inboxKeyBuf);
 
-  await sessionRef.set(
-    {
-      inboxId,
-      inboxKeyEnc,
-      // keep your existing expiresAt / createdAt fields
-    },
-    { merge: true }
-  );
+  await sessionRef.set({ inboxKeyEnc }, { merge: true });
 }
 
-async function getInboxKeyFromSession(db, inboxId, sessionToken) {
-  const sessionHash = sha256Hex(sessionToken);
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await sessionRef.get();
-  if (!snap.exists) return null;
-
-  const s = snap.data() || {};
-  if (!s.inboxKeyEnc) return null;
-
-  const sk = sessionKey(sessionToken);
-  return open(sk, s.inboxKeyEnc); // returns Buffer
-}
-
+/**
+ * Convenience: read inboxKey via recovery key.
+ */
 async function getInboxKeyViaRecovery(db, inboxId) {
   const inboxRef = db.collection("inboxes").doc(inboxId);
   const snap = await inboxRef.get();
   if (!snap.exists) throw new Error("Inbox not found");
+
   const d = snap.data() || {};
   if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
   return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
@@ -86,6 +68,5 @@ async function getInboxKeyViaRecovery(db, inboxId) {
 module.exports = {
   ensureInboxCrypto,
   storeInboxKeyInSession,
-  getInboxKeyFromSession,
   getInboxKeyViaRecovery,
 };

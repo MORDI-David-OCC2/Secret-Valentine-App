@@ -38,7 +38,7 @@ export function navigate() {
   setActiveTab(route);
 
   // Title can be overwritten in message view
-  titleEl.textContent = ROUTES[route].title;
+  titleEl.textContent = ROUTES[route].title();
 
   view.innerHTML = "";
   ROUTES[route].render(view, { route, getQueryParam });

@@ -1,7 +1,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { moderateText } = require("./moderateText");
+const { moderateText } = require("./moderation");
 const { seal } = require("./wrap");
 const { ensureInboxCrypto, getInboxKeyViaRecovery } = require("./cryptageInbox");
 

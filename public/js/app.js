@@ -1,7 +1,7 @@
 // public/js/app.js
 import { getTokenFromUrl, clearTokenFromUrl, getQueryParam } from "./crypto.js";
 import { openEmailLink } from "./auth.js";
-import { renderHome } from "./home.js";
+import { renderHome } from "./accueil.js";
 import { renderInbox } from "./inbox.js";
 import { renderCompose } from "./compose.js";
 import { renderSettings } from "./settings.js";

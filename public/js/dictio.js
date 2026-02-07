@@ -1,5 +1,6 @@
 export const dictionaries = {
     en: {
+        Home: "Home",
         lockedInbox: "Inbox locked",
         unlock: "Unlock",
         sendReply: "Send Reply",
@@ -61,6 +62,7 @@ export const dictionaries = {
         confirmRemovePin: "Remove the PIN for the inbox ?",
     },
     fr: {
+        Home: "Accueil",
         lockedInbox: "Boîte verrouillée",
         unlock: "Déverrouiller",
         sendReply: "Envoyer une réponse",

@@ -20,7 +20,7 @@ const ROUTES = {
 };
 
 function getRoute() {
-  const raw = (location.hash || "#/home").replace("#/", "");
+  const raw = (location.hash || "#/accueil").replace("#/", "");
   const route = raw.split("?")[0];
   return ROUTES[route] ? route : "inbox";
 }
@@ -45,14 +45,14 @@ export function navigate() {
   ROUTES[route].render(view, { route, getQueryParam });
 
   const tabbar = document.querySelector(".tabbar");
-  if (tabbar) tabbar.style.display = route === "home" ? "none" : "";
+  if (tabbar) tabbar.style.display = route === "accueil" ? "none" : "";
 
 }
 
 window.addEventListener("hashchange", navigate);
 
 window.addEventListener("DOMContentLoaded", async () => {
-  if (!location.hash) location.hash = "#/home";
+  if (!location.hash) location.hash = "#/accueil";
 
   // Handle email link token once: #/inbox?t=TOKEN
   const token = getTokenFromUrl();

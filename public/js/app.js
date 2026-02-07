@@ -12,7 +12,7 @@ const view = $("#view");
 const titleEl = $("#screenTitle");
 
 const ROUTES = {
-  inbox: { title: () => t("Home") ?? "Home", render: renderHome },
+  accueil: { title: () => t("Home") ?? "Home", render: renderHome },
   inbox: { title: () => t("Inbox"), render: renderInbox },
   compose: { title: () => t("compose"), render: renderCompose },
   settings: { title: () => t("settings"), render: renderSettings },

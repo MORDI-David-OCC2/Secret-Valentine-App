@@ -312,11 +312,11 @@ exports.handler = async (event) => {
     const baseUrl = buildBaseUrl(event);
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
-    await sendWithResend({
+    sendWithResend({
       to: toEmail,
       subject: subjectForType(type),
       html: emailHtml({ fromName, type, link }),
-    });
+    }).catch((e) => console.error("Message not sent:", e));
 
     return jsonResponse(200, { ok: true, inboxId, messageId: msgRef.id, emailed: true });
   } catch (err) {

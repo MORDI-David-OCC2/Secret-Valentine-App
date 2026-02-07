@@ -281,7 +281,7 @@ exports.handler = async (event) => {
 
           const baseUrl = buildBaseUrl(event);
           const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
-          await sendWithResend({ to: replyToEmail, subject: "💬 You got a reply", html: replyEmailHtml({ link, preview: body }) });
+          sendWithResend({ to: replyToEmail, subject: "💬 You got a reply", html: replyEmailHtml({ link, preview: body }) });
         }
       }
     } catch (notifyErr) {

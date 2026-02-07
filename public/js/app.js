@@ -1,7 +1,7 @@
 // public/js/app.js
 import { getTokenFromUrl, clearTokenFromUrl, getQueryParam } from "./crypto.js";
 import { openEmailLink } from "./auth.js";
-
+import { renderHome } from "./home.js";
 import { renderInbox } from "./inbox.js";
 import { renderCompose } from "./compose.js";
 import { renderSettings } from "./settings.js";
@@ -12,6 +12,7 @@ const view = $("#view");
 const titleEl = $("#screenTitle");
 
 const ROUTES = {
+  inbox: { title: () => t("Home") ?? "Home", render: renderHome },
   inbox: { title: () => t("Inbox"), render: renderInbox },
   compose: { title: () => t("compose"), render: renderCompose },
   settings: { title: () => t("settings"), render: renderSettings },
@@ -19,7 +20,7 @@ const ROUTES = {
 };
 
 function getRoute() {
-  const raw = (location.hash || "#/inbox").replace("#/", "");
+  const raw = (location.hash || "#/home").replace("#/", "");
   const route = raw.split("?")[0];
   return ROUTES[route] ? route : "inbox";
 }
@@ -42,12 +43,16 @@ export function navigate() {
 
   view.innerHTML = "";
   ROUTES[route].render(view, { route, getQueryParam });
+
+  const tabbar = document.querySelector(".tabbar");
+  if (tabbar) tabbar.style.display = route === "home" ? "none" : "";
+
 }
 
 window.addEventListener("hashchange", navigate);
 
 window.addEventListener("DOMContentLoaded", async () => {
-  if (!location.hash) location.hash = "#/inbox";
+  if (!location.hash) location.hash = "#/home";
 
   // Handle email link token once: #/inbox?t=TOKEN
   const token = getTokenFromUrl();
@@ -73,4 +78,4 @@ window.addEventListener("lang.change", () => {
   navigate();
 })
 
-window.dispatchEvent(new Event("app:refresh"));
+window.dispatchEvent(new Event("app.refresh"));

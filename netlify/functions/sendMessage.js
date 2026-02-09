@@ -232,8 +232,8 @@ exports.handler = async (event) => {
       mod = await moderateText(body);
       if (mod?.status === "block") return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
     
-    modstatus: mod?.status ?? "allow";
-    modReason: mod?.reason ?? "null";
+    modstatus = mod?.status ?? "allow";
+    modReason = mod?.reason ?? "null";
     
     const quarantined = modstatus === "quarantine";
     if (!quarantined)

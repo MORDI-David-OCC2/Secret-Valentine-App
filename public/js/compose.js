@@ -190,7 +190,7 @@ export function renderCompose(root) {
 
       await sendMessage({
         toEmail,
-        fromName: fromNameVal || "Anonymous",
+        fromName: fromNameVal || "An admirer",
         type,
         stickerId,
         body,

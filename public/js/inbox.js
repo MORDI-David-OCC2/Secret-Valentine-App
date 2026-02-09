@@ -93,15 +93,7 @@ function renderMessageCard(m) {
   return `
     <a href="#/message?id=${encodeURIComponent(m.id)}"
        style="text-decoration:none;display:block;color:inherit">
-      <div style="
-        background:${bg};
-        border-radius:18px;
-        padding:18px 16px;
-        margin:14px 0;
-        position:relative;
-        box-shadow:0 14px 32px rgba(0,0,0,0.18);
-        overflow:hidden;
-      ">
+       <div class="msgcard" data-type="${escapeHtml(type)}">
         <div style="position:absolute;inset:0;opacity:.15;background:
           linear-gradient(135deg, rgba(255,255,255,0.25), rgba(0,0,0,0));
         "></div>
@@ -252,6 +244,10 @@ export function renderInbox(root, ctx = {}) {
     (async () => {
       try {
         const data = await getMessageById(id);
+        document.body.dataset.theme =
+        (data.message?.type === "love") ? "amour" :
+        (data.message?.type === "friendship") ? "amitie" :
+        (data.message?.type === "family") ? "famille" :"crush";
         root.innerHTML = renderMessageDetailView(data.message, data.replies || []);
         if (data.message && data.message.replyEnabled) {
           wireReplyUI({ root, messageId: id, renderMessageDetail: renderMessageDetailView, sendReply });

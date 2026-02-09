@@ -5,8 +5,8 @@ import { getLang, setLang, t } from "./dictio.js";
 
 function pageWrap(inner) {
   return `
-    <div style="min-height:100vh;background:linear-gradient(#f7c7d7,#f4b9cf);padding:20px 16px 26px 16px;box-sizing:border-box">
-      <div style="max-width:520px;margin:0 auto">
+    <div class="page">
+      <div class="page__inner">
         ${inner}
       </div>
     </div>
@@ -14,13 +14,14 @@ function pageWrap(inner) {
 }
 
 export function renderSettings(root) {
+  document.body.dataset.theme = "amour";
   const inboxId = getInboxId();
   const lang = getLang();
 
   root.innerHTML = pageWrap(`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <a href="#/accueil" style="text-decoration:none;color:#111;opacity:.8;font-size:26px">←</a>
-      <div style="font-family:'Brush Script MT','Segoe Script','Comic Sans MS',cursive;font-size:44px;opacity:.95">
+      <div class="scriptTitle" style="font-size:44px">
         ${escapeHtml(t("settings") || "Settings")}
       </div>
     </div>
@@ -28,7 +29,7 @@ export function renderSettings(root) {
     <div style="height:1px;background:rgba(0,0,0,0.35)"></div>
     <div style="height:16px"></div>
 
-    <div style="background:rgba(255,255,255,0.40);border-radius:18px;padding:18px 16px;box-shadow:0 14px 34px rgba(0,0,0,0.12)">
+    <div class="glass">
       <div class="p" style="margin:0 0 10px 0;opacity:.85">
         ${escapeHtml(t("pinHelp") || "PIN lock protects your inbox.")}
       </div>

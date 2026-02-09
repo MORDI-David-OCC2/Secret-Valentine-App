@@ -14,6 +14,7 @@ function langOptions() {
 }
 
 export function renderHome(root) {
+  document.body.dataset.theme = "amour";
   const inboxId = getInboxId();
   const connected = !!inboxId;
   const locked = connected && isPinRequired();

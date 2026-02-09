@@ -59,7 +59,7 @@ export function renderCompose(root) {
 
     <div style="height:16px"></div>
 
-    <div style="background:rgba(255,255,255,0.40);border-radius:18px;padding:18px 16px;box-shadow:0 14px 34px rgba(0,0,0,0.12)">
+    <div class="glass">
       <div style="color:#7a1230;font-weight:800;margin-bottom:6px">To:</div>
       <div style="opacity:.75;margin-bottom:10px">${escapeHtml(t("recipientEmail") || "Recipient email")}</div>
       <input class="input" id="toEmail" type="email" placeholder="olivia@example.com" autocomplete="email"
@@ -114,8 +114,7 @@ export function renderCompose(root) {
 
       <div style="height:16px"></div>
 
-      <button class="btn" type="button" id="sendBtn"
-        style="width:100%;background:#8d1e3b;border-radius:16px;font-size:20px;padding:14px 12px">
+      <button class="btn" type="button" id="sendBtn" style="width:100%;border-radius:16px;font-size:20px;padding:14px 12px">
         ${escapeHtml(t("sendLetter") || "Send Letter")}
       </button>
 
@@ -158,6 +157,11 @@ export function renderCompose(root) {
   const tiles = Array.from(root.querySelectorAll(".typeTile"));
   function setSelectedType(type) {
     msgType.value = type;
+    document.body.dataset.theme =
+    type === "love" ? "amour"
+    : type === "friendship" ? "amitie"
+    : type === "family" ? "famille"
+    : "crush";
     tiles.forEach(btn => {
       const on = btn.dataset.type === type;
       btn.style.borderColor = on ? "rgba(0,0,0,0.45)" : "rgba(0,0,0,0.10)";

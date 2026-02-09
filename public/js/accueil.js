@@ -56,7 +56,7 @@ export function renderHome(root) {
           <button id="goInbox" class="btn" type="button"
             style="border:none;border-radius:18px;padding:26px 18px;background:rgba(255,255,255,0.25);backdrop-filter:blur(6px);
                    box-shadow:0 10px 26px rgba(0,0,0,0.12);color:#111">
-            <div style="font-size:46px;line-height:1">🖤</div>
+            <div style="font-size:46px;line-height:1">❤️</div>
             <div style="height:10px"></div>
             <div style="font-size:18px;opacity:.85">${escapeHtml(t("homeCheckLetters"))}</div>
             ${connected ? `<div style="margin-top:6px;font-size:12px;opacity:.7">

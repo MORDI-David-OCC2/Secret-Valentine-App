@@ -121,7 +121,7 @@ exports.handler = async (event) => {
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
     // Later: send email with link here.
-    await sendWithResend({ to: email, subject: "...", html: claimEmailHtml({ link }) });
+    await sendWithResend({ to: email, subject: "Open your inbox", html: claimEmailHtml({ link }) });
     return jsonResponse(200, { ok: true, inboxId, emailed: true });
   } catch (err) {
     console.error(err);

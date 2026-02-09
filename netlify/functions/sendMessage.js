@@ -228,21 +228,20 @@ exports.handler = async (event) => {
       return jsonResponse(400, { ok: false, error: "fromEmail required when replyAllowed is true" });
     }
 
+    // Moderation (compute early, but don't email yet)
+    let mod = null;
+    let quarantined = false;
+
     if (typeof moderateText === "function") {
       mod = await moderateText(body);
-      if (mod?.status === "block") return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
-    
-    modstatus = mod?.status ?? "allow";
-    modReason = mod?.reason ?? "null";
-    
-    const quarantined = modstatus === "quarantine";
-    if (!quarantined)
-    sendWithResend({
-      to: toEmail,
-      subject: subjectForType(type),
-      html: emailHtml({ fromName, type, link }),})
-    return jsonResponse(200, {ok: true, emailed: !quarantined, quarantined})
-    }
+
+    if (mod?.status === "block") {
+    return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
+  }
+
+  quarantined = (mod?.status === "quarantine");
+}
+
 
     // 1) recipient inbox
     const inboxId = await getOrCreateInboxIdForEmail(db, toEmail);
@@ -321,13 +320,26 @@ exports.handler = async (event) => {
     const baseUrl = buildBaseUrl(event);
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
-    sendWithResend({
-      to: toEmail,
-      subject: subjectForType(type),
-      html: emailHtml({ fromName, type, link }),
-    }).catch((e) => console.error("Message not sent:", e));
+    let emailed = false;
 
-    return jsonResponse(200, { ok: true, inboxId, messageId: msgRef.id, emailed: true });
+if (!quarantined) {
+  await sendWithResend({
+    to: toEmail,
+    subject: subjectForType(type),
+    html: emailHtml({ fromName, type, link }),
+  });
+  emailed = true;
+}
+
+return jsonResponse(200, {
+  ok: true,
+  inboxId,
+  messageId: msgRef.id,
+  emailed,
+  quarantined,
+  moderationStatus: mod?.status ?? "allow",
+});
+
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

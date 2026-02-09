@@ -114,14 +114,15 @@ exports.handler = async (event) => {
       inboxId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt,
-      purpose: "claim",
+      purpose: "open",
     });
 
     const baseUrl = buildBaseUrl(event);
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
     // Later: send email with link here.
-    return jsonResponse(200, { ok: true, inboxId, link });
+    await sendWithResend({ to: email, subject: "...", html: claimEmailHtml({ link }) });
+    return jsonResponse(200, { ok: true, inboxId, emailed: true });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

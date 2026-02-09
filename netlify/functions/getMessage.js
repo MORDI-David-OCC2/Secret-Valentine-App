@@ -68,49 +68,15 @@ async function getInboxKeyViaRecovery(db, inboxId) {
 }
 
 // If your project uses sessions/{sha256(sessionToken)} => { inboxId, expiresAt }
-async function requireValidSessionIfPinned(db, inboxId, sessionToken) {
-  const inboxSnap = await db.collection("inboxes").doc(inboxId).get();
-  if (!inboxSnap.exists) {
-    const err = new Error("Inbox not found");
-    err.code = 404;
-    throw err;
+async function requireValidSession(db, inboxId, sessionToken) {
+    if (!sessionToken) return false;
+    const sessionSnap = await db.collection("inboxes").doc(inboxId)
+      .collection("sessions").doc(sha256Hex(sessionToken)).get();
+    if (!sessionSnap.exists) return false;
+    const s = sessionSnap.data() || {};
+    if (s.expiresAt?.toMillis && s.expiresAt.toMillis() < Date.now()) return false;
+    return true;
   }
-
-  const inbox = inboxSnap.data() || {};
-  const pinIsSet = !!inbox.pinHash;
-
-  // If no PIN set, no session required
-  if (!pinIsSet) return;
-
-  if (!sessionToken) {
-    const err = new Error("PIN required");
-    err.code = 401;
-    throw err;
-  }
-
-  const sessionHash = sha256Hex(sessionToken);
-  const sessionSnap = await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).get();
-  if (!sessionSnap.exists) {
-    const err = new Error("Invalid session");
-    err.code = 401;
-    throw err;
-  }
-
-  const s = sessionSnap.data() || {};
-  if (s.inboxId && s.inboxId !== inboxId) {
-    const err = new Error("Session mismatch");
-    err.code = 401;
-    throw err;
-  }
-
-  if (s.expiresAt && typeof s.expiresAt.toMillis === "function") {
-    if (s.expiresAt.toMillis() < Date.now()) {
-      const err = new Error("Session expired");
-      err.code = 401;
-      throw err;
-    }
-  }
-}
 
 function toMillisMaybe(ts) {
   if (!ts) return null;
@@ -167,7 +133,10 @@ exports.handler = async (event) => {
     if (!messageId) return jsonResponse(400, { ok: false, error: "Missing messageId" });
 
     // Enforce unlock only if PIN exists
-    await requireValidSessionIfPinned(db, inboxId, sessionToken);
+    const inboxSnap = await db.collection("inboxes").doc(inboxId).get();
+    const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
+    const okSession = await requireValidSession(db, inboxId, sessionToken);
+    if (!okSession) return jsonResponse(401, { ok:false, error:"Locked. Verify PIN to unlock.", pinRequired });
 
     // Load inbox key (session first; fallback to recovery so unlocked inboxes still work even if you haven't updated verifyPin yet)
     let inboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);

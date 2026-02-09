@@ -31,6 +31,14 @@ function pbkdf2Hash(pin, saltHex, iterations = 120000) {
   return dk.toString("hex");
 }
 
+async function revokeAllSessions(db, inboxId) {
+  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions");
+  const snap = await sessionRef.get();
+  const batch = db.batch();
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+}
+
 async function requireValidSession(db, inboxId, sessionToken) {
   if (!sessionToken) return false;
   const sessionHash = sha256Hex(sessionToken);
@@ -87,6 +95,7 @@ exports.handler = async (event) => {
         pinIter: null,
         pinSetAt: null,
       }, { merge: true });
+      await revokeAllSessions(db, inboxId);
 
       return jsonResponse(200, { ok: true, removed: true });
     }
@@ -105,6 +114,8 @@ exports.handler = async (event) => {
       pinIter: iterations,
       pinSetAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
+
+    await revokeAllSessions(db, inboxId);
 
     return jsonResponse(200, { ok: true, updated: true });
   } catch (err) {

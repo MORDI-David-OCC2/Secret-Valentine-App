@@ -239,8 +239,8 @@ exports.handler = async (event) => {
 
     const batch = db.batch();
 
-    batch.set(meThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80) }, { merge: true });
-    batch.set(themThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, lastMessage: body.slice(0, 80), unread: true }, { merge: true });
+    batch.set(meThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now }, { merge: true });
+    batch.set(themThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, unread: true }, { merge: true });
 
     batch.set(meReplyRef, { createdAt: now, from: "you", ...encForMe });
     batch.set(themReplyRef, { createdAt: now, from: "them", ...encForThem });
@@ -282,7 +282,9 @@ exports.handler = async (event) => {
 
           const baseUrl = buildBaseUrl(event);
           const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
-          sendWithResend({ to: replyToEmail, subject: "💬 You got a reply", html: replyEmailHtml({ link, preview: body }) });
+          const quarantined = mod?.status === "quarantine";
+          if (shouldSend && !quarantined) 
+          {sendWithResend({ to: replyToEmail, subject: "💬 You got a reply", html: replyEmailHtml({ link, preview: body }) })};
         }
       }
     } catch (notifyErr) {

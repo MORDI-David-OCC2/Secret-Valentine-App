@@ -1,31 +1,33 @@
 // public/js/app.js
 import { getTokenFromUrl, clearTokenFromUrl, getQueryParam } from "./crypto.js";
 import { openEmailLink } from "./auth.js";
-import { renderHome } from "./accueil.js";
+
 import { renderInbox } from "./inbox.js";
 import { renderCompose } from "./compose.js";
 import { renderSettings } from "./settings.js";
-import { dictionaries, setLang, getLang, t } from "./dictio.js";
+import { renderHome } from "./accueil.js";
+import { t } from "./dictio.js";
 
 function $(sel) { return document.querySelector(sel); }
 const view = $("#view");
 const titleEl = $("#screenTitle");
 
 const ROUTES = {
-  accueil: { title: () => t("Home") ?? "Home", render: renderHome },
-  inbox: { title: () => t("Inbox"), render: renderInbox },
-  compose: { title: () => t("compose"), render: renderCompose },
-  settings: { title: () => t("settings"), render: renderSettings },
-  message: { title: () => t("message") ?? "Message", render: renderInbox }, // inbox.js handles message screen too
+  accueil: { title: () => "", render: renderHome },
+  inbox:   { title: () => "", render: renderInbox },
+  compose: { title: () => "", render: renderCompose },
+  settings:{ title: () => "", render: renderSettings },
+  message: { title: () => "", render: renderInbox }, // inbox.js handles message screen too
 };
 
 function getRoute() {
   const raw = (location.hash || "#/accueil").replace("#/", "");
   const route = raw.split("?")[0];
-  return ROUTES[route] ? route : "inbox";
+  return ROUTES[route] ? route : "accueil";
 }
 
 function setActiveTab(route) {
+  // Tabbar is optional; keep compatibility with existing markup.
   document.querySelectorAll(".tabbar__item").forEach((a) => {
     const isActive = a.dataset.route === route;
     a.classList.toggle("active", isActive);
@@ -34,19 +36,24 @@ function setActiveTab(route) {
   });
 }
 
+function setChromeVisible(visible) {
+  const tabbar = document.querySelector(".tabbar");
+  const header = document.querySelector("header");
+  if (tabbar) tabbar.style.display = visible ? "" : "none";
+  if (header) header.style.display = visible ? "" : "none";
+}
+
 export function navigate() {
   const route = getRoute();
   setActiveTab(route);
 
-  // Title can be overwritten in message view
-  titleEl.textContent = ROUTES[route].title();
+  // This UI design uses in-page titles (mockup style), so hide chrome.
+  setChromeVisible(false);
+
+  if (titleEl) titleEl.textContent = ROUTES[route].title();
 
   view.innerHTML = "";
   ROUTES[route].render(view, { route, getQueryParam });
-
-  const tabbar = document.querySelector(".tabbar");
-  if (tabbar) tabbar.style.display = route === "accueil" ? "none" : "";
-
 }
 
 window.addEventListener("hashchange", navigate);
@@ -54,7 +61,7 @@ window.addEventListener("hashchange", navigate);
 window.addEventListener("DOMContentLoaded", async () => {
   if (!location.hash) location.hash = "#/accueil";
 
-  // Handle email link token once: #/inbox?t=TOKEN
+  // Handle email link token once: #/inbox?t=TOKEN (or any route with ?t=)
   const token = getTokenFromUrl();
   if (token) {
     try {
@@ -63,7 +70,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       location.hash = "#/inbox";
     } catch (e) {
       console.error(e);
-      alert("This link is invalid, expired, or already used.");
+      alert(t("invalidLink") || "This link is invalid, expired, or already used.");
       clearTokenFromUrl();
     }
   }
@@ -76,6 +83,4 @@ window.addEventListener("app.refresh", () => {
 });
 window.addEventListener("lang.change", () => {
   navigate();
-})
-
-window.dispatchEvent(new Event("app.refresh"));
+});

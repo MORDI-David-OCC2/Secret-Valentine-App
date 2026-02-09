@@ -1,89 +1,112 @@
-// public/js/home.js
-import { getInboxId, isPinRequired, getSessionToken } from "./auth.js";
-import { t, getLang, setLang } from "./dictio.js";
+// public/js/accueil.js
+import { getInboxId, isPinRequired, clearLocalSession } from "./auth.js";
+import { getLang, setLang, t, dictionaries } from "./dictio.js";
 import { escapeHtml } from "./crypto.js";
+
+function langOptions() {
+  const lang = getLang();
+  return `
+    <select id="langSelect" class="input" style="max-width:140px">
+      <option value="en" ${lang === "en" ? "selected" : ""}>English 🇺🇸</option>
+      <option value="fr" ${lang === "fr" ? "selected" : ""}>Français 🇫🇷</option>
+    </select>
+  `;
+}
 
 export function renderHome(root) {
   const inboxId = getInboxId();
-  const locked = inboxId && isPinRequired() && !getSessionToken();
+  const connected = !!inboxId;
+  const locked = connected && isPinRequired();
 
   root.innerHTML = `
-    <section class="card">
-      <h1 class="h1">💌 Secret Valentines</h1>
-      <p class="p">${t("homeSubtitle") || "Choose what you want to do."}</p>
+    <div style="min-height:100vh;background:linear-gradient(#f7c7d7,#f4b9cf);padding:22px 16px 26px 16px;box-sizing:border-box">
+      <div style="max-width:520px;margin:0 auto;position:relative">
 
-      <div style="height:12px"></div>
+        <!-- top right settings -->
+        <a href="#/settings" aria-label="Settings"
+           style="position:absolute;right:0;top:0;text-decoration:none;font-size:22px;opacity:.8">⚙️</a>
 
-      <div class="row" style="align-items:center; gap:10px;">
-        <label class="p" style="min-width:90px;"><strong>${t("language") || "Language"}:</strong></label>
-        <select class="input" id="langSel" style="max-width:220px;">
-          <option value="fr"${getLang() === "fr" ? " selected" : ""}>Français 🇫🇷</option>
-          <option value="en"${getLang() === "en" ? " selected" : ""}>English 🇺🇸</option>
-        </select>
-      </div>
-
-      <div style="height:14px"></div>
-
-      <div class="card" style="background:rgba(255,255,255,0.65)">
-        <div class="p"><strong>${t("status") || "Status"}:</strong>
-          ${
-            inboxId
-              ? `${t("connected") || "Connected"} — <span style="opacity:.8">${escapeHtml(inboxId.slice(0, 12))}…</span> ${
-                  locked ? `<span class="badge" style="margin-left:8px;">${t("locked") || "Locked"}</span>` : ""
-                }`
-              : (t("notConntected") || "Not connected")
-          }
+        <!-- title -->
+        <div style="text-align:center;padding-top:12px">
+          <div style="font-size:18px;opacity:.55">♡</div>
+          <div style="font-family:'Brush Script MT','Segoe Script','Comic Sans MS',cursive;font-size:54px;font-weight:500;letter-spacing:.5px;color:#111">
+            Secret Valentine
+          </div>
+          <div style="font-size:18px;opacity:.55;margin-top:-6px">♡</div>
         </div>
-        <div class="p" style="opacity:.75; margin-top:6px;">
-          ${
-            inboxId
-              ? (locked ? (t("homeInboxLockedHint") || "Your inbox is locked. Open Inbox then enter your PIN.") : (t("homeInboxHint") || "You can open your inbox now."))
-              : (t("homeNoInboxHint") || "To open an inbox, use the link you received by email.")
-          }
+
+        <div style="height:14px"></div>
+        <div style="height:1px;background:rgba(0,0,0,0.35)"></div>
+
+        <div style="height:22px"></div>
+
+        <!-- welcome text -->
+        <div style="text-align:center;color:#111">
+          <div style="font-size:34px;opacity:.85;line-height:1.05">“${escapeHtml(t("homeWelcomeTitle"))}”</div>
+          <div style="height:14px"></div>
+          <div style="font-size:22px;line-height:1.45;opacity:.9">
+            ${escapeHtml(t("homeWelcomeBody"))}
+          </div>
+        </div>
+
+        <div style="height:26px"></div>
+
+        <!-- action cards -->
+        <div style="display:grid;gap:16px">
+          <button id="goInbox" class="btn" type="button"
+            style="border:none;border-radius:18px;padding:26px 18px;background:rgba(255,255,255,0.25);backdrop-filter:blur(6px);
+                   box-shadow:0 10px 26px rgba(0,0,0,0.12);color:#111">
+            <div style="font-size:46px;line-height:1">🖤</div>
+            <div style="height:10px"></div>
+            <div style="font-size:18px;opacity:.85">${escapeHtml(t("homeCheckLetters"))}</div>
+            ${connected ? `<div style="margin-top:6px;font-size:12px;opacity:.7">
+              ${escapeHtml(t(locked ? "lockedInbox" : "UnlockedInbox"))}: ${escapeHtml(String(inboxId).slice(0,10))}
+            </div>` : ``}
+          </button>
+
+          <button id="goCompose" class="btn" type="button"
+            style="border:none;border-radius:18px;padding:26px 18px;background:rgba(255,255,255,0.18);backdrop-filter:blur(6px);
+                   box-shadow:0 10px 26px rgba(0,0,0,0.12);color:#111">
+            <div style="font-size:44px;line-height:1">✍️</div>
+            <div style="height:10px"></div>
+            <div style="font-size:18px;opacity:.85">${escapeHtml(t("homeWriteMessage"))}</div>
+          </button>
+        </div>
+
+        <div style="height:20px"></div>
+
+        <!-- bottom row: language + logout -->
+        <div style="display:flex;gap:10px;align-items:center;justify-content:space-between">
+          ${langOptions()}
+          ${connected ? `<button id="logoutBtn" class="btn btn--ghost" type="button" style="padding:10px 12px">${escapeHtml(t("logout"))}</button>` : `<span></span>`}
+        </div>
+
+        <div style="height:22px"></div>
+
+        <div style="text-align:center;opacity:.45;font-family:'Brush Script MT','Segoe Script','Comic Sans MS',cursive;font-size:22px">
+          made by D&F with ♥
         </div>
       </div>
-
-      <div style="height:14px"></div>
-
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <button class="btn" id="goInbox">📥 ${t("Inbox") || "Inbox"}</button>
-        <button class="btn btn--ghost" id="goCompose">✍️ ${t("compose") || "Compose"}</button>
-        <button class="btn btn--ghost" id="goSettings">⚙️ ${t("settings") || "Settings"}</button>
-      </div>
-
-      <p class="p" id="homeStatus" style="display:none; margin-top:12px;"></p>
-    </section>
+    </div>
   `;
 
-  const status = root.querySelector("#homeStatus");
-  const setStatus = (msg, ok = true) => {
-    status.style.display = "block";
-    status.textContent = msg;
-    status.style.color = ok ? "" : "#b00020";
-  };
-
-  // language switch
-  root.querySelector("#langSel").addEventListener("change", (e) => {
-    setLang(e.target.value);
-    window.dispatchEvent(new Event("lang.change"));
-  });
-
-  // Inbox button behavior
   root.querySelector("#goInbox").addEventListener("click", () => {
-    if (!getInboxId()) {
-      setStatus(t("openLinktoEnter") || "Open the email link you received to access your inbox.", false);
-      return;
-    }
     location.hash = "#/inbox";
   });
-
-  // Compose
   root.querySelector("#goCompose").addEventListener("click", () => {
     location.hash = "#/compose";
   });
 
-  // Settings
-  root.querySelector("#goSettings").addEventListener("click", () => {
-    location.hash = "#/settings";
-  });
+  const sel = root.querySelector("#langSelect");
+  if (sel) {
+    sel.addEventListener("change", (e) => setLang(e.target.value));
+  }
+
+  const logoutBtn = root.querySelector("#logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      clearLocalSession();
+      location.hash = "#/accueil";
+    });
+  }
 }

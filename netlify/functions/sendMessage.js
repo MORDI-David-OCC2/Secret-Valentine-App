@@ -229,8 +229,19 @@ exports.handler = async (event) => {
     }
 
     if (typeof moderateText === "function") {
-      const mod = await moderateText(body);
-      if (mod && mod.blocked) return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
+      mod = await moderateText(body);
+      if (mod?.status === "block") return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
+    
+    modstatus: mod?.status ?? "allow";
+    modReason: mod?.reason ?? "null";
+    
+    const quarantined = modstatus === "quarantine";
+    if (!quarantined)
+    sendWithResend({
+      to: toEmail,
+      subject: subjectForType(type),
+      html: emailHtml({ fromName, type, link }),})
+    return jsonResponse(200, {ok: true, emailed: !quarantined, quarantined})
     }
 
     // 1) recipient inbox

@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { seal, open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys");
+const { moderateText } = require("./moderation");
 
 function jsonResponse(statusCode, body) {
   return {

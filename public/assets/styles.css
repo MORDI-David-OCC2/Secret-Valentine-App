@@ -56,6 +56,44 @@ body{
 
 a{ color: inherit; text-decoration: none; }
 
+/* --- PAGE WRAPPER (replaces inline gradients) --- */
+.page{
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 20px 16px 26px 16px;
+  box-sizing: border-box;
+}
+.page__inner{
+  max-width: 520px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* --- GLASS PANEL (replaces inline rgba blur cards) --- */
+.glass{
+  background: rgba(255,255,255,0.35);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 18px;
+  padding: 18px 16px;
+  box-shadow: 0 14px 34px rgba(0,0,0,0.12);
+  backdrop-filter: blur(6px);
+}
+
+/* --- THEMED TITLES --- */
+.scriptTitle{
+  font-family:'Brush Script MT','Segoe Script','Comic Sans MS',cursive;
+  opacity: .95;
+}
+
+/* --- TYPE COLORS for message cards --- */
+:root{
+  --type-love:   #ff4d6d;
+  --type-friend: #ffd966;
+  --type-crush:  #b39ddb;
+  --type-family: #ffbf00;
+}
+
+
 /* --- LAYOUT --- */
 
 .app{

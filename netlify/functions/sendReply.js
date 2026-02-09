@@ -205,6 +205,14 @@ exports.handler = async (event) => {
     if (!messageId) return jsonResponse(400, { ok: false, error: "Missing messageId" });
     if (!body || body.length < 1 || body.length > 2000) return jsonResponse(400, { ok: false, error: "Reply body must be 1..2000 chars" });
 
+    // Moderation
+    const mod = await moderateText(body);
+
+    if (mod?.status === "block") {
+      return jsonResponse(400, { ok: false, error: "Reply blocked by moderation." });
+    }
+    const quarantined = mod?.status === "quarantine";
+
     await requireValidSession(db, inboxId, sessionToken);
 
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
@@ -227,6 +235,9 @@ exports.handler = async (event) => {
 
     const encForMe = encryptTextForInbox(myInboxKey, body);
     const encForThem = encryptTextForInbox(theirInboxKey, body);
+    const preview = body.slice(0, 80);
+    const previewForMe = encryptTextForInbox(myInboxKey, preview);
+    const previewForThem = encryptTextForInbox(theirInboxKey, preview);
 
     const now = admin.firestore.FieldValue.serverTimestamp();
     const replyId = crypto.randomBytes(9).toString("hex");
@@ -239,11 +250,37 @@ exports.handler = async (event) => {
 
     const batch = db.batch();
 
-    batch.set(meThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now }, { merge: true });
-    batch.set(themThreadRef, { updatedAt: now, hasReplies: true, lastActiveAt: now, unread: true }, { merge: true });
+    batch.set(
+      meThreadRef,
+      {
+        updatedAt: now,
+        hasReplies: true,
+        lastActiveAt: now,
+        lastPreviewEnc: previewForMe.bodyEnc,
+        lastPreviewDekWrapped: previewForMe.dekWrapped,
+        lastPreviewCryptoVersion: previewForMe.cryptoVersion,
+        moderationStatus: mod?.status ?? "allow",
+        moderationReason: mod?.reason ?? null,
+      },
+      { merge: true }
+    );
 
-    batch.set(meReplyRef, { createdAt: now, from: "you", ...encForMe });
-    batch.set(themReplyRef, { createdAt: now, from: "them", ...encForThem });
+    batch.set(
+      themThreadRef,
+      {
+        updatedAt: now,
+        hasReplies: true,
+        lastActiveAt: now,
+        unread: true,
+        lastPreviewEnc: previewForThem.bodyEnc,
+        lastPreviewDekWrapped: previewForThem.dekWrapped,
+        lastPreviewCryptoVersion: previewForThem.cryptoVersion,
+        moderationStatus: mod?.status ?? "allow",
+        moderationReason: mod?.reason ?? null,
+      },
+      { merge: true }
+    );
+
 
     await batch.commit();
 
@@ -282,7 +319,6 @@ exports.handler = async (event) => {
 
           const baseUrl = buildBaseUrl(event);
           const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
-          const quarantined = mod?.status === "quarantine";
           if (shouldSend && !quarantined) 
           {sendWithResend({ to: replyToEmail, subject: "💬 You got a reply", html: replyEmailHtml({ link, preview: body }) })};
         }

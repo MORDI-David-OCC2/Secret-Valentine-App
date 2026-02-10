@@ -52,7 +52,7 @@ export default function LetterDetailView({
   const [showReply, setShowReply] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
 
-  const uiType = useMemo(() => mapTypeToUi(message?.type ?? 'crush'), [message?.type]);
+  const uiType = useMemo(() => mapTypeToUi(message.type), [message.type]);
 
   if (!message) {
     return null; // or render a Loading UI

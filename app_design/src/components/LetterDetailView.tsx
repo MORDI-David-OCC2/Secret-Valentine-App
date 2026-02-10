@@ -33,19 +33,31 @@ function OvalLoveIcon() {
 
 interface LetterDetailViewProps {
   messageId: string;
-  message: MessageDetail;
-  replies: Reply[];
+  message?: MessageDetail | null;
+  replies?: Reply[];
   color: string;
   onClose: () => void;
   onSendReply: (body: string) => Promise<void>;
 }
 
-export default function LetterDetailView({ messageId, message, replies, color, onClose, onSendReply }: LetterDetailViewProps) {
+export default function LetterDetailView({
+  messageId,
+  message,
+  replies = [],
+  color,
+  onClose,
+  onSendReply,
+}: LetterDetailViewProps) {
   const [showReply, setShowReply] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
 
-  const uiType = useMemo(() => mapTypeToUi(message.type), [message.type]);
+  const uiType = useMemo(() => mapTypeToUi(message?.type ?? 'crush'), [message?.type]);
 
+  if (!message) {
+    return null; // or render a Loading UI
+  }
+
+  // keep the rest of your file unchanged below
   const getTypeEmoji = (type: string) => {
     switch (type) {
       case 'love':

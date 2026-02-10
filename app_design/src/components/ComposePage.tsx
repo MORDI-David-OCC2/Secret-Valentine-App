@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { motion } from 'motion/react';
+import { useState, React } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import svgPaths from '../imports/svg-kcw2rymt7y';
 import { sendMessage } from '../api/netlify';

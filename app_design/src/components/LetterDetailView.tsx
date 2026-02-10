@@ -4,6 +4,7 @@ import svgPaths from '../imports/svg-01d0jglvrw';
 import type { MessageDetail, Reply } from '../types';
 import { formatWhen, mapTypeToUi } from '../utils/format';
 import ReplyToLetterView from './ReplyToLetterView';
+import React from "react";
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -33,7 +34,7 @@ function OvalLoveIcon() {
 
 interface LetterDetailViewProps {
   messageId: string;
-  message?: MessageDetail | null;
+  message: MessageDetail;
   replies?: Reply[];
   color: string;
   onClose: () => void;

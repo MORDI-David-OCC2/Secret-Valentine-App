@@ -6,6 +6,7 @@ import { getMessage, MessageDetail, MessageReply } from '../services/api';
 import svgPaths from "../imports/svg-01d0jglvrw";
 import type { Letter } from "../App";
 import ReplyToLetterView from "./ReplyToLetterView";
+import FlowerIcon from "./Fleurs";
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -251,10 +252,11 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               transition={{ delay: 0.5 }}
             >
               <div className="bg-white/30 backdrop-blur-sm px-6 py-2 rounded-full border-2 border-white/50">
-                <p className="font-['Inter',sans-serif] font-bold text-[18px] text-black capitalize flex items-center gap-2">
-                  <span>{getTypeEmoji(letter.type)}</span>
-                  {getFlowerName(letter.type)}
-                </p>
+              <div className="font-['Inter',sans-serif] font-bold text-[18px] text-black capitalize flex items-center gap-2">
+                <FlowerIcon type={letter.type as any} size="sm" className="w-12 h-12" />
+                <span>{getFlowerName(letter.type)}</span>
+              </div>
+
               </div>
             </motion.div>
 

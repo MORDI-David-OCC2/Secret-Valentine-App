@@ -12,7 +12,7 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
   const translations = {
     en: {
       title: 'Secret Valentine',
-      welcome: '"Welcome to Secret Valentine. Reveal your heart, keep your mystery. Send a message to the one you love, without them knowing it\'s you... yet."',
+      welcome: '"Welcome to Secret Valentine. Reveal your heart and keep your mystery..."',
       writeMessage: 'Write your message',
       claimInbox: 'Access my inbox',
       footer: 'made by D&F with'

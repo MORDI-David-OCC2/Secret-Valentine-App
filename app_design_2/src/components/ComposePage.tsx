@@ -319,7 +319,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
       >
         <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-2">
           <span className="font-bold">Email:</span>{' '}
-          <span className="font-normal text-[#4a4a4a]">Recipient's email</span>
         </p>
         <motion.input
           type="email"

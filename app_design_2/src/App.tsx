@@ -124,7 +124,7 @@ function AppContent() {
   }
 
   return (
-    <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full max-w-[402px] mx-auto relative overflow-hidden">
+    <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full mx-auto relative overflow-hidden">
       <AnimatePresence mode="wait">
         {currentPage === 'home' && (
           <motion.div

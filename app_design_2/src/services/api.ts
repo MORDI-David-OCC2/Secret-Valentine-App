@@ -130,14 +130,14 @@ export async function setPin(
   return response.json();
 }
 
-// ================== LIST INBOX (Liste messages avec preview) ==================
+// ================== LIST INBOX ==================
 export interface InboxMessage {
   id: string;
   createdAt: number;
   fromName: string;
   type: 'love' | 'friendship' | 'family' | 'crush';
   stickerId?: string;
-  body: string; // preview tronqué à 120 chars
+  body: string; // preview
   unread: boolean;
   lastActiveAt: number;
   replyEnabled: boolean;
@@ -146,6 +146,7 @@ export interface InboxMessage {
 export interface ListInboxResponse {
   ok: true;
   pinRequired: boolean;
+  unreadCount: number;      // ✅ NEW
   messages: InboxMessage[];
 }
 
@@ -167,7 +168,7 @@ export async function listInbox(
   return response.json();
 }
 
-// ================== GET MESSAGE (Message complet + replies) ==================
+// ================== GET MESSAGE ==================
 export interface MessageReply {
   id: string;
   body: string;
@@ -180,7 +181,7 @@ export interface MessageDetail {
   fromName: string;
   type: 'love' | 'friendship' | 'family' | 'crush';
   stickerId?: string;
-  body: string; // texte complet déchiffré
+  body: string;
   unread: boolean;
   replyEnabled: boolean;
   createdAt: number;
@@ -259,55 +260,4 @@ export interface SendReplyRequest {
 export interface SendReplyResponse {
   ok: true;
   replyId: string;
-}
-
-export async function sendReply(
-  data: SendReplyRequest
-): Promise<SendReplyResponse> {
-  const response = await fetch(`${API_BASE}/sendReply`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to send reply');
-  }
-
-  return response.json();
-}
-
-// ================== ERROR HANDLING ==================
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public statusCode?: number,
-    public details?: any
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
-
-export function handleApiError(error: any): string {
-  if (error instanceof ApiError) {
-    switch (error.statusCode) {
-      case 400:
-        return 'Requête invalide';
-      case 401:
-        return 'Non autorisé - vérifiez vos identifiants';
-      case 403:
-        return 'Accès interdit';
-      case 404:
-        return 'Ressource non trouvée';
-      case 429:
-        return 'Trop de tentatives - réessayez plus tard';
-      case 500:
-        return 'Erreur serveur';
-      default:
-        return error.message;
-    }
-  }
-  return error.message || 'Une erreur est survenue';
 }

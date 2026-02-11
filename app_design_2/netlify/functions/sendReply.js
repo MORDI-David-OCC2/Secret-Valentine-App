@@ -1,4 +1,3 @@
-// netlify/functions/sendReply.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
@@ -110,12 +109,13 @@ async function requireValidSession(db, inboxId, sessionToken) {
 }
 
 function buildBaseUrl(event) {
-  if (process.env.URL_DE_BASE) return process.env.URL_DE_BASE;
+  const env = process.env.URL_DE_BASE;
+  if (env) return String(env).replace(/\/+$/, "");
 
   const proto = event.headers["x-forwarded-proto"] || "https";
   let host = event.headers["x-forwarded-host"] || event.headers.host || "";
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
-  return `${proto}://${host}`;
+  return `${proto}://${host}`.replace(/\/+$/, "");
 }
 
 async function sendWithResend({ to, subject, html }) {
@@ -205,9 +205,7 @@ exports.handler = async (event) => {
     if (!messageId) return jsonResponse(400, { ok: false, error: "Missing messageId" });
     if (!body || body.length < 1 || body.length > 2000) return jsonResponse(400, { ok: false, error: "Reply body must be 1..2000 chars" });
 
-    // Moderation
     const mod = await moderateText(body);
-
     if (mod?.status === "block") {
       return jsonResponse(400, { ok: false, error: "Reply blocked by moderation." });
     }
@@ -235,6 +233,7 @@ exports.handler = async (event) => {
 
     const encForMe = encryptTextForInbox(myInboxKey, body);
     const encForThem = encryptTextForInbox(theirInboxKey, body);
+
     const preview = body.slice(0, 80);
     const previewForMe = encryptTextForInbox(myInboxKey, preview);
     const previewForThem = encryptTextForInbox(theirInboxKey, preview);
@@ -281,27 +280,28 @@ exports.handler = async (event) => {
       { merge: true }
     );
 
-batch.set(meReplyRef, {
-  createdAt: now,
-  fromInboxId: inboxId,
-  bodyEnc: encForMe.bodyEnc,
-  dekWrapped: encForMe.dekWrapped,
-  cryptoVersion: encForMe.cryptoVersion,
-});
+    // ✅ Write reply docs (this is what makes replies visible!)
+    batch.set(meReplyRef, {
+      createdAt: now,
+      from: "me",
+      fromInboxId: inboxId,
+      bodyEnc: encForMe.bodyEnc,
+      dekWrapped: encForMe.dekWrapped,
+      cryptoVersion: encForMe.cryptoVersion,
+    });
 
-batch.set(themReplyRef, {
-  createdAt: now,
-  fromInboxId: inboxId,
-  bodyEnc: encForThem.bodyEnc,
-  dekWrapped: encForThem.dekWrapped,
-  cryptoVersion: encForThem.cryptoVersion,
-});
-
-
+    batch.set(themReplyRef, {
+      createdAt: now,
+      from: "them",
+      fromInboxId: inboxId,
+      bodyEnc: encForThem.bodyEnc,
+      dekWrapped: encForThem.dekWrapped,
+      cryptoVersion: encForThem.cryptoVersion,
+    });
 
     await batch.commit();
 
-    // first reply notification (keep your logic)
+    // first reply notification
     try {
       const otherInboxRef = db.collection("inboxes").doc(replyToInboxId);
       const otherSnap = await otherInboxRef.get();
@@ -336,8 +336,14 @@ batch.set(themReplyRef, {
 
           const baseUrl = buildBaseUrl(event);
           const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
-          if (shouldSend && !quarantined) 
-          {sendWithResend({ to: replyToEmail, subject: "💬 You got a reply", html: replyEmailHtml({ link, preview: body }) })};
+
+          if (!quarantined) {
+            await sendWithResend({
+              to: replyToEmail,
+              subject: "💬 You got a reply",
+              html: replyEmailHtml({ link, preview: body }),
+            });
+          }
         }
       }
     } catch (notifyErr) {

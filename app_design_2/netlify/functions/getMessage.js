@@ -1,4 +1,3 @@
-// netlify/functions/getMessage.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
@@ -67,16 +66,18 @@ async function getInboxKeyViaRecovery(db, inboxId) {
   return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
 }
 
-// If your project uses sessions/{sha256(sessionToken)} => { inboxId, expiresAt }
 async function requireValidSession(db, inboxId, sessionToken) {
-    if (!sessionToken) return false;
-    const sessionSnap = await db.collection("inboxes").doc(inboxId)
-      .collection("sessions").doc(sha256Hex(sessionToken)).get();
-    if (!sessionSnap.exists) return false;
-    const s = sessionSnap.data() || {};
-    if (s.expiresAt?.toMillis && s.expiresAt.toMillis() < Date.now()) return false;
-    return true;
-  }
+  if (!sessionToken) return false;
+  const sessionSnap = await db
+    .collection("inboxes").doc(inboxId)
+    .collection("sessions").doc(sha256Hex(sessionToken))
+    .get();
+
+  if (!sessionSnap.exists) return false;
+  const s = sessionSnap.data() || {};
+  if (s.expiresAt?.toMillis && s.expiresAt.toMillis() < Date.now()) return false;
+  return true;
+}
 
 function toMillisMaybe(ts) {
   if (!ts) return null;
@@ -85,23 +86,23 @@ function toMillisMaybe(ts) {
 }
 
 function decryptBodyMaybe(inboxKeyBuf, doc) {
-  // Legacy plaintext
   if (!doc.bodyEnc || !doc.dekWrapped) return String(doc.body || "");
-
-  // Encrypted:
   const dek = open(inboxKeyBuf, doc.dekWrapped);
-  const pt = open(dek, doc.bodyEnc).toString("utf8");
-  return pt;
+  return open(dek, doc.bodyEnc).toString("utf8");
 }
 
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: {
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "POST, OPTIONS",
-        "access-control-allow-headers": "content-type",
-      }, body: "" };
+      return {
+        statusCode: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-headers": "content-type",
+        },
+        body: "",
+      };
     }
 
     if (event.httpMethod !== "POST") {
@@ -111,7 +112,6 @@ exports.handler = async (event) => {
     initAdmin();
     const db = admin.firestore();
 
-    // Rate limit (anti scraping)
     const ip = getClientIp(event);
     const { allowed } = await rateLimit(db, {
       action: "getMessage",
@@ -132,13 +132,13 @@ exports.handler = async (event) => {
     if (!inboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
     if (!messageId) return jsonResponse(400, { ok: false, error: "Missing messageId" });
 
-    // Enforce unlock only if PIN exists
     const inboxSnap = await db.collection("inboxes").doc(inboxId).get();
-    const pinRequired = !!(inboxId.pinHash && inboxId.pinSalt && inboxId.pinIter);
-    const okSession = await requireValidSession(db, inboxId, sessionToken);
-    if (!okSession) return jsonResponse(401, { ok:false, error:"Locked. Verify PIN to unlock.", pinRequired });
+    const inboxData = inboxSnap.data() || {};
+    const pinRequired = !!(inboxData.pinHash && inboxData.pinSalt && inboxData.pinIter);
 
-    // Load inbox key (session first; fallback to recovery so unlocked inboxes still work even if you haven't updated verifyPin yet)
+    const okSession = await requireValidSession(db, inboxId, sessionToken);
+    if (!okSession) return jsonResponse(401, { ok: false, error: "Locked. Verify PIN to unlock.", pinRequired });
+
     let inboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);
     if (!inboxKey) inboxKey = await getInboxKeyViaRecovery(db, inboxId);
 
@@ -148,11 +148,12 @@ exports.handler = async (event) => {
 
     const m = msgSnap.data() || {};
 
+    // Mark as read
     if (m.unread === true) {
-      await msgRef.update({
-        unread: false,
-        readAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      await msgRef.set(
+        { unread: false, readAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
+      );
     }
 
     const body = decryptBodyMaybe(inboxKey, m);
@@ -160,10 +161,9 @@ exports.handler = async (event) => {
     const repliesSnap = await msgRef.collection("replies").orderBy("createdAt", "asc").limit(200).get();
     const replies = repliesSnap.docs.map((d) => {
       const r = d.data() || {};
-      const rb = decryptBodyMaybe(inboxKey, r);
       return {
         id: d.id,
-        body: rb,
+        body: decryptBodyMaybe(inboxKey, r),
         from: r.from || "them",
         createdAt: toMillisMaybe(r.createdAt),
       };

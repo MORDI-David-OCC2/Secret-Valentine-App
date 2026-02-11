@@ -1,4 +1,3 @@
-// netlify/functions/listInbox.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { open } = require("./wrap");
@@ -74,9 +73,23 @@ async function getInboxKeyViaRecovery(db, inboxId) {
 }
 
 function decryptBodyMaybe(inboxKeyBuf, doc) {
-  if (!doc.bodyEnc || !doc.dekWrapped) return String(doc.body || "");
-  const dek = open(inboxKeyBuf, doc.dekWrapped);
-  return open(dek, doc.bodyEnc).toString("utf8");
+  // If encrypted:
+  if (doc?.bodyEnc && doc?.dekWrapped) {
+    const dek = open(inboxKeyBuf, doc.dekWrapped);
+    return open(dek, doc.bodyEnc).toString("utf8");
+  }
+  // Legacy plaintext:
+  return String(doc?.body || "");
+}
+
+function decryptPreviewMaybe(inboxKeyBuf, msgDoc) {
+  // Prefer lastPreview fields if present
+  if (msgDoc?.lastPreviewEnc && msgDoc?.lastPreviewDekWrapped) {
+    const dek = open(inboxKeyBuf, msgDoc.lastPreviewDekWrapped);
+    return open(dek, msgDoc.lastPreviewEnc).toString("utf8");
+  }
+  // Otherwise fall back to message body
+  return decryptBodyMaybe(inboxKeyBuf, msgDoc);
 }
 
 function previewText(s, n = 120) {
@@ -84,14 +97,24 @@ function previewText(s, n = 120) {
   return t.length > n ? t.slice(0, n - 1) + "…" : t;
 }
 
+function toMillisMaybe(ts) {
+  if (!ts) return null;
+  if (typeof ts.toMillis === "function") return ts.toMillis();
+  return null;
+}
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: {
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "POST, OPTIONS",
-        "access-control-allow-headers": "content-type",
-      }, body: "" };
+      return {
+        statusCode: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-headers": "content-type",
+        },
+        body: "",
+      };
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
@@ -120,54 +143,49 @@ exports.handler = async (event) => {
       return jsonResponse(401, { ok: false, error: "Locked. Verify PIN to unlock.", pinRequired: true });
     }
 
-    // Load inbox key (session first; fallback to recovery)
+    // Load inbox key
     let inboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);
     if (!inboxKey) inboxKey = await getInboxKeyViaRecovery(db, inboxId);
 
-    const qs = await inboxRef.collection("messages")
+    const messagesCol = inboxRef.collection("messages");
+
+    // Unread first, most recent first
+    const unreadSnap = await messagesCol
+      .where("unread", "==", true)
       .orderBy("lastActiveAt", "desc")
       .limit(50)
       .get();
 
-    const messages = [];
-    for (const doc of qs.docs) {
+    // Then read, most recent first
+    const readSnap = await messagesCol
+      .where("unread", "==", false)
+      .orderBy("lastActiveAt", "desc")
+      .limit(50)
+      .get();
+
+    // Count unread (within reasonable limit)
+    const unreadCount = unreadSnap.size;
+
+    const docs = [...unreadSnap.docs, ...readSnap.docs];
+
+    const messages = docs.map((doc) => {
       const d = doc.data() || {};
+      const previewSource = decryptPreviewMaybe(inboxKey, d);
 
-      // Prefer preview from latest reply if available (more “chat-like”)
-      let previewSource = "";
-      if (d.hasReplies) {
-        const lastReplySnap = await inboxRef
-          .collection("messages").doc(doc.id)
-          .collection("replies")
-          .orderBy("createdAt", "desc")
-          .limit(1)
-          .get();
-
-        if (!lastReplySnap.empty) {
-          const r = lastReplySnap.docs[0].data() || {};
-          previewSource = decryptBodyMaybe(inboxKey, r);
-        }
-      }
-
-      if (!previewSource) {
-        previewSource = decryptBodyMaybe(inboxKey, d);
-      }
-
-      messages.push({
+      return {
         id: doc.id,
-        createdAt: d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : null,
+        createdAt: toMillisMaybe(d.createdAt),
         fromName: d.fromName || "Someone",
         type: d.type || "love",
         stickerId: d.stickerId || "heart_01",
-        // IMPORTANT: return preview only (not full body)
         body: previewText(previewSource, 120),
-        unread: d.unread !== false,
-        lastActiveAt: d.lastActiveAt && d.lastActiveAt.toMillis ? d.lastActiveAt.toMillis() : null,
+        unread: d.unread === true,
+        lastActiveAt: toMillisMaybe(d.lastActiveAt) || toMillisMaybe(d.createdAt),
         replyEnabled: !!d.replyEnabled,
-      });
-    }
+      };
+    });
 
-    return jsonResponse(200, { ok: true, pinRequired, messages });
+    return jsonResponse(200, { ok: true, pinRequired, unreadCount, messages });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

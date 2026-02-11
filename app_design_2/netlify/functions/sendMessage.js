@@ -46,12 +46,13 @@ function initAdmin() {
 }
 
 function buildBaseUrl(event) {
-  if (process.env.URL_DE_BASE) return process.env.URL_DE_BASE;
+  const env = process.env.URL_DE_BASE;
+  if (env) return String(env).replace(/\/+$/, "");
 
   const proto = event.headers["x-forwarded-proto"] || "https";
   let host = event.headers["x-forwarded-host"] || event.headers.host || "";
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
-  return `${proto}://${host}`;
+  return `${proto}://${host}`.replace(/\/+$/, "");
 }
 
 function getClientIp(event) {
@@ -228,29 +229,28 @@ exports.handler = async (event) => {
       return jsonResponse(400, { ok: false, error: "fromEmail required when replyAllowed is true" });
     }
 
-    // Moderation (compute early, but don't email yet)
+    // Moderation
     let mod = null;
     let quarantined = false;
 
     if (typeof moderateText === "function") {
       mod = await moderateText(body);
 
-    if (mod?.status === "block") {
-    return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
-  }
+      if (mod?.status === "block") {
+        return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
+      }
 
-  quarantined = (mod?.status === "quarantine");
-}
+      quarantined = (mod?.status === "quarantine");
+    }
 
-
-    // 1) recipient inbox
+    // Recipient inbox
     const inboxId = await getOrCreateInboxIdForEmail(db, toEmail);
 
-    // 1b) sender inbox (optional)
+    // Sender inbox (only if replyAllowed)
     let senderInboxId = null;
     if (replyAllowed) senderInboxId = await getOrCreateInboxIdForEmail(db, fromEmail);
 
-    // ✅ Ensure crypto exists + get inbox keys (NOW inboxId exists)
+    // Ensure crypto exists + get keys
     await ensureInboxCrypto(db, inboxId);
     const recipientInboxKey = await getInboxKeyViaRecovery(db, inboxId);
 
@@ -260,27 +260,39 @@ exports.handler = async (event) => {
       senderInboxKey = await getInboxKeyViaRecovery(db, senderInboxId);
     }
 
+    // Encrypt message + preview
     const encForRecipient = encryptTextForInbox(recipientInboxKey, body);
+    const preview = body.slice(0, 80);
+    const previewForRecipient = encryptTextForInbox(recipientInboxKey, preview);
 
-    // 2) Store message under recipient inbox
+    // Create message doc with an ID we can mirror
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc();
+
     await msgRef.set({
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       fromName,
       type,
       stickerId,
       ...encForRecipient,
+
       unread: true,
+      hasReplies: false,
       lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+
+      lastPreviewEnc: previewForRecipient.bodyEnc,
+      lastPreviewDekWrapped: previewForRecipient.dekWrapped,
+      lastPreviewCryptoVersion: previewForRecipient.cryptoVersion,
+
       replyEnabled: replyAllowed,
       replyToInboxId: replyAllowed ? senderInboxId : null,
       replyToEmail: replyAllowed ? fromEmail : null,
     });
 
-    // Sender thread copy (encrypted too)
+    // Sender thread copy (same messageId)
     if (replyAllowed && senderInboxId && senderInboxKey) {
       const senderThreadRef = db.collection("inboxes").doc(senderInboxId).collection("messages").doc(msgRef.id);
       const encForSender = encryptTextForInbox(senderInboxKey, body);
+      const previewForSender = encryptTextForInbox(senderInboxKey, preview);
 
       await senderThreadRef.set(
         {
@@ -289,8 +301,15 @@ exports.handler = async (event) => {
           type,
           stickerId,
           ...encForSender,
+
           unread: false,
+          hasReplies: false,
           lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+
+          lastPreviewEnc: previewForSender.bodyEnc,
+          lastPreviewDekWrapped: previewForSender.dekWrapped,
+          lastPreviewCryptoVersion: previewForSender.cryptoVersion,
+
           replyEnabled: true,
           replyToInboxId: inboxId,
           replyToEmail: toEmail,
@@ -300,7 +319,7 @@ exports.handler = async (event) => {
       );
     }
 
-    // 3) Open token
+    // Open token for recipient
     const token = randomTokenBase64Url(32);
     const tokenHash = sha256Hex(token);
 
@@ -316,30 +335,28 @@ exports.handler = async (event) => {
       purpose: "open",
     });
 
-    // 4) Link + email
     const baseUrl = buildBaseUrl(event);
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
     let emailed = false;
 
-if (!quarantined) {
-  await sendWithResend({
-    to: toEmail,
-    subject: subjectForType(type),
-    html: emailHtml({ fromName, type, link }),
-  });
-  emailed = true;
-}
+    if (!quarantined) {
+      await sendWithResend({
+        to: toEmail,
+        subject: subjectForType(type),
+        html: emailHtml({ fromName, type, link }),
+      });
+      emailed = true;
+    }
 
-return jsonResponse(200, {
-  ok: true,
-  inboxId,
-  messageId: msgRef.id,
-  emailed,
-  quarantined,
-  moderationStatus: mod?.status ?? "allow",
-});
-
+    return jsonResponse(200, {
+      ok: true,
+      inboxId,
+      messageId: msgRef.id,
+      emailed,
+      quarantined,
+      moderationStatus: mod?.status ?? "allow",
+    });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

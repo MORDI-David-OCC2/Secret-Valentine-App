@@ -4,6 +4,8 @@ import { toast } from 'sonner@2.0.3';
 import svgPaths from "../imports/svg-kcw2rymt7y";
 import type { Letter } from "../App";
 import { sendMessage } from '../services/api';
+import FlowerIcon from "./Fleurs";
+
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -457,7 +459,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-3xl">🌹</span>
+              <FlowerIcon type="love" size="sm" />
               <p className="font-['Inter',sans-serif] font-bold text-[15px] text-pink-700">{t.love}</p>
               <p className="font-['Inter',sans-serif] font-light text-[11px] text-pink-600 italic">{t.rose}</p>
             </motion.button>
@@ -474,7 +476,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-3xl">🌻</span>
+              <FlowerIcon type="friend" size="sm" />
               <p className="font-['Inter',sans-serif] font-bold text-[15px] text-black">{t.friend}</p>
               <p className="font-['Inter',sans-serif] font-light text-[11px] text-black/70 italic">{t.roseJaune}</p>
             </motion.button>
@@ -491,7 +493,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-3xl">🌺</span>
+              <FlowerIcon type="family" size="sm" />
               <p className="font-['Inter',sans-serif] font-bold text-[15px] text-amber-800">{t.family}</p>
               <p className="font-['Inter',sans-serif] font-light text-[11px] text-amber-700 italic">{t.lys}</p>
             </motion.button>
@@ -508,7 +510,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="text-3xl">🌸</span>
+              <FlowerIcon type="crush" size="sm" />
               <p className="font-['Inter',sans-serif] font-bold text-[15px] text-violet-700">{t.crush}</p>
               <p className="font-['Inter',sans-serif] font-light text-[11px] text-violet-600 italic">{t.roseBlanche}</p>
             </motion.button>

@@ -45,22 +45,24 @@ function OvalLoveIcon() {
   );
 }
 
-// ✅ Minimal change: make the dot visible on ANY envelope color (white chip + stronger glow)
 function UnreadDot() {
   return (
-    <span className="inline-flex items-center justify-center rounded-full bg-white/85 p-1 shadow-md">
+    <div className="bg-white/85 rounded-full p-2 shadow-md">
       <span className="relative inline-flex items-center justify-center">
-        {/* halo */}
-        <span className="absolute w-5 h-5 rounded-full bg-pink-400/25 blur-[1px]" />
-        {/* dot */}
-        <span className="w-2.5 h-2.5 rounded-full bg-pink-600 shadow-[0_0_10px_rgba(219,39,119,0.65)]" />
+        <span className="absolute w-5 h-5 rounded-full bg-pink-400/30 blur-[1px]" />
+        <span className="w-2.5 h-2.5 rounded-full bg-pink-600 shadow-[0_0_10px_rgba(219,39,119,0.7)]" />
       </span>
-    </span>
+    </div>
   );
 }
 
+interface LetterCardData extends Letter {
+  unread: boolean;
+  lastActiveAt: number;
+}
+
 interface LetterCardProps {
-  letter: Letter & { unread?: boolean };
+  letter: LetterCardData;
   color: string;
   index: number;
   onClick: () => void;
@@ -85,8 +87,12 @@ function getThemeColor(type: string): string {
 // Get text color based on type
 function getTextColor(type: string): string {
   switch (type) {
+    case "love":
+      return "text-white";
     case "friend":
+      return "text-black";
     case "crush":
+      return "text-black";
     case "family":
       return "text-black";
     default:
@@ -116,9 +122,9 @@ function LetterCard({ letter, color, index, onClick }: LetterCardProps) {
       }}
       whileTap={{ scale: 0.98 }}
     >
-      {/* Unread dot */}
+      {/* Unread badge */}
       {letter.unread && (
-        <div className="absolute top-3 left-3 z-20">
+        <div className="absolute top-3 left-3 z-50">
           <UnreadDot />
         </div>
       )}
@@ -171,7 +177,11 @@ function LetterCard({ letter, color, index, onClick }: LetterCardProps) {
       </motion.div>
 
       {/* Type */}
-      <motion.div className="absolute bottom-3 right-4">
+      <motion.div
+        className="absolute bottom-3 right-4"
+        initial={{ opacity: 1, scale: 1 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
         <p className={`font-['Inter',sans-serif] font-light italic text-[14px] ${textColor === "text-white" ? "text-white/80" : "text-black/70"} capitalize`}>
           {letter.type}
         </p>
@@ -188,9 +198,8 @@ interface LettersPageProps {
 export default function LettersPage({ onBack, language }: LettersPageProps) {
   const { session } = useSession();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const [selectedLetter, setSelectedLetter] = useState<{ letter: Letter & { unread?: boolean }; color: string } | null>(null);
+  const [selectedLetter, setSelectedLetter] = useState<{ letter: Letter; color: string } | null>(null);
 
   useEffect(() => {
     const loadMessages = async () => {
@@ -203,7 +212,6 @@ export default function LettersPage({ onBack, language }: LettersPageProps) {
       try {
         const response = await listInbox(session.inboxId, session.sessionToken);
         setMessages(response.messages);
-        setUnreadCount(response.unreadCount ?? 0);
       } catch (error: any) {
         if (error.message.includes("401")) {
           toast.error(language === "en" ? "Session expired" : "Session expirée");
@@ -221,49 +229,56 @@ export default function LettersPage({ onBack, language }: LettersPageProps) {
     loadMessages();
   }, [session.inboxId, session.sessionToken, language, onBack]);
 
-  // Defensive client-side sorting (backend already does unread-first)
+  // Sort: unread first, then most recent
   const sortedMessages = [...messages].sort((a, b) => {
-    const au = a.unread ? 1 : 0;
-    const bu = b.unread ? 1 : 0;
+    const au = (a as any).unread === true ? 1 : 0;
+    const bu = (b as any).unread === true ? 1 : 0;
     if (au !== bu) return bu - au;
-    return (b.lastActiveAt || 0) - (a.lastActiveAt || 0);
+
+    const at = new Date((a as any).lastActiveAt || 0).getTime();
+    const bt = new Date((b as any).lastActiveAt || 0).getTime();
+    return bt - at;
   });
 
-  const letters = sortedMessages.map((msg) => ({
+  const unreadCount = sortedMessages.filter((m) => (m as any).unread === true).length;
+
+  // Cards data
+  const letters: LetterCardData[] = sortedMessages.map((msg) => ({
     id: msg.id,
     from: msg.fromName,
     to: "You",
     type: msg.type === "friendship" ? ("friend" as const) : (msg.type as any),
-    date: new Date(msg.lastActiveAt || Date.now()).toLocaleDateString("en-US", {
+    date: new Date((msg as any).lastActiveAt || Date.now()).toLocaleDateString("en-US", {
       month: "2-digit",
       day: "2-digit",
       year: "2-digit",
     }),
     message: msg.body,
     isAnonymous: msg.fromName.toLowerCase().includes("anonymous"),
-    unread: !!msg.unread,
+    unread: (msg as any).unread === true,
+    lastActiveAt: new Date((msg as any).lastActiveAt || Date.now()).getTime(),
   }));
 
   const translations = {
     en: {
       back: "Back",
       title: "Your Love Letters",
-      waiting: "waiting for you",
-      youHaveUnread: "You have",
-      unreadMessage: "message",
-      unreadMessages: "messages",
+      youHave: "You have",
+      message: "message",
+      messages: "messages",
+      waitingForYou: "waiting for you",
       footer: "made by D&F with",
     },
     fr: {
       back: "Retour",
       title: "Vos Lettres d'Amour",
-      waiting: "qui vous attendent",
-      youHaveUnread: "Vous avez",
-      unreadMessage: "message",
-      unreadMessages: "messages",
+      youHave: "Vous avez",
+      message: "message",
+      messages: "messages",
+      waitingForYou: "qui vous attendent",
       footer: "créé par D&F avec",
     },
-  } as const;
+  };
 
   const t = translations[language];
 
@@ -279,14 +294,8 @@ export default function LettersPage({ onBack, language }: LettersPageProps) {
 
   return (
     <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full relative overflow-hidden">
-      {/* Back */}
-      <motion.div
-        className="absolute top-10 left-6 flex items-center gap-3 cursor-pointer z-20"
-        onClick={onBack}
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+      {/* Back button */}
+      <motion.div className="absolute top-10 left-6 flex items-center gap-3 cursor-pointer z-20" onClick={onBack} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
         <span className="text-[24px]">←</span>
         <p className="font-['Inter',sans-serif] font-bold text-[24px] text-[#2d1b1b]">{t.back}</p>
       </motion.div>
@@ -299,16 +308,16 @@ export default function LettersPage({ onBack, language }: LettersPageProps) {
       {/* Unread count */}
       <motion.div className="flex justify-center mb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.5 }}>
         <p className="font-['Inter',sans-serif] font-light text-[22px] text-[#2d1b1b] text-center">
-          {t.youHaveUnread}{" "}
+          {t.youHave}{" "}
           <motion.span className="font-bold text-[#a31e46]" animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 0.6, delay: 0.8 }}>
             {unreadCount}
           </motion.span>{" "}
-          {unreadCount === 1 ? t.unreadMessage : t.unreadMessages} {t.waiting}
+          {unreadCount === 1 ? t.message : t.messages} {t.waitingForYou}
         </p>
       </motion.div>
 
-      {/* Letters */}
-      <div className="flex flex-col gap-6 px-12">
+      {/* Letters list */}
+      <div className="space-y-6 pb-28">
         {letters.map((letter, index) => (
           <LetterCard
             key={letter.id}
@@ -333,7 +342,7 @@ export default function LettersPage({ onBack, language }: LettersPageProps) {
         </motion.div>
       </motion.div>
 
-      {/* Modal */}
+      {/* Letter Detail Modal */}
       {selectedLetter && (
         <LetterDetailView
           messageId={selectedLetter.letter.id}

@@ -8,7 +8,7 @@ interface HomePageProps {
 
 export default function HomePage({ onNavigate, language }: HomePageProps) {
   const {isAuthenticated} = useSession()
-  
+
   const translations = {
     en: {
       title: 'Secret Valentine',
@@ -133,7 +133,7 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
 
         {/* Claim Inbox Button */}
         <motion.button
-          onClick={() => onNavigate('claim')}
+          onClick={() => onNavigate(isAuthenticated ? 'letters' : 'claim')}
           className="bg-[#db8c8f] rounded-[10px] w-full min-h-[140px] flex flex-col items-center justify-center gap-4 shadow-lg"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

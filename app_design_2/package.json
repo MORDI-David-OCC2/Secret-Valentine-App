@@ -52,7 +52,8 @@
       "devDependencies": {
             "@types/node": "^20.10.0",
             "@vitejs/plugin-react-swc": "^3.10.2",
-            "vite": "6.3.5"
+            "vite": "6.3.5",
+            "rollup": "^4.34.9"
       },
       "scripts": {
             "dev": "vite",

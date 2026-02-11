@@ -1,8 +1,16 @@
 [build]
   base = "app_design"
-  command = "cd .. && npm install && cd app_design && npm install && npm run build"
-  publish = "dist"
+  command = "npm install && npm run build"
   functions = "netlify/functions"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
 [functions]
   node_bundler = "esbuild"

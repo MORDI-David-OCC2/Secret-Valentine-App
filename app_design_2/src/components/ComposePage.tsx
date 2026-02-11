@@ -95,14 +95,11 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
       title: 'Compose your letter',
       subtitle: 'Write a heartful message to someone special',
       to: 'To:',
-      toPlaceholder: 'Write the name of the person',
       toInput: 'Olivia...',
       from: 'From:',
-      fromPlaceholder: 'Reveal your identity or not',
       fromInput: 'Your name...',
       anonymous: 'Send anonymously',
       type: 'Type:',
-      typePlaceholder: '(love, friend, family, crush)',
       love: 'Love',
       friend: 'Friend',
       family: 'Family',
@@ -112,7 +109,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
       lys: 'Lys',
       roseBlanche: 'Rose Blanche',
       message: 'Message:',
-      messageOptional: '(optional)',
       messagePlaceholder: 'Write your heartfelt message here...',
       sendLetter: 'Send Letter',
       sending: 'Sending...',
@@ -124,14 +120,11 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
       title: 'Composez votre lettre',
       subtitle: 'Écrivez un message sincère à quelqu\'un de spécial',
       to: 'À :',
-      toPlaceholder: 'Écrivez le nom de la personne',
       toInput: 'Olivia...',
       from: 'De :',
-      fromPlaceholder: 'Révélez votre identité ou non',
       fromInput: 'Votre nom...',
       anonymous: 'Envoyer anonymement',
       type: 'Type :',
-      typePlaceholder: '(amour, ami, famille, béguin)',
       love: 'Amour',
       friend: 'Ami',
       family: 'Famille',
@@ -141,7 +134,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
       lys: 'Lys',
       roseBlanche: 'Rose Blanche',
       message: 'Message :',
-      messageOptional: '(optionnel)',
       messagePlaceholder: 'Écrivez votre message sincère ici...',
       sendLetter: 'Envoyer la Lettre',
       sending: 'Envoi...',
@@ -308,7 +300,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
         >
           <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-2">
             <span className="font-bold">{t.to}</span>{' '}
-            <span className="font-normal text-[#4a4a4a]">{t.toPlaceholder}</span>
           </p>
           <motion.input
             type="text"
@@ -348,7 +339,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
         >
           <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-2">
             <span className="font-bold">{t.from}</span>{' '}
-            <span className="font-normal text-[#4a4a4a]">{t.fromPlaceholder}</span>
           </p>
           <motion.input
             type="text"
@@ -520,7 +510,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
         >
           <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-2">
             <span className="font-bold">{t.message}</span>{' '}
-            <span className="font-normal text-[#4a4a4a]">{t.messageOptional}</span>
           </p>
           <motion.textarea
             value={message}

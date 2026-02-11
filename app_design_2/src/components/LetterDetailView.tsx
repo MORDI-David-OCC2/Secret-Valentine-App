@@ -50,6 +50,21 @@ function formatDate(msOrIso: any) {
   }
 }
 
+function formatTimestamp(msOrIso: any) {
+  try {
+    const d = new Date(msOrIso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return "";
+  }
+}
+
 export default function LetterDetailView({ messageId, color, onClose, language }: LetterDetailViewProps) {
   const { session } = useSession();
   const [message, setMessage] = useState<MessageDetail | null>(null);
@@ -109,7 +124,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
   if (loading || !message || !letter) {
     return (
       <motion.div
-        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center flex-col gap-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -120,6 +135,9 @@ export default function LetterDetailView({ messageId, color, onClose, language }
         >
           💌
         </motion.div>
+        <p className="font-['Inter',sans-serif] text-white text-lg">
+          {language === 'en' ? 'Opening your love letter...' : 'Ouverture de votre lettre d\'amour...'}
+        </p>
       </motion.div>
     );
   }
@@ -176,7 +194,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             whileTap={{ scale: 0.9 }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.2 }}
           >
             ✕
           </motion.button>
@@ -185,7 +203,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             className={`${color} rounded-[20px] p-8 shadow-2xl relative overflow-hidden`}
             initial={{ y: 50 }}
             animate={{ y: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.1 }}
           >
             {/* Decorative hearts */}
             <motion.div
@@ -208,17 +226,17 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               className="flex justify-center mb-6"
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
-              transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
             >
               <OvalLoveIcon />
             </motion.div>
 
-            {/* Type badge (keep your look) */}
+            {/* Type badge */}
             <motion.div
               className="flex justify-center mb-6"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
+              transition={{ delay: 0.3 }}
             >
               <div className="bg-white/30 backdrop-blur-sm px-6 py-2 rounded-full border-2 border-white/50">
                 <p className="font-['Inter',sans-serif] font-bold text-[18px] text-black capitalize flex items-center gap-2">
@@ -233,7 +251,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               className="space-y-3 mb-6"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
+              transition={{ delay: 0.4 }}
             >
               <div className="text-center">
                 <p className="font-['Inter',sans-serif] font-light text-[14px] text-black/70 mb-1">
@@ -259,7 +277,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               className="h-[1px] bg-black/40 mb-6"
               initial={{ scaleX: 0 }}
               animate={{ scaleX: 1 }}
-              transition={{ delay: 0.7, duration: 0.6 }}
+              transition={{ delay: 0.5, duration: 0.4 }}
             />
 
             {/* CONTENT AREA */}
@@ -269,7 +287,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                 className="bg-white/20 backdrop-blur-sm rounded-[15px] p-6 border-2 border-white/30 min-h-[200px] relative"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
+                transition={{ delay: 0.6 }}
               >
                 <div className="absolute top-2 left-3 text-black/30 font-serif text-[60px] leading-none">"</div>
                 <div className="absolute bottom-2 right-3 text-black/30 font-serif text-[60px] leading-none">"</div>
@@ -287,19 +305,24 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                 </div>
               </motion.div>
             ) : (
-              // ✅ Replies enabled: show as a thread
+              // ✅ Replies enabled: show as a conversation thread
               <motion.div
-                className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border-2 border-white/25"
+                className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border-2 border-white/25 max-h-[300px] overflow-y-auto"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
+                transition={{ delay: 0.6 }}
               >
                 <div className="space-y-3">
-                  {/* original message bubble (them) */}
+                  {/* original message bubble (them - left) */}
                   <div className="flex justify-start">
-                    <div className="max-w-[85%] rounded-[18px] px-4 py-3 bg-white/25 border border-white/25">
-                      <p className="font-['Inter',sans-serif] text-[15px] leading-relaxed text-black whitespace-pre-wrap">
-                        {letter.message || (language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi...")}
+                    <div className="max-w-[85%]">
+                      <div className="rounded-[18px] px-4 py-3 bg-white/30 border border-white/30">
+                        <p className="font-['Inter',sans-serif] text-[15px] leading-relaxed text-black whitespace-pre-wrap">
+                          {letter.message || (language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi...")}
+                        </p>
+                      </div>
+                      <p className="font-['Inter',sans-serif] text-[11px] text-black/50 mt-1 ml-2">
+                        {formatTimestamp(message.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -307,13 +330,18 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                   {/* replies */}
                   {replies.map((r) => (
                     <div key={r.id} className={`flex ${r.from === "me" ? "justify-end" : "justify-start"}`}>
-                      <div
-                        className={`max-w-[85%] rounded-[18px] px-4 py-3 border border-white/25 ${
-                          r.from === "me" ? "bg-white/40" : "bg-white/22"
-                        }`}
-                      >
-                        <p className="font-['Inter',sans-serif] text-[15px] leading-relaxed text-black whitespace-pre-wrap">
-                          {r.body}
+                      <div className={`max-w-[85%] ${r.from === "me" ? "items-end" : "items-start"} flex flex-col`}>
+                        <div
+                          className={`rounded-[18px] px-4 py-3 border border-white/30 ${
+                            r.from === "me" ? "bg-white/45" : "bg-white/25"
+                          }`}
+                        >
+                          <p className="font-['Inter',sans-serif] text-[15px] leading-relaxed text-black whitespace-pre-wrap">
+                            {r.body}
+                          </p>
+                        </div>
+                        <p className={`font-['Inter',sans-serif] text-[11px] text-black/50 mt-1 ${r.from === "me" ? "mr-2" : "ml-2"}`}>
+                          {formatTimestamp(r.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -327,7 +355,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               className="mt-6 text-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.9 }}
+              transition={{ delay: 0.7 }}
             >
               <p className="font-['Inter',sans-serif] font-light text-[14px] text-black/70 mb-1">
                 {language === "en" ? "To" : "À"}
@@ -343,7 +371,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                 className="mt-4 flex justify-center"
                 initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 1, type: "spring" }}
+                transition={{ delay: 0.8, type: "spring" }}
               >
                 <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/40 flex items-center gap-2">
                   <span className="text-[16px]">🎭</span>
@@ -360,7 +388,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             className="mt-6 flex gap-3"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1 }}
+            transition={{ delay: 0.8 }}
           >
             <motion.button
               onClick={onClose}

@@ -312,6 +312,40 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               </div>
             </motion.div>
 
+            {/* Conversation / Replies */}
+{replies.length > 0 && (
+  <motion.div
+    className="mt-6"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 0.85 }}
+  >
+    <p className="text-center font-['Inter',sans-serif] text-[13px] text-black/60 mb-3">
+      Replies
+    </p>
+
+    <div className="space-y-3">
+      {replies.map((r) => (
+        <div
+          key={r.id}
+          className={`flex ${r.from === "me" ? "justify-end" : "justify-start"}`}
+        >
+          <div
+            className={`max-w-[85%] rounded-[16px] px-4 py-3 border border-white/30 ${
+              r.from === "me" ? "bg-white/35" : "bg-white/20"
+            }`}
+          >
+            <p className="font-['Inter',sans-serif] text-[15px] leading-relaxed text-black whitespace-pre-wrap">
+              {r.body}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </motion.div>
+)}
+
+
             {/* To Field */}
             <motion.div
               className="mt-8 text-center"

@@ -1,72 +1,84 @@
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import svgPaths from '../imports/svg-zn5hjk1775';
+import { motion } from 'motion/react';
 
-function MdiHeart({ className }: { className?: string }) {
-  return (
-    <div className={className || 'relative shrink-0 size-[24px]'} data-name="mdi:heart">
-      <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 24 24">
-        <g id="mdi:heart">
-          <path d={svgPaths.p18ccc940} fill="#DB8C8F" />
-        </g>
-      </svg>
-    </div>
-  );
+interface HomePageProps {
+  onNavigate: (page: 'home' | 'letters' | 'compose' | 'settings' | 'credits' | 'claim') => void;
+  language: 'en' | 'fr';
 }
 
-function LargeHeart() {
-  return (
-    <div className="size-[88px]" data-name="mdi:heart">
-      <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 88 88">
-        <g id="mdi:heart">
-          <path d={svgPaths.p20134ac0} fill="black" />
-        </g>
-      </svg>
-    </div>
-  );
-}
+export default function HomePage({ onNavigate, language }: HomePageProps) {
+  const translations = {
+    en: {
+      title: 'Secret Valentine',
+      welcome: '"Welcome to Secret Valentine. Reveal your heart, keep your mystery. Send a message to the one you love, without them knowing it\'s you... yet."',
+      writeMessage: 'Write your message',
+      claimInbox: 'Access my inbox',
+      footer: 'made by D&F with'
+    },
+    fr: {
+      title: 'Valentin Secret',
+      welcome: '"Bienvenue sur Valentin Secret. Révélez votre cœur, gardez votre mystère. Envoyez un message à la personne que vous aimez, sans qu\'elle sache que c\'est vous... pour l\'instant."',
+      writeMessage: 'Écrivez votre message',
+      claimInbox: 'Accéder à ma boîte',
+      footer: 'créé par D&F avec'
+    }
+  };
 
-function PenIcon() {
-  return (
-    <div className="size-[88px]" data-name="mdi:pen">
-      <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 88 88">
-        <g id="mdi:pen">
-          <path d={svgPaths.p2e9e3140} fill="black" />
-        </g>
-      </svg>
-    </div>
-  );
-}
-
-export default function HomePage() {
-  const navigate = useNavigate();
+  const t = translations[language];
 
   return (
     <div className="bg-[rgba(246,193,208,0.71)] relative min-h-screen w-full">
+      {/* Settings Button */}
+      <motion.button
+        onClick={() => onNavigate('settings')}
+        className="absolute top-10 right-5 size-[40px] rounded-full bg-white/80 flex items-center justify-center shadow-md z-10"
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,1)' }}
+        whileTap={{ scale: 0.9 }}
+      >
+        <span className="text-[24px]">⚙️</span>
+      </motion.button>
+
       {/* Header */}
-      <motion.div
+      <motion.div 
         className="flex gap-[6px] items-center justify-center pt-[97px] pb-6"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.1 }}
       >
         <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }}
-          transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+          animate={{ 
+            scale: [1, 1.2, 1],
+            rotate: [0, 5, -5, 0]
+          }}
+          transition={{ 
+            duration: 2,
+            repeat: Infinity,
+            repeatDelay: 3
+          }}
         >
-          <MdiHeart />
+          <span className="text-[24px]">💕</span>
         </motion.div>
-        <h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black">Secret Valentine</h1>
+        <h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black">{t.title}</h1>
         <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 5, 0] }}
-          transition={{ duration: 2, repeat: Infinity, repeatDelay: 3, delay: 0.3 }}
+          animate={{ 
+            scale: [1, 1.2, 1],
+            rotate: [0, -5, 5, 0]
+          }}
+          transition={{ 
+            duration: 2,
+            repeat: Infinity,
+            repeatDelay: 3,
+            delay: 0.3
+          }}
         >
-          <MdiHeart />
+          <span className="text-[24px]">💕</span>
         </motion.div>
       </motion.div>
 
       {/* Divider */}
-      <motion.div
+      <motion.div 
         className="w-full h-[1px] bg-black"
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
@@ -74,67 +86,105 @@ export default function HomePage() {
       />
 
       {/* Welcome Message */}
-      <motion.div
+      <motion.div 
         className="px-8 pt-8 pb-12"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, delay: 0.5 }}
       >
         <p className="font-['Inter',sans-serif] font-light text-[24px] text-[#2d1b1b] text-center leading-relaxed">
-          "Welcome to Secret Valentine. Reveal your heart, keep your mystery. Send a message to the one you love, without them knowing it's you... yet."
+          {t.welcome}
         </p>
       </motion.div>
 
       {/* Action Buttons */}
       <div className="flex flex-col items-center gap-6 px-16">
-        {/* Check Letters Button */}
-        <motion.button
-          onClick={() => navigate('/letters')}
-          className="bg-[#db8c8f] rounded-[10px] w-full h-[172px] flex flex-col items-center justify-center gap-4 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.7 }}
-          whileHover={{ scale: 1.05, backgroundColor: '#c77c7f', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 1 }}>
-            <LargeHeart />
-          </motion.div>
-          <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#2d1b1b]">Check your received letter</p>
-        </motion.button>
-
         {/* Write Message Button */}
         <motion.button
-          onClick={() => navigate('/compose')}
+          onClick={() => onNavigate('compose')}
           className="bg-[#db8c8f] rounded-[10px] w-full h-[172px] flex flex-col items-center justify-center gap-4 shadow-lg"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.9 }}
-          whileHover={{ scale: 1.05, backgroundColor: '#c77c7f', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}
+          whileHover={{ 
+            scale: 1.05,
+            backgroundColor: '#c77c7f',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+          }}
           whileTap={{ scale: 0.95 }}
         >
           <motion.div
-            animate={{ rotate: [0, -10, 10, -10, 0] }}
-            transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
+            animate={{ 
+              rotate: [0, -10, 10, -10, 0]
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              repeatDelay: 2
+            }}
           >
-            <PenIcon />
+            <span className="text-[88px] leading-none">✍️</span>
           </motion.div>
-          <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#2d1b1b]">Write your message</p>
+          <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#2d1b1b]">{t.writeMessage}</p>
+        </motion.button>
+
+        {/* Claim Inbox Button */}
+        <motion.button
+          onClick={() => onNavigate('claim')}
+          className="bg-[#db8c8f] rounded-[10px] w-full h-[172px] flex flex-col items-center justify-center gap-4 shadow-lg"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 1.1 }}
+          whileHover={{ 
+            scale: 1.05,
+            backgroundColor: '#c77c7f',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+          }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <motion.div
+            animate={{ 
+              scale: [1, 1.2, 1],
+              rotate: [0, 5, -5, 0]
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              repeatDelay: 3
+            }}
+          >
+            <span className="text-[88px] leading-none">💌</span>
+          </motion.div>
+          <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#2d1b1b]">{t.claimInbox}</p>
         </motion.button>
       </div>
 
-      {/* Footer */}
-      <motion.div
-        className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-1"
+      {/* Footer - Clickable */}
+      <motion.button
+        onClick={() => onNavigate('credits')}
+        className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-1 cursor-pointer"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, delay: 1.1 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
       >
-        <p className="font-['Inter',sans-serif] font-thin italic text-[15px] text-[#2d1b1b] text-center">made by D&F with</p>
-        <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1, repeat: Infinity, repeatDelay: 2 }}>
-          <MdiHeart className="size-[24px]" />
+        <p className="font-['Inter',sans-serif] font-thin italic text-[15px] text-[#2d1b1b] text-center underline decoration-dotted">
+          {t.footer}
+        </p>
+        <motion.div
+          animate={{ 
+            scale: [1, 1.3, 1]
+          }}
+          transition={{ 
+            duration: 1,
+            repeat: Infinity,
+            repeatDelay: 2
+          }}
+        >
+          <span className="text-[24px]">❤️</span>
         </motion.div>
-      </motion.div>
+      </motion.button>
     </div>
   );
 }

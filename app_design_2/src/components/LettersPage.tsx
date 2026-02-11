@@ -45,30 +45,13 @@ function OvalLoveIcon() {
   );
 }
 
-function UnreadDot() {
-  return (
-    <div className="bg-white/85 rounded-full p-2 shadow-md">
-      <span className="relative inline-flex items-center justify-center">
-        <span className="absolute w-5 h-5 rounded-full bg-pink-400/30 blur-[1px]" />
-        <span className="w-2.5 h-2.5 rounded-full bg-pink-600 shadow-[0_0_10px_rgba(219,39,119,0.7)]" />
-      </span>
-    </div>
-  );
-}
-
-interface LetterCardData extends Letter {
-  unread: boolean;
-  lastActiveAt: number;
-}
-
 interface LetterCardProps {
-  letter: LetterCardData;
+  letter: Letter & { unread?: boolean };
   color: string;
   index: number;
   onClick: () => void;
 }
 
-// Get theme colors based on letter type
 function getThemeColor(type: string): string {
   switch (type) {
     case "love":
@@ -76,28 +59,33 @@ function getThemeColor(type: string): string {
     case "friend":
       return "bg-gradient-to-br from-yellow-300 via-lime-300 to-green-300 border-2 border-lime-400";
     case "crush":
-      return "bg-gradient-to-br from-white via-pink-100 to-rose-200 border-2 border-pink-300";
+      return "bg-gradient-to-br from-pink-300 via-violet-300 to-white border-2 border-violet-300";
     case "family":
-      return "bg-gradient-to-br from-white via-gray-100 to-slate-200 border-2 border-slate-300";
+      return "bg-gradient-to-br from-amber-400 via-amber-300 to-rose-400 border-2 border-amber-500";
     default:
-      return "bg-gradient-to-br from-pink-400 to-rose-400 border-2 border-amber-300";
+      return "bg-gradient-to-br from-pink-500 to-rose-400";
   }
 }
 
-// Get text color based on type
 function getTextColor(type: string): string {
   switch (type) {
-    case "love":
-      return "text-white";
     case "friend":
-      return "text-black";
     case "crush":
-      return "text-black";
-    case "family":
       return "text-black";
     default:
       return "text-white";
   }
+}
+
+function UnreadDot() {
+  return (
+    <span className="relative inline-flex items-center justify-center">
+      {/* halo */}
+      <span className="absolute w-5 h-5 rounded-full bg-pink-400/25 blur-[1px]" />
+      {/* dot */}
+      <span className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.55)]" />
+    </span>
+  );
 }
 
 function LetterCard({ letter, color, index, onClick }: LetterCardProps) {
@@ -122,9 +110,9 @@ function LetterCard({ letter, color, index, onClick }: LetterCardProps) {
       }}
       whileTap={{ scale: 0.98 }}
     >
-      {/* Unread badge */}
+      {/* Unread dot */}
       {letter.unread && (
-        <div className="absolute top-3 left-3 z-50">
+        <div className="absolute top-3 left-3 z-20">
           <UnreadDot />
         </div>
       )}
@@ -179,8 +167,9 @@ function LetterCard({ letter, color, index, onClick }: LetterCardProps) {
       {/* Type */}
       <motion.div
         className="absolute bottom-3 right-4"
-        initial={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: 0, scale: 0 }}
         animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: index * 0.15 + 0.5 }}
       >
         <p className={`font-['Inter',sans-serif] font-light italic text-[14px] ${textColor === "text-white" ? "text-white/80" : "text-black/70"} capitalize`}>
           {letter.type}
@@ -198,8 +187,9 @@ interface LettersPageProps {
 export default function LettersPage({ onBack, language }: LettersPageProps) {
   const { session } = useSession();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const [selectedLetter, setSelectedLetter] = useState<{ letter: Letter; color: string } | null>(null);
+  const [selectedLetter, setSelectedLetter] = useState<{ letter: Letter & { unread?: boolean }; color: string } | null>(null);
 
   useEffect(() => {
     const loadMessages = async () => {
@@ -212,6 +202,7 @@ export default function LettersPage({ onBack, language }: LettersPageProps) {
       try {
         const response = await listInbox(session.inboxId, session.sessionToken);
         setMessages(response.messages);
+        setUnreadCount(response.unreadCount ?? 0);
       } catch (error: any) {
         if (error.message.includes("401")) {
           toast.error(language === "en" ? "Session expired" : "Session expirée");
@@ -229,53 +220,46 @@ export default function LettersPage({ onBack, language }: LettersPageProps) {
     loadMessages();
   }, [session.inboxId, session.sessionToken, language, onBack]);
 
-  // Sort: unread first, then most recent
+  // Defensive client-side sorting (backend already does unread-first)
   const sortedMessages = [...messages].sort((a, b) => {
-    const au = (a as any).unread === true ? 1 : 0;
-    const bu = (b as any).unread === true ? 1 : 0;
+    const au = a.unread ? 1 : 0;
+    const bu = b.unread ? 1 : 0;
     if (au !== bu) return bu - au;
-
-    const at = new Date((a as any).lastActiveAt || 0).getTime();
-    const bt = new Date((b as any).lastActiveAt || 0).getTime();
-    return bt - at;
+    return (b.lastActiveAt || 0) - (a.lastActiveAt || 0);
   });
 
-  const unreadCount = sortedMessages.filter((m) => (m as any).unread === true).length;
-
-  // Cards data
-  const letters: LetterCardData[] = sortedMessages.map((msg) => ({
+  const letters = sortedMessages.map((msg) => ({
     id: msg.id,
     from: msg.fromName,
     to: "You",
-    type: msg.type === "friendship" ? ("friend" as const) : (msg.type as any),
-    date: new Date((msg as any).lastActiveAt || Date.now()).toLocaleDateString("en-US", {
+    type: msg.type === "friendship" ? ("friend" as const) : msg.type,
+    date: new Date(msg.lastActiveAt).toLocaleDateString("en-US", {
       month: "2-digit",
       day: "2-digit",
       year: "2-digit",
     }),
     message: msg.body,
     isAnonymous: msg.fromName.toLowerCase().includes("anonymous"),
-    unread: (msg as any).unread === true,
-    lastActiveAt: new Date((msg as any).lastActiveAt || Date.now()).getTime(),
+    unread: msg.unread,
   }));
 
   const translations = {
     en: {
       back: "Back",
       title: "Your Love Letters",
-      youHave: "You have",
-      message: "message",
-      messages: "messages",
-      waitingForYou: "waiting for you",
+      waiting: "waiting for you",
+      youHaveUnread: "You have",
+      unreadMessage: "message",
+      unreadMessages: "messages",
       footer: "made by D&F with",
     },
     fr: {
       back: "Retour",
       title: "Vos Lettres d'Amour",
-      youHave: "Vous avez",
-      message: "message",
-      messages: "messages",
-      waitingForYou: "qui vous attendent",
+      waiting: "qui vous attendent",
+      youHaveUnread: "Vous avez",
+      unreadMessage: "message",
+      unreadMessages: "messages",
       footer: "créé par D&F avec",
     },
   };
@@ -285,51 +269,75 @@ export default function LettersPage({ onBack, language }: LettersPageProps) {
   if (loading) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex items-center justify-center">
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
-          <EnvelopeIcon />
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="text-6xl">
+          💌
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full relative overflow-hidden">
-      {/* Back button */}
-      <motion.div className="absolute top-10 left-6 flex items-center gap-3 cursor-pointer z-20" onClick={onBack} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
-        <span className="text-[24px]">←</span>
-        <p className="font-['Inter',sans-serif] font-bold text-[24px] text-[#2d1b1b]">{t.back}</p>
+    <div className="bg-[rgba(246,193,208,0.71)] relative min-h-screen w-full pb-24">
+      {/* Back Button */}
+      <motion.button
+        onClick={onBack}
+        className="absolute top-10 left-5 font-['Inter',sans-serif] font-medium text-[25px] text-[#2d1b1b] z-10"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+        whileHover={{ x: -5, scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        ← {t.back}
+      </motion.button>
+
+      {/* Header */}
+      <motion.div
+        className="flex gap-[6px] items-center justify-center pt-[93px] pb-6"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+      >
+        <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>
+          <EnvelopeIcon />
+        </motion.div>
+        <h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black">{t.title}</h1>
       </motion.div>
 
-      {/* Title */}
-      <motion.div className="pt-24 pb-6" initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-        <h1 className="font-['Kaushan_Script',sans-serif] text-[40px] text-center text-[#2d1b1b] drop-shadow-lg">{t.title}</h1>
-      </motion.div>
+      {/* Divider */}
+      <motion.div className="w-full h-[1px] bg-black" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.8, delay: 0.3 }} />
 
-      {/* Unread count */}
-      <motion.div className="flex justify-center mb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.5 }}>
+      {/* Unread Count */}
+      <motion.div className="px-8 pt-8 pb-10" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.5 }}>
         <p className="font-['Inter',sans-serif] font-light text-[22px] text-[#2d1b1b] text-center">
-          {t.youHave}{" "}
+          {t.youHaveUnread}{" "}
           <motion.span className="font-bold text-[#a31e46]" animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 0.6, delay: 0.8 }}>
             {unreadCount}
           </motion.span>{" "}
-          {unreadCount === 1 ? t.message : t.messages} {t.waitingForYou}
+          {unreadCount === 1 ? t.unreadMessage : t.unreadMessages} {t.waiting}
         </p>
       </motion.div>
 
-      {/* Letters list */}
-      <div className="space-y-6 pb-28">
+      {/* Letters */}
+      <div className="flex flex-col gap-6 px-12">
         {letters.map((letter, index) => (
           <LetterCard
             key={letter.id}
             letter={letter}
             color={getThemeColor(letter.type)}
             index={index}
-            onClick={() =>
+            onClick={() => {
+              // optimistic: mark as read locally immediately
+              if (letter.unread) {
+                setMessages((prev) => prev.map((m) => (m.id === letter.id ? { ...m, unread: false } : m)));
+                setUnreadCount((c) => Math.max(0, c - 1));
+              }
+
               setSelectedLetter({
                 letter,
                 color: getThemeColor(letter.type),
-              })
-            }
+              });
+            }}
           />
         ))}
       </div>

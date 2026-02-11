@@ -307,7 +307,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
           transition={{ duration: 0.5, delay: 0.9 }}
         >
           <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-2">
-            <span className="font-bold">{t.to}:</span>{' '}
+            <span className="font-bold">{t.to}</span>{' '}
             <span className="font-normal text-[#4a4a4a]">{t.toPlaceholder}</span>
           </p>
           <motion.input
@@ -347,7 +347,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
           transition={{ duration: 0.5, delay: 1.0 }}
         >
           <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-2">
-            <span className="font-bold">{t.from}:</span>{' '}
+            <span className="font-bold">{t.from}</span>{' '}
             <span className="font-normal text-[#4a4a4a]">{t.fromPlaceholder}</span>
           </p>
           <motion.input
@@ -443,7 +443,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
           transition={{ duration: 0.5, delay: 1.2 }}
         >
           <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-4">
-            <span className="font-bold">{t.type}:</span>{' '}
+            <span className="font-bold">{t.type}</span>{' '}
             <span className="font-normal text-[#4a4a4a]">{t.typePlaceholder}</span>
           </p>
           <div className="grid grid-cols-2 gap-4">
@@ -520,7 +520,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
           transition={{ duration: 0.5, delay: 1.7 }}
         >
           <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-2">
-            <span className="font-bold">{t.message}:</span>{' '}
+            <span className="font-bold">{t.message}</span>{' '}
             <span className="font-normal text-[#4a4a4a]">{t.messageOptional}</span>
           </p>
           <motion.textarea

@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { useEffect, useMemo, useState } from 'react';
+import { React, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import svgPaths from '../imports/svg-01d0jglvrw';
 import { getInboxId, getSessionToken, isPinRequired } from '../api/storage';

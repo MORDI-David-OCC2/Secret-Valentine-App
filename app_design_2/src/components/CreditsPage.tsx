@@ -133,7 +133,7 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
               <span className="text-[48px]">🎨</span>
             </motion.div>
             <div>
-              <h2 className="font-['Kaushan_Script',sans-serif] text-[28px] text-[#a31e46]">D</h2>
+              <h2 className="font-['Kaushan_Script',sans-serif] text-[28px] text-[#a31e46]">F</h2>
               <p className="font-['Inter',sans-serif] font-bold text-[14px] text-[#2d1b1b]">{t.dRole}</p>
             </div>
           </div>
@@ -158,7 +158,7 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
               <span className="text-[48px]">💻</span>
             </motion.div>
             <div>
-              <h2 className="font-['Kaushan_Script',sans-serif] text-[28px] text-[#a31e46]">F</h2>
+              <h2 className="font-['Kaushan_Script',sans-serif] text-[28px] text-[#a31e46]">D</h2>
               <p className="font-['Inter',sans-serif] font-bold text-[14px] text-[#2d1b1b]">{t.fRole}</p>
             </div>
           </div>

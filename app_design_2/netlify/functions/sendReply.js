@@ -281,10 +281,9 @@ exports.handler = async (event) => {
       { merge: true }
     );
 
-    // Write the reply docs (THIS WAS MISSING)
 batch.set(meReplyRef, {
   createdAt: now,
-  fromInboxId: inboxId,           // who wrote the reply (real sender of reply)
+  fromInboxId: inboxId,
   bodyEnc: encForMe.bodyEnc,
   dekWrapped: encForMe.dekWrapped,
   cryptoVersion: encForMe.cryptoVersion,

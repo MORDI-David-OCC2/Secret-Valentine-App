@@ -117,7 +117,7 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
 
       {/* Team Cards */}
       <div className="mx-5 space-y-6">
-        {/* D Card */}
+        {/* F Card */}
         <motion.div
           className="bg-white/80 rounded-[15px] p-6 shadow-lg"
           initial={{ opacity: 0, x: -30 }}
@@ -142,7 +142,7 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
           </p>
         </motion.div>
 
-        {/* F Card */}
+        {/* D Card */}
         <motion.div
           className="bg-white/80 rounded-[15px] p-6 shadow-lg"
           initial={{ opacity: 0, x: 30 }}

@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useSession } from '../contexts/SessionContext';
 
 interface HomePageProps {
   onNavigate: (page: 'home' | 'letters' | 'compose' | 'settings' | 'credits' | 'claim') => void;
@@ -6,6 +7,8 @@ interface HomePageProps {
 }
 
 export default function HomePage({ onNavigate, language }: HomePageProps) {
+  const {isAuthenticated} = useSession()
+  
   const translations = {
     en: {
       title: 'Secret Valentine',

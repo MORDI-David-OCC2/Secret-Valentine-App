@@ -19,7 +19,7 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
     },
     fr: {
       title: 'Valentin Secret',
-      welcome: '"Bienvenue sur Valentin Secret. Révélez votre cœur, gardez votre mystère. Envoyez un message à la personne que vous aimez, sans qu\'elle sache que c\'est vous... pour l\'instant."',
+      welcome: '"Bienvenue sur Secret Valentine. Révélez votre cœur et gardez votre mystère..."',
       writeMessage: 'Écrivez votre message',
       claimInbox: 'Accéder à ma boîte',
       footer: 'créé par D&F avec'

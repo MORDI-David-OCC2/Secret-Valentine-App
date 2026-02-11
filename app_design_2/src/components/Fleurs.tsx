@@ -16,7 +16,7 @@ const sizeClasses = {
   xl: 'w-32 h-32'
 };
 
-export default function FlowerIcon({ type, className = '', size = 'md' }: FlowerIconProps) {
+export default function FlowerIcon({ type, className = '', size = 'sm' }: FlowerIconProps) {
   const getFlowerImage = () => {
     switch (type) {
       case 'love':

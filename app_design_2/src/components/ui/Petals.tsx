@@ -11,7 +11,7 @@ type Petal = {
 
 const EMOJIS = ["🌸", "🌺", "✿", "❀", "🌷", "♥", "💕"];
 
-export function Petals({ count = 22 }: { count?: number }) {
+export default function Petals({ count = 22 }: { count?: number }) {
   const [petals, setPetals] = useState<Petal[]>([]);
   const seed = useMemo(() => crypto.randomUUID(), []);
 

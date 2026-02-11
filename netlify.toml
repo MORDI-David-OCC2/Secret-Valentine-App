@@ -2,7 +2,7 @@
   base = "app_design_2"
   command = "npm install && npm run build"
   functions = "netlify/functions"
-  publish = "dist"
+  publish = "build"
 
 [build.environment]
   NODE_VERSION = "18"

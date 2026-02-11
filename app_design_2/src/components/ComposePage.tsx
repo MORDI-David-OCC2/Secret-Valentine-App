@@ -444,7 +444,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
         >
           <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-4">
             <span className="font-bold">{t.type}</span>{' '}
-            <span className="font-normal text-[#4a4a4a]">{t.typePlaceholder}</span>
           </p>
           <div className="grid grid-cols-2 gap-4">
             {/* Love - Rose + Or */}

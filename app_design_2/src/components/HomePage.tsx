@@ -37,7 +37,7 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
         whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,1)' }}
         whileTap={{ scale: 0.9 }}
       >
-        <span className="text-[24px]">⚙️</span>
+        <span className="text-xl md:text-2xl">⚙️</span>
       </motion.button>
 
       {/* Header */}
@@ -87,7 +87,7 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
 
       {/* Welcome Message */}
       <motion.div 
-        className="px-8 pt-8 pb-12"
+        className="px-6 md:px-8 pt-6 md:pt-8 pb-8 md:pb-12"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, delay: 0.5 }}
@@ -98,11 +98,11 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
       </motion.div>
 
       {/* Action Buttons */}
-      <div className="flex flex-col items-center gap-6 px-16">
+      <div className="flex flex-col items-center gap-6 px-16flex flex-col items-center gap-4 md:gap-6 px-6 md:px-16 max-w-2xl mx-auto">
         {/* Write Message Button */}
         <motion.button
           onClick={() => onNavigate('compose')}
-          className="bg-[#db8c8f] rounded-[10px] w-full h-[172px] flex flex-col items-center justify-center gap-4 shadow-lg"
+          className="bg-[#db8c8f] rounded-[10px] w-full min-h-[140px] flex flex-col items-center justify-center gap-4 shadow-lg"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.9 }}
@@ -131,7 +131,7 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
         {/* Claim Inbox Button */}
         <motion.button
           onClick={() => onNavigate('claim')}
-          className="bg-[#db8c8f] rounded-[10px] w-full h-[172px] flex flex-col items-center justify-center gap-4 shadow-lg"
+          className="bg-[#db8c8f] rounded-[10px] w-full min-h-[140px] flex flex-col items-center justify-center gap-4 shadow-lg"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 1.1 }}

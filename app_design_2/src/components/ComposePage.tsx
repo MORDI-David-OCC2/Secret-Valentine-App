@@ -461,7 +461,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
             >
               <FlowerIcon type="love" size="sm" />
               <p className="font-['Inter',sans-serif] font-bold text-[15px] text-pink-700">{t.love}</p>
-              <p className="font-['Inter',sans-serif] font-light text-[11px] text-pink-600 italic">{t.rose}</p>
             </motion.button>
 
             {/* Friend - Rose Jaune */}
@@ -478,7 +477,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
             >
               <FlowerIcon type="friend" size="sm" />
               <p className="font-['Inter',sans-serif] font-bold text-[15px] text-black">{t.friend}</p>
-              <p className="font-['Inter',sans-serif] font-light text-[11px] text-black/70 italic">{t.roseJaune}</p>
             </motion.button>
 
             {/* Family - Lys */}
@@ -495,7 +493,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
             >
               <FlowerIcon type="family" size="sm" />
               <p className="font-['Inter',sans-serif] font-bold text-[15px] text-amber-800">{t.family}</p>
-              <p className="font-['Inter',sans-serif] font-light text-[11px] text-amber-700 italic">{t.lys}</p>
             </motion.button>
 
             {/* Crush - Rose Blanche */}
@@ -512,7 +509,6 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
             >
               <FlowerIcon type="crush" size="sm" />
               <p className="font-['Inter',sans-serif] font-bold text-[15px] text-violet-700">{t.crush}</p>
-              <p className="font-['Inter',sans-serif] font-light text-[11px] text-violet-600 italic">{t.roseBlanche}</p>
             </motion.button>
           </div>
         </motion.div>

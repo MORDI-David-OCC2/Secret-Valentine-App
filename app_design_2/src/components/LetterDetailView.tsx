@@ -254,7 +254,6 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               <div className="bg-white/30 backdrop-blur-sm px-6 py-2 rounded-full border-2 border-white/50">
               <div className="font-['Inter',sans-serif] font-bold text-[18px] text-black capitalize flex items-center gap-2">
                 <FlowerIcon type={letter.type as any} size="sm" className="w-12 h-12" />
-                <span>{getFlowerName(letter.type)}</span>
               </div>
 
               </div>

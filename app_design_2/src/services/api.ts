@@ -261,3 +261,20 @@ export interface SendReplyResponse {
   ok: true;
   replyId: string;
 }
+
+export async function sendReply(
+  data: SendReplyRequest
+): Promise<SendReplyResponse> {
+  const response = await fetch(`${API_BASE}/sendReply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || "Failed to send reply");
+  }
+
+  return response.json();
+}

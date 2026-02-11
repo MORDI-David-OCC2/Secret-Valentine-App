@@ -1,8 +1,8 @@
-import { motion, AnimatePresence } from 'motion/react';
-import { useState, useEffect, useMemo } from 'react';
-import { toast } from 'sonner@2.0.3';
-import { useSession } from '../contexts/SessionContext';
-import { getMessage, MessageDetail, MessageReply } from '../services/api';
+import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect, useMemo } from "react";
+import { toast } from "sonner@2.0.3";
+import { useSession } from "../contexts/SessionContext";
+import { getMessage, MessageDetail, MessageReply } from "../services/api";
 import svgPaths from "../imports/svg-01d0jglvrw";
 import type { Letter } from "../App";
 import ReplyToLetterView from "./ReplyToLetterView";
@@ -24,9 +24,27 @@ function OvalLoveIcon() {
     <div className="size-[53px]">
       <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 53 53">
         <g>
-          <path d={svgPaths.p2a38d480} stroke="#DB8C8F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-          <path d={svgPaths.p2868bb00} stroke="#DB8C8F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-          <path d={svgPaths.p3ff4a100} stroke="#DB8C8F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+          <path
+            d={svgPaths.p2a38d480}
+            stroke="#DB8C8F"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+          />
+          <path
+            d={svgPaths.p2868bb00}
+            stroke="#DB8C8F"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+          />
+          <path
+            d={svgPaths.p3ff4a100}
+            stroke="#DB8C8F"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+          />
         </g>
       </svg>
     </div>
@@ -37,31 +55,61 @@ interface LetterDetailViewProps {
   messageId: string;
   color: string;
   onClose: () => void;
-  language: 'en' | 'fr';
+  language: "en" | "fr";
 }
 
-function formatDate(msOrIso: any) {
+function formatDate(msOrIso: any, language: "en" | "fr") {
   try {
     const d = new Date(msOrIso);
     if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString();
+    return d.toLocaleDateString(language === "fr" ? "fr-FR" : undefined);
   } catch {
     return "";
   }
 }
 
-function formatTimestamp(msOrIso: any) {
+function formatTimestamp(msOrIso: any, language: "en" | "fr") {
   try {
     const d = new Date(msOrIso);
     if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return d.toLocaleString(language === "fr" ? "fr-FR" : "en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return "";
+  }
+}
+
+function getFlowerName(type: string) {
+  switch (type) {
+    case "love":
+      return "Rose";
+    case "friend":
+      return "Rose Jaune";
+    case "family":
+      return "Lys";
+    case "crush":
+      return "Rose Blanche";
+    default:
+      return "";
+  }
+}
+
+function getFlowerEmoji(type: string) {
+  switch (type) {
+    case "love":
+      return "🌹";
+    case "friend":
+      return "🌻";
+    case "crush":
+      return "🌸";
+    case "family":
+      return "🌺";
+    default:
+      return "🌹";
   }
 }
 
@@ -86,8 +134,8 @@ export default function LetterDetailView({ messageId, color, onClose, language }
         setReplies(response.replies || []);
       } catch (error: any) {
         const msg = String(error?.message || "");
-        if (msg.includes('401')) toast.error(language === "en" ? "Session expired" : "Session expirée");
-        else if (msg.includes('404')) toast.error(language === "en" ? "Message not found" : "Message introuvable");
+        if (msg.includes("401")) toast.error(language === "en" ? "Session expired" : "Session expirée");
+        else if (msg.includes("404")) toast.error(language === "en" ? "Message not found" : "Message introuvable");
         else toast.error(language === "en" ? "Failed to load message" : "Échec du chargement");
         onClose();
       } finally {
@@ -103,23 +151,13 @@ export default function LetterDetailView({ messageId, color, onClose, language }
     return {
       id: message.id,
       from: message.fromName,
-      to: 'You',
-      type: message.type === 'friendship' ? 'friend' : (message.type as any),
-      date: formatDate(message.createdAt),
+      to: "You",
+      type: message.type === "friendship" ? "friend" : (message.type as any),
+      date: formatDate(message.createdAt, language),
       message: message.body,
-      isAnonymous: message.fromName?.toLowerCase?.().includes('anonymous') || false
+      isAnonymous: message.fromName?.toLowerCase?.().includes("anonymous") || false,
     };
-  }, [message]);
-
-  const getFlowerName = (type: string) => {
-    switch (type) {
-      case 'love': return 'Rose';
-      case 'friend': return 'Rose Jaune';
-      case 'family': return 'Lys';
-      case 'crush': return 'Rose Blanche';
-      default: return '';
-    }
-  };
+  }, [message, language]);
 
   if (loading || !message || !letter) {
     return (
@@ -130,13 +168,13 @@ export default function LetterDetailView({ messageId, color, onClose, language }
       >
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           className="text-6xl"
         >
           💌
         </motion.div>
         <p className="font-['Inter',sans-serif] text-white text-lg">
-          {language === 'en' ? 'Opening your love letter...' : 'Ouverture de votre lettre d\'amour...'}
+          {language === "en" ? "Opening your love letter..." : "Ouverture de votre lettre d'amour..."}
         </p>
       </motion.div>
     );
@@ -183,7 +221,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             type: "spring",
             stiffness: 200,
             damping: 20,
-            duration: 0.6
+            duration: 0.6,
           }}
         >
           {/* Close Button */}
@@ -240,7 +278,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             >
               <div className="bg-white/30 backdrop-blur-sm px-6 py-2 rounded-full border-2 border-white/50">
                 <p className="font-['Inter',sans-serif] font-bold text-[18px] text-black capitalize flex items-center gap-2">
-                  <span className="text-[18px]">🌸</span>
+                  <span className="text-[18px]">{getFlowerEmoji(letter.type)}</span>
                   {getFlowerName(letter.type)}
                 </p>
               </div>
@@ -266,9 +304,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                 <p className="font-['Inter',sans-serif] font-light text-[14px] text-black/70 mb-1">
                   {language === "en" ? "Date" : "Date"}
                 </p>
-                <p className="font-['Inter',sans-serif] font-medium text-[16px] text-black">
-                  {letter.date}
-                </p>
+                <p className="font-['Inter',sans-serif] font-medium text-[16px] text-black">{letter.date}</p>
               </div>
             </motion.div>
 
@@ -282,7 +318,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
 
             {/* CONTENT AREA */}
             {!replyEnabled ? (
-              // ✅ Replies disabled: keep "letter" bubble
+              // Replies disabled: keep letter bubble
               <motion.div
                 className="bg-white/20 backdrop-blur-sm rounded-[15px] p-6 border-2 border-white/30 min-h-[200px] relative"
                 initial={{ opacity: 0, y: 20 }}
@@ -305,7 +341,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                 </div>
               </motion.div>
             ) : (
-              // ✅ Replies enabled: show as a conversation thread
+              // Replies enabled: show conversation thread
               <motion.div
                 className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border-2 border-white/25 max-h-[300px] overflow-y-auto"
                 initial={{ opacity: 0, y: 20 }}
@@ -318,11 +354,14 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                     <div className="max-w-[85%]">
                       <div className="rounded-[18px] px-4 py-3 bg-white/30 border border-white/30">
                         <p className="font-['Inter',sans-serif] text-[15px] leading-relaxed text-black whitespace-pre-wrap">
-                          {letter.message || (language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi...")}
+                          {letter.message ||
+                            (language === "en"
+                              ? "A secret message just for you..."
+                              : "Un message secret rien que pour toi...")}
                         </p>
                       </div>
                       <p className="font-['Inter',sans-serif] text-[11px] text-black/50 mt-1 ml-2">
-                        {formatTimestamp(message.createdAt)}
+                        {formatTimestamp(message.createdAt, language)}
                       </p>
                     </div>
                   </div>
@@ -340,8 +379,12 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                             {r.body}
                           </p>
                         </div>
-                        <p className={`font-['Inter',sans-serif] text-[11px] text-black/50 mt-1 ${r.from === "me" ? "mr-2" : "ml-2"}`}>
-                          {formatTimestamp(r.createdAt)}
+                        <p
+                          className={`font-['Inter',sans-serif] text-[11px] text-black/50 mt-1 ${
+                            r.from === "me" ? "mr-2" : "ml-2"
+                          }`}
+                        >
+                          {formatTimestamp(r.createdAt, language)}
                         </p>
                       </div>
                     </div>
@@ -360,9 +403,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               <p className="font-['Inter',sans-serif] font-light text-[14px] text-black/70 mb-1">
                 {language === "en" ? "To" : "À"}
               </p>
-              <p className="font-['Kaushan_Script',sans-serif] text-[24px] text-black drop-shadow-lg">
-                {letter.to}
-              </p>
+              <p className="font-['Kaushan_Script',sans-serif] text-[24px] text-black drop-shadow-lg">{letter.to}</p>
             </motion.div>
 
             {/* Anonymous badge */}
@@ -383,28 +424,29 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             )}
           </motion.div>
 
-          {/* Action buttons */}
+          {/* Action buttons (Reply / No reply like your example) */}
           <motion.div
             className="mt-6 flex gap-3"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
           >
+            {/* No reply = close */}
             <motion.button
               onClick={onClose}
               className="flex-1 bg-white text-[#2d1b1b] font-['Inter',sans-serif] font-bold text-[16px] rounded-[10px] h-[50px] shadow-lg"
-              whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(255,255,255,0.3)' }}
+              whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(255,255,255,0.3)" }}
               whileTap={{ scale: 0.95 }}
             >
-              {language === "en" ? "Close" : "Fermer"}
+              {language === "en" ? "No reply" : "Ne pas répondre"}
             </motion.button>
 
-            {/* ✅ Only show reply button if enabled */}
+            {/* Reply only if enabled */}
             {replyEnabled && (
               <motion.button
                 onClick={() => setShowReply(true)}
                 className={`flex-1 ${color} text-white font-['Inter',sans-serif] font-bold text-[16px] rounded-[10px] h-[50px] shadow-lg flex items-center justify-center gap-2`}
-                whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}
+                whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(0,0,0,0.3)" }}
                 whileTap={{ scale: 0.95 }}
               >
                 <motion.span

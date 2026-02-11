@@ -24,27 +24,9 @@ function OvalLoveIcon() {
     <div className="size-[53px]">
       <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 53 53">
         <g>
-          <path
-            d={svgPaths.p2a38d480}
-            stroke="#DB8C8F"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          />
-          <path
-            d={svgPaths.p2868bb00}
-            stroke="#DB8C8F"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          />
-          <path
-            d={svgPaths.p3ff4a100}
-            stroke="#DB8C8F"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          />
+          <path d={svgPaths.p2a38d480} stroke="#DB8C8F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+          <path d={svgPaths.p2868bb00} stroke="#DB8C8F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+          <path d={svgPaths.p3ff4a100} stroke="#DB8C8F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
         </g>
       </svg>
     </div>
@@ -166,14 +148,10 @@ export default function LetterDetailView({ messageId, color, onClose, language }
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className="text-6xl"
-        >
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="text-6xl">
           💌
         </motion.div>
-        <p className="font-['Inter',sans-serif] text-white text-lg">
+        <p className="font-['Cormorant_Garamond',serif] text-white text-lg italic">
           {language === "en" ? "Opening your love letter..." : "Ouverture de votre lettre d'amour..."}
         </p>
       </motion.div>
@@ -217,12 +195,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
           initial={{ scale: 0.5, opacity: 0, rotateY: -90 }}
           animate={{ scale: 1, opacity: 1, rotateY: 0 }}
           exit={{ scale: 0.5, opacity: 0, rotateY: 90 }}
-          transition={{
-            type: "spring",
-            stiffness: 200,
-            damping: 20,
-            duration: 0.6,
-          }}
+          transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.6 }}
         >
           {/* Close Button */}
           <motion.button
@@ -269,7 +242,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               <OvalLoveIcon />
             </motion.div>
 
-            {/* Type badge */}
+            {/* Type badge (KEEP: flower + name; change font only) */}
             <motion.div
               className="flex justify-center mb-6"
               initial={{ opacity: 0, y: -20 }}
@@ -277,7 +250,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               transition={{ delay: 0.3 }}
             >
               <div className="bg-white/30 backdrop-blur-sm px-6 py-2 rounded-full border-2 border-white/50">
-                <p className="font-['Inter',sans-serif] font-bold text-[18px] text-black capitalize flex items-center gap-2">
+                <p className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-black flex items-center gap-2">
                   <span className="text-[18px]">{getFlowerEmoji(letter.type)}</span>
                   {getFlowerName(letter.type)}
                 </p>
@@ -285,40 +258,31 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             </motion.div>
 
             {/* From & Date */}
-            <motion.div
-              className="space-y-3 mb-6"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-            >
+            <motion.div className="space-y-3 mb-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
               <div className="text-center">
-                <p className="font-['Inter',sans-serif] font-light text-[14px] text-black/70 mb-1">
+                <p className="font-['Cormorant_Garamond',serif] italic font-light text-[14px] text-black/70 mb-1">
                   {language === "en" ? "From" : "De"}
                 </p>
-                <p className="font-['Kaushan_Script',sans-serif] text-[28px] text-black drop-shadow-lg">
+                <p className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-black drop-shadow-lg">
                   {letter.from}
                 </p>
               </div>
 
               <div className="text-center">
-                <p className="font-['Inter',sans-serif] font-light text-[14px] text-black/70 mb-1">
+                <p className="font-['Cormorant_Garamond',serif] italic font-light text-[14px] text-black/70 mb-1">
                   {language === "en" ? "Date" : "Date"}
                 </p>
-                <p className="font-['Inter',sans-serif] font-medium text-[16px] text-black">{letter.date}</p>
+                <p className="font-['Cormorant_Garamond',serif] font-medium text-[16px] text-black">
+                  {letter.date}
+                </p>
               </div>
             </motion.div>
 
             {/* Divider */}
-            <motion.div
-              className="h-[1px] bg-black/40 mb-6"
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ delay: 0.5, duration: 0.4 }}
-            />
+            <motion.div className="h-[1px] bg-black/40 mb-6" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.4 }} />
 
-            {/* CONTENT AREA */}
+            {/* CONTENT AREA (unchanged layout; font swap only) */}
             {!replyEnabled ? (
-              // Replies disabled: keep letter bubble
               <motion.div
                 className="bg-white/20 backdrop-blur-sm rounded-[15px] p-6 border-2 border-white/30 min-h-[200px] relative"
                 initial={{ opacity: 0, y: 20 }}
@@ -330,18 +294,17 @@ export default function LetterDetailView({ messageId, color, onClose, language }
 
                 <div className="relative z-10 pt-6 pb-6">
                   {letter.message ? (
-                    <p className="font-['Inter',sans-serif] font-light text-[18px] leading-relaxed text-black text-center whitespace-pre-wrap">
+                    <p className="font-['Cormorant_Garamond',serif] italic font-light text-[20px] leading-relaxed text-black text-center whitespace-pre-wrap">
                       {letter.message}
                     </p>
                   ) : (
-                    <p className="font-['Inter',sans-serif] font-light italic text-[18px] leading-relaxed text-black/80 text-center">
+                    <p className="font-['Cormorant_Garamond',serif] italic font-light text-[20px] leading-relaxed text-black/80 text-center">
                       {language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi..."}
                     </p>
                   )}
                 </div>
               </motion.div>
             ) : (
-              // Replies enabled: show conversation thread
               <motion.div
                 className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border-2 border-white/25 max-h-[300px] overflow-y-auto"
                 initial={{ opacity: 0, y: 20 }}
@@ -349,24 +312,20 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                 transition={{ delay: 0.6 }}
               >
                 <div className="space-y-3">
-                  {/* original message bubble (them - left) */}
                   <div className="flex justify-start">
                     <div className="max-w-[85%]">
                       <div className="rounded-[18px] px-4 py-3 bg-white/30 border border-white/30">
-                        <p className="font-['Inter',sans-serif] text-[15px] leading-relaxed text-black whitespace-pre-wrap">
+                        <p className="font-['Cormorant_Garamond',serif] italic text-[16px] leading-relaxed text-black whitespace-pre-wrap">
                           {letter.message ||
-                            (language === "en"
-                              ? "A secret message just for you..."
-                              : "Un message secret rien que pour toi...")}
+                            (language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi...")}
                         </p>
                       </div>
-                      <p className="font-['Inter',sans-serif] text-[11px] text-black/50 mt-1 ml-2">
+                      <p className="font-['Cormorant_Garamond',serif] italic text-[12px] text-black/50 mt-1 ml-2">
                         {formatTimestamp(message.createdAt, language)}
                       </p>
                     </div>
                   </div>
 
-                  {/* replies */}
                   {replies.map((r) => (
                     <div key={r.id} className={`flex ${r.from === "me" ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[85%] ${r.from === "me" ? "items-end" : "items-start"} flex flex-col`}>
@@ -375,12 +334,12 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                             r.from === "me" ? "bg-white/45" : "bg-white/25"
                           }`}
                         >
-                          <p className="font-['Inter',sans-serif] text-[15px] leading-relaxed text-black whitespace-pre-wrap">
+                          <p className="font-['Cormorant_Garamond',serif] italic text-[16px] leading-relaxed text-black whitespace-pre-wrap">
                             {r.body}
                           </p>
                         </div>
                         <p
-                          className={`font-['Inter',sans-serif] text-[11px] text-black/50 mt-1 ${
+                          className={`font-['Cormorant_Garamond',serif] italic text-[12px] text-black/50 mt-1 ${
                             r.from === "me" ? "mr-2" : "ml-2"
                           }`}
                         >
@@ -394,29 +353,19 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             )}
 
             {/* To field */}
-            <motion.div
-              className="mt-6 text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7 }}
-            >
-              <p className="font-['Inter',sans-serif] font-light text-[14px] text-black/70 mb-1">
+            <motion.div className="mt-6 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}>
+              <p className="font-['Cormorant_Garamond',serif] italic font-light text-[14px] text-black/70 mb-1">
                 {language === "en" ? "To" : "À"}
               </p>
-              <p className="font-['Kaushan_Script',sans-serif] text-[24px] text-black drop-shadow-lg">{letter.to}</p>
+              <p className="font-['Playfair_Display',serif] italic font-bold text-[22px] text-black drop-shadow-lg">{letter.to}</p>
             </motion.div>
 
             {/* Anonymous badge */}
             {letter.isAnonymous && (
-              <motion.div
-                className="mt-4 flex justify-center"
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.8, type: "spring" }}
-              >
+              <motion.div className="mt-4 flex justify-center" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.8, type: "spring" }}>
                 <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/40 flex items-center gap-2">
                   <span className="text-[16px]">🎭</span>
-                  <p className="font-['Inter',sans-serif] font-light italic text-[13px] text-black">
+                  <p className="font-['Cormorant_Garamond',serif] italic font-light text-[14px] text-black">
                     {language === "en" ? "Sent anonymously" : "Envoyé anonymement"}
                   </p>
                 </div>
@@ -424,35 +373,25 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             )}
           </motion.div>
 
-          {/* Action buttons (Reply / No reply like your example) */}
-          <motion.div
-            className="mt-6 flex gap-3"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-          >
-            {/* No reply = close */}
+          {/* Action buttons */}
+          <motion.div className="mt-6 flex gap-3" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
             <motion.button
               onClick={onClose}
-              className="flex-1 bg-white text-[#2d1b1b] font-['Inter',sans-serif] font-bold text-[16px] rounded-[10px] h-[50px] shadow-lg"
+              className="flex-1 bg-white text-[#2d1b1b] font-['Cormorant_Garamond',serif] italic font-bold text-[18px] rounded-[10px] h-[50px] shadow-lg"
               whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(255,255,255,0.3)" }}
               whileTap={{ scale: 0.95 }}
             >
               {language === "en" ? "No reply" : "Ne pas répondre"}
             </motion.button>
 
-            {/* Reply only if enabled */}
             {replyEnabled && (
               <motion.button
                 onClick={() => setShowReply(true)}
-                className={`flex-1 ${color} text-white font-['Inter',sans-serif] font-bold text-[16px] rounded-[10px] h-[50px] shadow-lg flex items-center justify-center gap-2`}
+                className={`flex-1 ${color} text-white font-['Cormorant_Garamond',serif] italic font-bold text-[18px] rounded-[10px] h-[50px] shadow-lg flex items-center justify-center gap-2`}
                 whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(0,0,0,0.3)" }}
                 whileTap={{ scale: 0.95 }}
               >
-                <motion.span
-                  animate={{ rotate: [0, -10, 10, -10, 0] }}
-                  transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}
-                >
+                <motion.span animate={{ rotate: [0, -10, 10, -10, 0] }} transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}>
                   ✉️
                 </motion.span>
                 {language === "en" ? "Reply" : "Répondre"}

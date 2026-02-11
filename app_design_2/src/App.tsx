@@ -159,6 +159,7 @@ function AppContent() {
             <LettersPage  
               onBack={() => setCurrentPage('home')}
               language={language}
+              onNavigate={(page) => setCurrentPage(page)}
             />
           </motion.div>
         )}
@@ -174,6 +175,7 @@ function AppContent() {
             <ComposePage 
               onBack={() => setCurrentPage('home')} 
               language={language}
+              onNavigate={(page) => setCurrentPage(page)}
             />
           </motion.div>
         )}
@@ -281,4 +283,3 @@ export default function App() {
       <AppContent />
     </SessionProvider>
   );
-}

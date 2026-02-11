@@ -4,42 +4,44 @@ import whiteRose from "../assets/Fleurs/WhiteRose.png";
 import whiteLily from "../assets/Fleurs/WhiteLily.png";
 
 interface FlowerIconProps {
-  type: 'love' | 'friend' | 'family' | 'crush';
+  type: "love" | "friend" | "family" | "crush";
   className?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: "sm" | "md" | "lg" | "xl";
 }
 
-const sizeClasses = {
-  sm: 'w-12 h-12',
-  md: 'w-16 h-16',
-  lg: 'w-24 h-24',
-  xl: 'w-32 h-32'
-};
+const sizePxMap = {
+  sm: 48,
+  md: 64,
+  lg: 96,
+  xl: 128,
+} as const;
 
-export default function FlowerIcon({ type, className = '', size = 'sm' }: FlowerIconProps) {
-  const getFlowerImage = () => {
-    switch (type) {
-      case 'love':
-        return { src: redRose, alt: 'Rose Rouge - Amour' };
-      case 'friend':
-        return { src: yellowRose, alt: 'Rose Jaune - Amitié' };
-      case 'crush':
-        return { src: whiteRose, alt: 'Rose Blanche - Coup de Cœur' };
-      case 'family':
-        return { src: whiteLily, alt: 'Lys Blanc - Famille' };
-      default:
-        return { src: redRose, alt: 'Fleur' };
-    }
-  };
+export default function FlowerIcon({
+  type,
+  className = "",
+  size = "sm",
+}: FlowerIconProps) {
+  const flower =
+    type === "love"
+      ? { src: redRose, alt: "Rose Rouge - Amour" }
+      : type === "friend"
+      ? { src: yellowRose, alt: "Rose Jaune - Amitié" }
+      : type === "crush"
+      ? { src: whiteRose, alt: "Rose Blanche - Coup de Cœur" }
+      : { src: whiteLily, alt: "Lys Blanc - Famille" };
 
-  const flower = getFlowerImage();
-  const sizeClass = sizeClasses[size];
+  const px = sizePxMap[size];
 
   return (
-    <img 
-      src={flower.src} 
+    <img
+      src={flower.src}
       alt={flower.alt}
-      className={`${sizeClass} object-contain ${className}`}
+      width={px}
+      height={px}
+      loading="lazy"
+      decoding="async"
+      className={`block shrink-0 object-contain ${className}`}
+      style={{ width: px, height: px }}
     />
   );
 }

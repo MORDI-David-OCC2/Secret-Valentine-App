@@ -1,6 +1,6 @@
-import yellowRose from "../assets/Fleurs/YellowRose.png";
+import yellowRose from "../assets/Fleurs/YellowRose.webp";
 import redRose from "../assets/Fleurs/RedRose.png";
-import whiteRose from "../assets/Fleurs/WhiteRose.webp";
+import whiteRose from "../assets/Fleurs/WhiteRose.png";
 import whiteLily from "../assets/Fleurs/WhiteLily.png";
 
 interface FlowerIconProps {

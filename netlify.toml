@@ -1,5 +1,5 @@
 [build]
-  base = "app_design"
+  base = "app_design_2"
   command = "npm install && npm run build"
   functions = "netlify/functions"
   publish = "dist"

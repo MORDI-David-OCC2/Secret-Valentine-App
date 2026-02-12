@@ -7,6 +7,7 @@ import svgPaths from "../imports/svg-01d0jglvrw";
 import type { Letter } from "../App";
 import LetterDetailView from "./LetterDetailView";
 import AppFrame from "./ui/AppFrame";
+import { UnreadDot } from "./ui/UnreadDot";
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -46,10 +47,14 @@ function OvalLoveIcon() {
   );
 }
 
+/** ✅ On garde Letter intact, et on ajoute unread localement */
+type LetterUI = Letter & { isUnread: boolean };
+
 interface LetterCardProps {
-  letter: Letter;
+  letter: LetterUI;
   color: string;
   index: number;
+  isUnread: boolean;
   onClick: () => void;
 }
 
@@ -78,7 +83,7 @@ function getTextColor(type: string): string {
   }
 }
 
-function LetterCard({ letter, color, index, onClick }: LetterCardProps) {
+function LetterCard({ letter, color, index, isUnread, onClick }: LetterCardProps) {
   const textColor = getTextColor(letter.type);
 
   return (
@@ -91,8 +96,20 @@ function LetterCard({ letter, color, index, onClick }: LetterCardProps) {
       whileHover={{ y: -3, scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
     >
+      {/* ✅ Unread badge (sans casser l'UI) */}
+      {isUnread && (
+        <div className="absolute top-3 right-3 z-20">
+          <UnreadDot />
+        </div>
+      )}
+
       {/* envelope flap */}
-      <motion.svg className="absolute top-0 left-0 right-0 pointer-events-none w-full z-0" height="60" viewBox="0 0 283 60" preserveAspectRatio="none">
+      <motion.svg
+        className="absolute top-0 left-0 right-0 pointer-events-none w-full z-0"
+        height="60"
+        viewBox="0 0 283 60"
+        preserveAspectRatio="none"
+      >
         <line x1="0" y1="0" x2="141.5" y2="50" stroke="white" strokeOpacity="0.55" strokeWidth="2" vectorEffect="non-scaling-stroke" />
         <line x1="283" y1="0" x2="141.5" y2="50" stroke="white" strokeOpacity="0.55" strokeWidth="2" vectorEffect="non-scaling-stroke" />
         <line x1="0" y1="0" x2="283" y2="0" stroke="white" strokeOpacity="0.55" strokeWidth="2" vectorEffect="non-scaling-stroke" />
@@ -139,7 +156,7 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
   const { session } = useSession();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLetter, setSelectedLetter] = useState<{ letter: Letter; color: string } | null>(null);
+  const [selectedLetter, setSelectedLetter] = useState<{ letter: LetterUI; color: string } | null>(null);
 
   useEffect(() => {
     const loadMessages = async () => {
@@ -170,7 +187,8 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
     loadMessages();
   }, [session.inboxId, session.sessionToken, language, onBack]);
 
-  const letters: Letter[] = messages.map((msg) => ({
+  /** ✅ on map en LetterUI (avec isUnread) */
+  const letters: LetterUI[] = messages.map((msg) => ({
     id: msg.id,
     from: msg.fromName,
     to: "You",
@@ -182,6 +200,7 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
     }),
     message: msg.body,
     isAnonymous: msg.fromName.toLowerCase().includes("anonymous"),
+    isUnread: msg.unread === true,
   }));
 
   const translations = {
@@ -268,6 +287,7 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
               letter={letter}
               color={getThemeColor(letter.type)}
               index={index}
+              isUnread={letter.isUnread}
               onClick={() => setSelectedLetter({ letter, color: getThemeColor(letter.type) })}
             />
           ))}

@@ -136,14 +136,14 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
               active:scale-[0.99]
             "
           >
-            <div className="size-12 rounded-[14px] bg-white/25 backdrop-blur flex items-center justify-center text-[22px]">
+            <div className="size-12 rounded-[18px] bg-white/25 backdrop-blur flex items-center justify-center text-[22px]">
               ✍️
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-['Playfair_Display',serif] text-[16px] font-bold text-white leading-tight">
                 {t.writeTitle}
               </div>
-              <div className="text-[12px] italic text-white/80 truncate">{t.writeSub}</div>
+              <div className="text-[16px] italic text-white/80 truncate">{t.writeSub}</div>
             </div>
             <div className="text-white/70 text-lg">→</div>
           </button>
@@ -160,14 +160,14 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
               active:scale-[0.99]
             "
           >
-            <div className="size-12 rounded-[14px] bg-white/25 backdrop-blur flex items-center justify-center text-[22px]">
+            <div className="size-12 rounded-[18px] bg-white/25 backdrop-blur flex items-center justify-center text-[22px]">
               💌
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-['Playfair_Display',serif] text-[16px] font-bold text-white leading-tight">
                 {t.inboxTitle}
               </div>
-              <div className="text-[12px] italic text-white/80 truncate">{t.inboxSub}</div>
+              <div className="text-[16px] italic text-white/80 truncate">{t.inboxSub}</div>
             </div>
             <div className="text-white/70 text-lg">→</div>
           </button>

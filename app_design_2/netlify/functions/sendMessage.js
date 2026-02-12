@@ -99,6 +99,23 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
+function emailTypeLabelFromType(type) {
+  switch (type) {
+    case "love": return "Love";
+    case "friendship": return "Friend";
+    case "family": return "Family";
+    case "crush": return "Crush";
+    default: return "Message";
+  }
+}
+
+function emailHtml({ fromName, type, link }) {
+  const emailTypeLabel = emailTypeLabelFromType(type); // ✅ ADD THIS LINE
+
+  // ...rest of your template that uses emailTypeLabel
+}
+
+
 function emailHtml({ type, link }) {
   const safeLink = escapeHtml(link);
   const t = emailTypeLabel(type);

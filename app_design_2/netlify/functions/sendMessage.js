@@ -109,12 +109,6 @@ function emailTypeLabel(type) {
   }
 }
 
-function emailHtml({ fromName, type, link }) {
-  const emailTypeLabel = emailTypeLabelFromType(type); // ✅ ADD THIS LINE
-
-  // ...rest of your template that uses emailTypeLabel
-}
-
 
 function emailHtml({ type, link }) {
   const safeLink = escapeHtml(link);

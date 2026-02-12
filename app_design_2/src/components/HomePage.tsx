@@ -36,12 +36,7 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
 
   return (
     <div
-      className="
-        relative w-full
-        min-h-[100dvh]
-        overflow-hidden
-        text-[#5a2d42]
-      "
+      className="relative w-full min-h-[100dvh] overflow-hidden text-[#5a2d42]"
       style={{
         paddingTop: "max(14px, env(safe-area-inset-top))",
         paddingBottom: "max(18px, env(safe-area-inset-bottom))",
@@ -64,30 +59,34 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
         className="
           absolute right-4
           top-[max(14px,env(safe-area-inset-top))]
-          size-10 rounded-full
+
+          size-12
+          rounded-full
           bg-white/55 backdrop-blur-md
           shadow-md
           flex items-center justify-center
           z-20
+          active:scale-95
+          transition
         "
         aria-label="Settings"
       >
-        <span className="text-xl">⚙️</span>
+        <span className="text-2xl">⚙️</span>
       </button>
 
       {/* CONTENT wrapper (keeps things readable on large screens) */}
-      <div className="mx-auto w-full max-w-[480px] px-5 pt-10 pb-8 flex flex-col min-h-[100dvh]">
+      <div className="mx-auto w-full max-w-[520px] px-6 pt-12 pb-10 flex flex-col min-h-[100dvh]">
         {/* Header */}
         <motion.div
           className="text-center"
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <div className="flex justify-center items-center gap-2 mb-2">
-            <span className="text-base">🤍</span>
-            <span className="text-base">🌸</span>
-            <span className="text-base">🤍</span>
+          <div className="flex justify-center items-center gap-3 mb-3">
+            <span className="text-xl">🤍</span>
+            <span className="text-xl">🌸</span>
+            <span className="text-xl">🤍</span>
           </div>
 
           <h1
@@ -98,12 +97,12 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
               drop-shadow-[0_2px_12px_rgba(200,90,130,.2)]
               leading-none
             "
-            style={{ fontSize: "clamp(30px, 7vw, 40px)" }}
+            style={{ fontSize: "clamp(36px, 8vw, 52px)" }}
           >
             {t.title}
           </h1>
 
-          <p className="mt-5 text-[15px] italic text-[#9e6b80] leading-relaxed">
+          <p className="mt-6 italic text-[#9e6b80] leading-relaxed" style={{ fontSize: "clamp(16px, 3.8vw, 20px)" }}>
             {t.tagline1}
             <br />
             <span className="text-[#c9667a]">{t.tagline2}</span>
@@ -112,71 +111,90 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
 
         {/* Divider */}
         <motion.div
-          className="mt-6 mb-7 flex items-center gap-3"
+          className="mt-8 mb-9 flex items-center gap-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
         >
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#e8a0b4] to-transparent" />
-          <div className="text-[13px] text-[#c9667a]">♥</div>
+          <div className="text-[16px] text-[#c9667a]">♥</div>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#e8a0b4] to-transparent" />
         </motion.div>
 
-        {/* Buttons */}
-        <div className="space-y-4">
+        {/* Buttons (≈ 1.5× bigger) */}
+        <div className="space-y-5">
+          {/* Compose */}
           <button
             onClick={() => onNavigate("compose")}
             className="
-              w-full flex items-center gap-4
-              rounded-[18px] px-5 py-4
+              w-full flex items-center gap-5
+              rounded-[22px]
+              px-7 py-6
               text-left
-              shadow-[0_8px_28px_rgba(200,100,140,.35)]
+              shadow-[0_10px_36px_rgba(200,100,140,.38)]
               bg-gradient-to-br from-[#e8a0b4] to-[#d4789c]
               transition
+              hover:-translate-y-[3px]
               active:scale-[0.99]
             "
           >
-            <div className="size-12 rounded-[18px] bg-white/25 backdrop-blur flex items-center justify-center text-[22px]">
+            <div className="size-16 rounded-[20px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">
               ✍️
             </div>
+
             <div className="flex-1 min-w-0">
-              <div className="font-['Playfair_Display',serif] text-[16px] font-bold text-white leading-tight">
+              <div className="font-['Playfair_Display',serif] font-bold text-white leading-tight"
+                   style={{ fontSize: "clamp(18px, 4.2vw, 22px)" }}>
                 {t.writeTitle}
               </div>
-              <div className="text-[16px] italic text-white/80 truncate">{t.writeSub}</div>
+              <div className="italic text-white/85 truncate"
+                   style={{ fontSize: "clamp(14px, 3.7vw, 18px)" }}>
+                {t.writeSub}
+              </div>
             </div>
-            <div className="text-white/70 text-lg">→</div>
+
+            <div className="text-white/75 text-2xl">→</div>
           </button>
 
+          {/* Inbox / Claim */}
           <button
             onClick={() => onNavigate(isAuthenticated ? "letters" : "claim")}
             className="
-              w-full flex items-center gap-4
-              rounded-[18px] px-5 py-4
+              w-full flex items-center gap-5
+              rounded-[22px]
+              px-7 py-6
               text-left
-              shadow-[0_8px_28px_rgba(160,110,200,.35)]
+              shadow-[0_10px_36px_rgba(160,110,200,.38)]
               bg-gradient-to-br from-[#c9a8e0] to-[#a87cc8]
               transition
+              hover:-translate-y-[3px]
               active:scale-[0.99]
             "
           >
-            <div className="size-12 rounded-[18px] bg-white/25 backdrop-blur flex items-center justify-center text-[22px]">
+            <div className="size-16 rounded-[20px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">
               💌
             </div>
+
             <div className="flex-1 min-w-0">
-              <div className="font-['Playfair_Display',serif] text-[16px] font-bold text-white leading-tight">
+              <div className="font-['Playfair_Display',serif] font-bold text-white leading-tight"
+                   style={{ fontSize: "clamp(18px, 4.2vw, 22px)" }}>
                 {t.inboxTitle}
               </div>
-              <div className="text-[16px] italic text-white/80 truncate">{t.inboxSub}</div>
+              <div className="italic text-white/85 truncate"
+                   style={{ fontSize: "clamp(14px, 3.7vw, 18px)" }}>
+                {t.inboxSub}
+              </div>
             </div>
-            <div className="text-white/70 text-lg">→</div>
+
+            <div className="text-white/75 text-2xl">→</div>
           </button>
         </div>
 
         {/* Footer pinned at bottom of screen */}
         <button
           onClick={() => onNavigate("credits")}
-          className="mt-auto pt-8 text-center text-[12px] italic text-[#9e6b80] opacity-80"
+          className="mt-auto pt-10 text-center italic text-[#9e6b80] opacity-85"
+          style={{ fontSize: "clamp(13px, 3.2vw, 15px)" }}
         >
           {t.footer} ♥
         </button>

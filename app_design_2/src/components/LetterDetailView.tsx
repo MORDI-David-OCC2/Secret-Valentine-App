@@ -292,7 +292,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               onClick={onClose}
               className="flex-1 rounded-[14px] h-[48px] bg-white/90 text-[color:var(--text)] font-['Playfair_Display',serif] italic font-bold text-[14px] shadow-md"
             >
-              {language === "en" ? "No reply" : "Ne pas répondre"}
+              {language === "en" ? "Close" : "Fermer"}
             </button>
 
             {replyEnabled && (

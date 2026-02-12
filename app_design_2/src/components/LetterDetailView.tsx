@@ -196,9 +196,6 @@ export default function LetterDetailView({ messageId, color, onClose, language }
             <div className="flex justify-center mb-5">
               <div className="bg-white/30 backdrop-blur-sm px-5 py-2 rounded-full border border-white/50 flex items-center gap-2">
                 <FlowerIcon type={letter.type} size="sm" />
-                <p className="font-['Playfair_Display',serif] italic font-bold text-[15px] text-black capitalize">
-                  {getFlowerName(letter.type)}
-                </p>
               </div>
             </div>
 

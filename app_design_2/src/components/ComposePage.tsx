@@ -82,7 +82,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
       love: "Amour",
       friend: "Ami",
       family: "Famille",
-      crush: "Béguin",
+      crush: "Crush",
       message: "Message :",
       messagePlaceholder: "Écrivez votre message sincère ici...",
       sendLetter: "Envoyer la Lettre",

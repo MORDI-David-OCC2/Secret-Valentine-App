@@ -99,7 +99,7 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-function emailTypeLabelFromType(type) {
+function emailTypeLabel(type) {
   switch (type) {
     case "love": return "Love";
     case "friendship": return "Friend";

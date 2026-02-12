@@ -99,21 +99,38 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-function emailTypeLabel(type) {
+/**
+ * Returns an object so you can safely use .text and .emoji everywhere.
+ * This is what avoids your "toLowerCase of undefined" error.
+ */
+function emailTypeLabel(typeRaw) {
+  const type = String(typeRaw || "").trim();
   switch (type) {
-    case "love": return "Love";
-    case "friendship": return "Friend";
-    case "family": return "Family";
-    case "crush": return "Crush";
-    default: return "Message";
+    case "love":
+      return { text: "Love", emoji: "💘" };
+    case "friendship":
+      return { text: "Friend", emoji: "🫶" };
+    case "family":
+      return { text: "Family", emoji: "👨‍👩‍👧‍👦" };
+    case "crush":
+      return { text: "Crush", emoji: "😳" };
+    default:
+      return { text: "Message", emoji: "💌" };
   }
 }
 
-
-function emailHtml({ type, link }) {
+/**
+ * UI1 HTML email template (new message notification)
+ * - robust to missing fromName/type/link
+ * - no undefined .toLowerCase()
+ */
+function emailHtml({ fromName, type, link }) {
   const safeLink = escapeHtml(link);
-  const t = emailTypeLabel(type);
-  const badgeText = `1 new ${t.text.toLowerCase()} message`;
+  const safeFrom = escapeHtml(fromName || "Someone");
+  const label = emailTypeLabel(type);
+
+  const badgeText = `1 new ${label.text.toLowerCase()} message`;
+  const preheader = `${safeFrom} sent you a secret ${label.text.toLowerCase()} message… Open to reveal.`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -131,22 +148,21 @@ function emailHtml({ type, link }) {
 </head>
 <body style="margin:0;padding:0;background-color:#fff5f8;">
 
-<div class="preheader">Someone has a secret message waiting for you… 💌 Open to reveal.</div>
+<div class="preheader">${preheader}</div>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff5f8; padding:32px 16px;">
 <tr><td align="center">
 
   <table role="presentation" width="100%" style="max-width:560px; border-radius:28px; overflow:hidden; box-shadow:0 20px 60px rgba(180,90,130,.18), 0 0 0 1px rgba(232,160,180,.25);">
 
+    <!-- HEADER -->
     <tr>
       <td style="
         background: linear-gradient(150deg, #f2c4d4 0%, #e8a0b4 35%, #d4789c 70%, #c9667a 100%);
         padding: 44px 32px 36px;
         text-align: center;
-        position: relative;
-      ">
+        position: relative;">
         <div style="position:relative; z-index:1;">
-
           <p style="font-size:1.3rem; letter-spacing:10px; margin-bottom:10px; opacity:.9;">🤍 🌸 🤍</p>
 
           <h1 style="
@@ -158,17 +174,14 @@ function emailHtml({ type, link }) {
             letter-spacing: .5px;
             line-height: 1.1;
             text-shadow: 0 3px 16px rgba(150,40,80,.3);
-            margin-bottom: 8px;
-          ">Secret Valentine</h1>
+            margin-bottom: 8px;">Secret Valentine</h1>
 
           <p style="
             font-family: 'Cormorant Garamond', Georgia, serif;
             font-style: italic;
             font-size: 1rem;
             color: rgba(255,255,255,.85);
-            letter-spacing: .3px;
-          ">Reveal your heart, keep your mystery.</p>
-
+            letter-spacing: .3px;">Reveal your heart, keep your mystery.</p>
         </div>
 
         <div style="position:absolute; bottom:-1px; left:0; right:0; line-height:0;">
@@ -179,9 +192,11 @@ function emailHtml({ type, link }) {
       </td>
     </tr>
 
+    <!-- MAIN -->
     <tr>
       <td style="background-color:#fce8ef; padding:36px 36px 28px;">
 
+        <!-- Envelope illustration -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td align="center" style="padding-bottom:28px;">
@@ -190,8 +205,7 @@ function emailHtml({ type, link }) {
                 background: linear-gradient(135deg,#9b2d5a,#7a1a45);
                 border-radius:20px;
                 padding:22px 32px;
-                box-shadow:0 10px 36px rgba(155,45,90,.35);
-              ">
+                box-shadow:0 10px 36px rgba(155,45,90,.35);">
                 <svg width="100" height="68" viewBox="0 0 100 68" fill="none">
                   <rect x="1.5" y="1.5" width="97" height="65" rx="7" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
                   <path d="M1.5 9 L50 41 L98.5 9" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
@@ -206,25 +220,25 @@ function emailHtml({ type, link }) {
           </tr>
         </table>
 
+        <!-- Badge -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-          <tr>
-            <td align="center">
-              <span style="
-                display:inline-block;
-                background:linear-gradient(135deg,#e8a0b4,#c9667a);
-                color:#fff;
-                font-family:'Playfair Display',Georgia,serif;
-                font-style:italic;
-                font-size:.78rem;
-                padding:5px 18px;
-                border-radius:20px;
-                letter-spacing:.4px;
-                box-shadow:0 3px 12px rgba(201,102,122,.3);
-              ">${escapeHtml(badgeText)} ${escapeHtml(t.emoji)}</span>
-            </td>
-          </tr>
+          <tr><td align="center">
+            <span style="
+              display:inline-block;
+              background:linear-gradient(135deg,#e8a0b4,#c9667a);
+              color:#fff;
+              font-family:'Playfair Display',Georgia,serif;
+              font-style:italic;
+              font-size:.78rem;
+              padding:5px 18px;
+              border-radius:20px;
+              letter-spacing:.4px;
+              box-shadow:0 3px 12px rgba(201,102,122,.3);
+            ">${escapeHtml(badgeText)} ${escapeHtml(label.emoji)}</span>
+          </td></tr>
         </table>
 
+        <!-- Headline -->
         <h2 style="
           font-family:'Playfair Display',Georgia,serif;
           font-style:italic;
@@ -236,6 +250,7 @@ function emailHtml({ type, link }) {
           line-height:1.25;
         ">Someone is thinking<br>of you… 🌷</h2>
 
+        <!-- Body -->
         <p style="
           font-family:'Cormorant Garamond',Georgia,serif;
           font-style:italic;
@@ -246,97 +261,88 @@ function emailHtml({ type, link }) {
           margin-bottom:28px;
           padding:0 8px;
         ">
-          You have received a secret Valentine message.<br>
+          <strong style="color:#c9667a;font-weight:400;">${safeFrom}</strong> sent you a secret Valentine message.<br>
           Your admirer has something to tell you —<br>
           <span style="color:#c9667a;">will you dare to open it?</span>
         </p>
 
+        <!-- CTA -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-          <tr>
-            <td align="center">
-              <a href="${safeLink}" style="
-                display:inline-block;
-                background:linear-gradient(135deg,#9b2d5a,#7a1a45);
-                color:#fff;
-                font-family:'Playfair Display',Georgia,serif;
-                font-style:italic;
-                font-weight:700;
-                font-size:1.05rem;
-                text-decoration:none;
-                padding:15px 42px;
-                border-radius:18px;
-                letter-spacing:.3px;
-                box-shadow:0 8px 28px rgba(155,45,90,.4);
-              ">Open my letter ♥️</a>
-            </td>
-          </tr>
+          <tr><td align="center">
+            <a href="${safeLink}" style="
+              display:inline-block;
+              background:linear-gradient(135deg,#9b2d5a,#7a1a45);
+              color:#fff;
+              font-family:'Playfair Display',Georgia,serif;
+              font-style:italic;
+              font-weight:700;
+              font-size:1.05rem;
+              text-decoration:none;
+              padding:15px 42px;
+              border-radius:18px;
+              letter-spacing:.3px;
+              box-shadow:0 8px 28px rgba(155,45,90,.4);
+            ">Open my letter ♥️</a>
+          </td></tr>
         </table>
 
+        <!-- Divider -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-          <tr>
-            <td style="padding:0 20px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="height:1px; background:linear-gradient(90deg,transparent,#e8a0b4,transparent);"></td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+          <tr><td style="padding:0 20px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="height:1px; background:linear-gradient(90deg,transparent,#e8a0b4,transparent);"></td></tr>
+            </table>
+          </td></tr>
         </table>
 
+        <!-- Hint -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
-          <tr>
-            <td style="
-              background:rgba(255,255,255,.55);
-              border:1px solid rgba(232,160,180,.3);
-              border-radius:16px;
-              padding:18px 20px;
-            ">
-              <p style="
-                font-family:'Cormorant Garamond',Georgia,serif;
-                font-style:italic;
-                font-size:.88rem;
-                color:#9e6b80;
-                text-align:center;
-                line-height:1.65;
-                margin:0;
-              ">
-                🔒 <strong style="color:#c9667a;font-weight:400;">Your admirer remains anonymous</strong> until you open the message.<br>
-                Your reply will be delivered privately.
-              </p>
-            </td>
-          </tr>
+          <tr><td style="
+            background:rgba(255,255,255,.55);
+            border:1px solid rgba(232,160,180,.3);
+            border-radius:16px;
+            padding:18px 20px;">
+            <p style="
+              font-family:'Cormorant Garamond',Georgia,serif;
+              font-style:italic;
+              font-size:.88rem;
+              color:#9e6b80;
+              text-align:center;
+              line-height:1.65;
+              margin:0;">
+              🔒 <strong style="color:#c9667a;font-weight:400;">Your admirer remains anonymous</strong> until you open the message.<br>
+              Your reply will be delivered privately.
+            </p>
+          </td></tr>
         </table>
 
       </td>
     </tr>
 
+    <!-- PETALS -->
     <tr>
       <td style="background-color:#fce8ef; padding:0 36px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td align="center" style="padding:4px 0 20px; font-size:.9rem; letter-spacing:12px; color:#e8a0b4;">
-              🌸 ♥️ 🌸
-            </td>
-          </tr>
+          <tr><td align="center" style="padding:4px 0 20px; font-size:.9rem; letter-spacing:12px; color:#e8a0b4;">
+            🌸 ♥️ 🌸
+          </td></tr>
         </table>
       </td>
     </tr>
 
+    <!-- FOOTER -->
     <tr>
       <td style="
         background:linear-gradient(170deg,#f0d0de 0%,#e8c8d8 100%);
         padding:24px 32px 28px;
         text-align:center;
-        border-top:1px solid rgba(232,160,180,.2);
-      ">
+        border-top:1px solid rgba(232,160,180,.2);">
         <p style="
           font-family:'Playfair Display',Georgia,serif;
           font-style:italic;
           font-size:.95rem;
           color:#c9667a;
-          margin-bottom:10px;
-        ">Secret Valentine</p>
+          margin-bottom:10px;">Secret Valentine</p>
 
         <p style="
           font-family:'Cormorant Garamond',Georgia,serif;
@@ -344,8 +350,7 @@ function emailHtml({ type, link }) {
           color:#b88a9a;
           font-style:italic;
           line-height:1.6;
-          margin-bottom:14px;
-        ">
+          margin-bottom:14px;">
           You received this email because someone sent you<br>
           a secret Valentine message via Secret Valentine.<br>
           <a href="#" style="color:#c9667a; text-decoration:underline; text-underline-offset:2px;">Unsubscribe</a> &nbsp;·&nbsp;
@@ -357,16 +362,13 @@ function emailHtml({ type, link }) {
           font-size:.72rem;
           color:#c0929f;
           font-style:italic;
-          opacity:.8;
-        ">made by D&amp;F with ♥️</p>
+          opacity:.8;">made by D&amp;F with ♥️</p>
       </td>
     </tr>
 
   </table>
-
 </td></tr>
 </table>
-
 </body>
 </html>`;
 }
@@ -455,7 +457,8 @@ exports.handler = async (event) => {
     const body = String(payload.body || "").trim();
 
     if (!toEmail || !toEmail.includes("@")) return jsonResponse(400, { ok: false, error: "Invalid toEmail" });
-    if (!body || body.length < 1 || body.length > 2000) return jsonResponse(400, { ok: false, error: "Message body must be 1..2000 chars" });
+    if (!body || body.length < 1 || body.length > 2000)
+      return jsonResponse(400, { ok: false, error: "Message body must be 1..2000 chars" });
 
     const allowedTypes = ["love", "friendship", "family", "crush"];
     if (!mustBeOneOf(type, allowedTypes)) return jsonResponse(400, { ok: false, error: "Invalid type" });
@@ -475,7 +478,7 @@ exports.handler = async (event) => {
         return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
       }
 
-      quarantined = (mod?.status === "quarantine");
+      quarantined = mod?.status === "quarantine";
     }
 
     // Recipient inbox
@@ -559,9 +562,7 @@ exports.handler = async (event) => {
     const tokenHash = sha256Hex(token);
 
     const expiresDays = 7;
-    const expiresAt = admin.firestore.Timestamp.fromDate(
-      new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
-    );
+    const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000));
 
     await db.collection("tokens").doc(tokenHash).set({
       inboxId,
@@ -579,7 +580,7 @@ exports.handler = async (event) => {
       await sendWithResend({
         to: toEmail,
         subject: subjectForType(type),
-        html: emailHtml({type, link }),
+        html: emailHtml({ fromName, type, link }),
       });
       emailed = true;
     }

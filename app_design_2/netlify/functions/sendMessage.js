@@ -99,41 +99,265 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-function emailHtml({ fromName, type, link }) {
-  const label =
-    type === "love" ? "💘 Love" :
-    type === "friendship" ? "🫶 Friendship" :
-    type === "family" ? "👨‍👩‍👧‍👦 Family" :
-    "😳 Crush";
+function emailHtml({ type, link }) {
+  const safeLink = escapeHtml(link);
+  const t = emailTypeLabel(type);
+  const badgeText = `1 new ${t.text.toLowerCase()} message`;
 
-  return `
-  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5;color:#111">
-    <div style="max-width:560px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden">
-      <div style="background:#ff4d6d;color:#fff;padding:18px;text-align:center">
-        <div style="font-size:34px">💌</div>
-        <div style="font-size:18px;font-weight:800;margin-top:4px">${label} message</div>
-      </div>
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You have a secret message 💌</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;1,400&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { margin:0; padding:0; background:#fff5f8; font-family:'Cormorant Garamond', Georgia, 'Times New Roman', serif; }
+  a { text-decoration:none; }
+  .preheader { display:none; max-height:0; overflow:hidden; font-size:1px; line-height:1px; color:#fff5f8; }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#fff5f8;">
 
-      <div style="padding:18px">
-        <p style="margin:0 0 10px 0"><strong>${escapeHtml(fromName)}</strong> sent you a message.</p>
-        <p style="margin:0 0 16px 0">Open your inbox using this secure link:</p>
+<div class="preheader">Someone has a secret message waiting for you… 💌 Open to reveal.</div>
 
-        <p style="margin:0 0 18px 0">
-          <a href="${link}" style="display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;background:#ff4d6d;color:#fff;font-weight:700">
-            Open my inbox
-          </a>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff5f8; padding:32px 16px;">
+<tr><td align="center">
+
+  <table role="presentation" width="100%" style="max-width:560px; border-radius:28px; overflow:hidden; box-shadow:0 20px 60px rgba(180,90,130,.18), 0 0 0 1px rgba(232,160,180,.25);">
+
+    <tr>
+      <td style="
+        background: linear-gradient(150deg, #f2c4d4 0%, #e8a0b4 35%, #d4789c 70%, #c9667a 100%);
+        padding: 44px 32px 36px;
+        text-align: center;
+        position: relative;
+      ">
+        <div style="position:relative; z-index:1;">
+
+          <p style="font-size:1.3rem; letter-spacing:10px; margin-bottom:10px; opacity:.9;">🤍 🌸 🤍</p>
+
+          <h1 style="
+            font-family: 'Playfair Display', Georgia, serif;
+            font-style: italic;
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: .5px;
+            line-height: 1.1;
+            text-shadow: 0 3px 16px rgba(150,40,80,.3);
+            margin-bottom: 8px;
+          ">Secret Valentine</h1>
+
+          <p style="
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-style: italic;
+            font-size: 1rem;
+            color: rgba(255,255,255,.85);
+            letter-spacing: .3px;
+          ">Reveal your heart, keep your mystery.</p>
+
+        </div>
+
+        <div style="position:absolute; bottom:-1px; left:0; right:0; line-height:0;">
+          <svg viewBox="0 0 560 28" fill="none" preserveAspectRatio="none" style="display:block;width:100%;height:28px;">
+            <path d="M0 28 Q70 0 140 14 Q210 28 280 14 Q350 0 420 14 Q490 28 560 14 L560 28 Z" fill="#fce8ef"/>
+          </svg>
+        </div>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="background-color:#fce8ef; padding:36px 36px 28px;">
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td align="center" style="padding-bottom:28px;">
+              <div style="
+                display:inline-block;
+                background: linear-gradient(135deg,#9b2d5a,#7a1a45);
+                border-radius:20px;
+                padding:22px 32px;
+                box-shadow:0 10px 36px rgba(155,45,90,.35);
+              ">
+                <svg width="100" height="68" viewBox="0 0 100 68" fill="none">
+                  <rect x="1.5" y="1.5" width="97" height="65" rx="7" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+                  <path d="M1.5 9 L50 41 L98.5 9" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+                  <path d="M50 54 C50 54 38 46 38 38.5 C38 34 41 31 44.5 31 C46.8 31 48.7 32.2 50 34 C51.3 32.2 53.2 31 55.5 31 C59 31 62 34 62 38.5 C62 46 50 54 50 54Z" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" fill="rgba(255,255,255,0.12)"/>
+                  <circle cx="22" cy="20" r="1.5" fill="rgba(255,255,255,0.4)"/>
+                  <circle cx="80" cy="18" r="1"   fill="rgba(255,255,255,0.3)"/>
+                  <circle cx="15" cy="50" r="1"   fill="rgba(255,255,255,0.25)"/>
+                  <circle cx="87" cy="52" r="1.5" fill="rgba(255,255,255,0.35)"/>
+                </svg>
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+          <tr>
+            <td align="center">
+              <span style="
+                display:inline-block;
+                background:linear-gradient(135deg,#e8a0b4,#c9667a);
+                color:#fff;
+                font-family:'Playfair Display',Georgia,serif;
+                font-style:italic;
+                font-size:.78rem;
+                padding:5px 18px;
+                border-radius:20px;
+                letter-spacing:.4px;
+                box-shadow:0 3px 12px rgba(201,102,122,.3);
+              ">${escapeHtml(badgeText)} ${escapeHtml(t.emoji)}</span>
+            </td>
+          </tr>
+        </table>
+
+        <h2 style="
+          font-family:'Playfair Display',Georgia,serif;
+          font-style:italic;
+          font-size:1.7rem;
+          font-weight:700;
+          color:#5a2d42;
+          text-align:center;
+          margin-bottom:12px;
+          line-height:1.25;
+        ">Someone is thinking<br>of you… 🌷</h2>
+
+        <p style="
+          font-family:'Cormorant Garamond',Georgia,serif;
+          font-style:italic;
+          font-size:1.05rem;
+          color:#9e6b80;
+          text-align:center;
+          line-height:1.7;
+          margin-bottom:28px;
+          padding:0 8px;
+        ">
+          You have received a secret Valentine message.<br>
+          Your admirer has something to tell you —<br>
+          <span style="color:#c9667a;">will you dare to open it?</span>
         </p>
 
-        <p style="margin:0 0 6px 0;color:#666;font-size:12px">Or copy/paste:</p>
-        <p style="margin:0;color:#666;font-size:12px;word-break:break-all">${link}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+          <tr>
+            <td align="center">
+              <a href="${safeLink}" style="
+                display:inline-block;
+                background:linear-gradient(135deg,#9b2d5a,#7a1a45);
+                color:#fff;
+                font-family:'Playfair Display',Georgia,serif;
+                font-style:italic;
+                font-weight:700;
+                font-size:1.05rem;
+                text-decoration:none;
+                padding:15px 42px;
+                border-radius:18px;
+                letter-spacing:.3px;
+                box-shadow:0 8px 28px rgba(155,45,90,.4);
+              ">Open my letter ♥️</a>
+            </td>
+          </tr>
+        </table>
 
-        <hr style="border:none;border-top:1px solid #eee;margin:18px 0" />
-        <p style="margin:0;color:#888;font-size:12px">
-          If you didn’t expect this email, you can ignore it.
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+          <tr>
+            <td style="padding:0 20px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="height:1px; background:linear-gradient(90deg,transparent,#e8a0b4,transparent);"></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+          <tr>
+            <td style="
+              background:rgba(255,255,255,.55);
+              border:1px solid rgba(232,160,180,.3);
+              border-radius:16px;
+              padding:18px 20px;
+            ">
+              <p style="
+                font-family:'Cormorant Garamond',Georgia,serif;
+                font-style:italic;
+                font-size:.88rem;
+                color:#9e6b80;
+                text-align:center;
+                line-height:1.65;
+                margin:0;
+              ">
+                🔒 <strong style="color:#c9667a;font-weight:400;">Your admirer remains anonymous</strong> until you open the message.<br>
+                Your reply will be delivered privately.
+              </p>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+
+    <tr>
+      <td style="background-color:#fce8ef; padding:0 36px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td align="center" style="padding:4px 0 20px; font-size:.9rem; letter-spacing:12px; color:#e8a0b4;">
+              🌸 ♥️ 🌸
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="
+        background:linear-gradient(170deg,#f0d0de 0%,#e8c8d8 100%);
+        padding:24px 32px 28px;
+        text-align:center;
+        border-top:1px solid rgba(232,160,180,.2);
+      ">
+        <p style="
+          font-family:'Playfair Display',Georgia,serif;
+          font-style:italic;
+          font-size:.95rem;
+          color:#c9667a;
+          margin-bottom:10px;
+        ">Secret Valentine</p>
+
+        <p style="
+          font-family:'Cormorant Garamond',Georgia,serif;
+          font-size:.78rem;
+          color:#b88a9a;
+          font-style:italic;
+          line-height:1.6;
+          margin-bottom:14px;
+        ">
+          You received this email because someone sent you<br>
+          a secret Valentine message via Secret Valentine.<br>
+          <a href="#" style="color:#c9667a; text-decoration:underline; text-underline-offset:2px;">Unsubscribe</a> &nbsp;·&nbsp;
+          <a href="#" style="color:#c9667a; text-decoration:underline; text-underline-offset:2px;">Privacy Policy</a>
         </p>
-      </div>
-    </div>
-  </div>`;
+
+        <p style="
+          font-family:'Cormorant Garamond',Georgia,serif;
+          font-size:.72rem;
+          color:#c0929f;
+          font-style:italic;
+          opacity:.8;
+        ">made by D&amp;F with ♥️</p>
+      </td>
+    </tr>
+
+  </table>
+
+</td></tr>
+</table>
+
+</body>
+</html>`;
 }
 
 async function getOrCreateInboxIdForEmail(db, email) {
@@ -344,7 +568,7 @@ exports.handler = async (event) => {
       await sendWithResend({
         to: toEmail,
         subject: subjectForType(type),
-        html: emailHtml({ fromName, type, link }),
+        html: emailHtml({type, link }),
       });
       emailed = true;
     }

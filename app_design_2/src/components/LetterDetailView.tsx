@@ -6,6 +6,7 @@ import { getMessage, MessageDetail, MessageReply } from "../services/api";
 import svgPaths from "../imports/svg-01d0jglvrw";
 import type { Letter } from "../App";
 import ReplyToLetterView from "./ReplyToLetterView";
+import FlowerIcon from "./Fleurs";
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -40,60 +41,44 @@ interface LetterDetailViewProps {
   language: "en" | "fr";
 }
 
-function formatDate(ms?: number) {
-  if (!ms) return "";
+function formatDate(msOrIso: any, language: "en" | "fr") {
   try {
-    const d = new Date(ms);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    const d = new Date(msOrIso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString(language === "fr" ? "fr-FR" : undefined);
   } catch {
     return "";
   }
 }
 
-function formatTime(ms?: number) {
-  if (!ms) return "";
+function formatTimestamp(msOrIso: any, language: "en" | "fr") {
   try {
-    const d = new Date(ms);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const d = new Date(msOrIso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString(language === "fr" ? "fr-FR" : "en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
     return "";
   }
 }
 
-function Bubble({
-  side,
-  name,
-  time,
-  text,
-}: {
-  side: "left" | "right";
-  name: string;
-  time: string;
-  text: string;
-}) {
-  const isRight = side === "right";
-
-  return (
-    <div className={`flex ${isRight ? "justify-end" : "justify-start"}`}>
-      <div className="max-w-[85%]">
-        <div className={`text-[11px] mb-1 px-1 flex gap-2 ${isRight ? "justify-end" : "justify-start"} text-black/60`}>
-          <span className="font-semibold">{name}</span>
-          {time ? <span className="opacity-70">{time}</span> : null}
-        </div>
-
-        <div
-          className={[
-            "rounded-[18px] px-4 py-3 border border-white/25 shadow-sm",
-            isRight ? "bg-white/45" : "bg-white/25",
-          ].join(" ")}
-        >
-          <p className="font-['Inter',sans-serif] text-[15px] leading-relaxed text-black whitespace-pre-wrap">
-            {text}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+function getFlowerName(type: string) {
+  switch (type) {
+    case "love":
+      return "Rose";
+    case "friend":
+      return "Rose Jaune";
+    case "family":
+      return "Lys";
+    case "crush":
+      return "Rose Blanche";
+    default:
+      return "";
+  }
 }
 
 export default function LetterDetailView({ messageId, color, onClose, language }: LetterDetailViewProps) {
@@ -135,39 +120,25 @@ export default function LetterDetailView({ messageId, color, onClose, language }
       id: message.id,
       from: message.fromName,
       to: "You",
-      type: message.type === "friendship" ? ("friend" as const) : (message.type as any),
-      date: formatDate(message.createdAt),
+      type: message.type === "friendship" ? "friend" : (message.type as any),
+      date: formatDate(message.createdAt, language),
       message: message.body,
       isAnonymous: message.fromName?.toLowerCase?.().includes("anonymous") || false,
     };
-  }, [message]);
-
-  const getFlowerName = (type: string) => {
-    switch (type) {
-      case "love":
-        return language === "en" ? "Rose" : "Rose";
-      case "friend":
-        return language === "en" ? "Yellow Rose" : "Rose Jaune";
-      case "family":
-        return language === "en" ? "Lily" : "Lys";
-      case "crush":
-        return language === "en" ? "White Rose" : "Rose Blanche";
-      default:
-        return "";
-    }
-  };
+  }, [message, language]);
 
   if (loading || !message || !letter) {
     return (
-      <motion.div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <motion.div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center flex-col gap-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="text-6xl">
           💌
         </motion.div>
+        <p className="text-white italic font-['Cormorant_Garamond',serif] text-[16px]">
+          {language === "en" ? "Opening your love letter..." : "Ouverture de votre lettre d'amour..."}
+        </p>
       </motion.div>
     );
   }
-
-  const replyEnabled = !!message.replyEnabled;
 
   if (showReply) {
     return (
@@ -181,16 +152,15 @@ export default function LetterDetailView({ messageId, color, onClose, language }
     );
   }
 
-  const meLabel = language === "en" ? "You" : "Vous";
-  const themLabel = letter.from || (language === "en" ? "Someone" : "Quelqu'un");
+  const replyEnabled = !!message.replyEnabled;
 
   return (
     <AnimatePresence>
       <motion.div className="fixed inset-0 z-50 flex items-center justify-center px-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         {/* Backdrop */}
-        <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+        <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-        {/* Card */}
+        {/* Content */}
         <motion.div
           className="relative w-full max-w-[380px] max-h-[90vh] overflow-y-auto"
           initial={{ scale: 0.5, opacity: 0, rotateY: -90 }}
@@ -198,144 +168,142 @@ export default function LetterDetailView({ messageId, color, onClose, language }
           exit={{ scale: 0.5, opacity: 0, rotateY: 90 }}
           transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.6 }}
         >
-          {/* Close Button */}
+          {/* Close */}
           <motion.button
             onClick={onClose}
-            className="absolute -top-12 right-0 size-10 rounded-full bg-white/90 flex items-center justify-center text-[#2d1b1b] font-bold text-xl shadow-lg z-10"
-            whileHover={{ scale: 1.1, rotate: 90 }}
-            whileTap={{ scale: 0.9 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            className="absolute -top-12 right-0 size-10 rounded-full bg-white/90 flex items-center justify-center text-[color:var(--text)] font-bold text-xl shadow-lg z-10"
+            whileHover={{ scale: 1.08, rotate: 90 }}
+            whileTap={{ scale: 0.92 }}
           >
             ✕
           </motion.button>
 
-          <motion.div className={`${color} rounded-[20px] p-6 shadow-2xl relative overflow-hidden`} initial={{ y: 50 }} animate={{ y: 0 }} transition={{ delay: 0.2 }}>
+          <motion.div className={`${color} rounded-[20px] p-7 shadow-2xl relative overflow-hidden`} initial={{ y: 24 }} animate={{ y: 0 }}>
             {/* Decorative hearts */}
             <motion.div className="absolute top-4 left-4 opacity-20" animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }} transition={{ duration: 4, repeat: Infinity, repeatDelay: 2 }}>
-              <MdiHeart className="size-[40px]" />
+              <MdiHeart className="size-[38px]" />
             </motion.div>
             <motion.div className="absolute bottom-4 right-4 opacity-20" animate={{ rotate: [0, -10, 10, 0], scale: [1, 1.1, 1] }} transition={{ duration: 4, repeat: Infinity, repeatDelay: 2, delay: 1 }}>
-              <MdiHeart className="size-[40px]" />
+              <MdiHeart className="size-[38px]" />
             </motion.div>
 
             {/* Header icon */}
-            <motion.div className="flex justify-center mb-4" initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: 0.4, type: "spring", stiffness: 200 }}>
+            <div className="flex justify-center mb-5">
               <OvalLoveIcon />
-            </motion.div>
+            </div>
 
-            {/* Type badge */}
-            <motion.div className="flex justify-center mb-4" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-              <div className="bg-white/30 backdrop-blur-sm px-5 py-2 rounded-full border-2 border-white/50">
-                <p className="font-['Inter',sans-serif] font-bold text-[16px] text-black capitalize flex items-center gap-2">
-                  <span className="text-[16px]">🌸</span>
-                  {getFlowerName(letter.type)}
-                </p>
+            {/* Type badge (FLOWER icon, not emoji) */}
+            <div className="flex justify-center mb-5">
+              <div className="bg-white/30 backdrop-blur-sm px-5 py-2 rounded-full border border-white/50 flex items-center gap-2">
+                <FlowerIcon type={letter.type} size="sm" />
               </div>
-            </motion.div>
+            </div>
 
-            {/* If replies disabled: keep "letter" look */}
+            {/* From & Date */}
+            <div className="space-y-3 mb-5 text-center">
+              <div>
+                <p className="italic text-[12px] text-black/70 font-['Cormorant_Garamond',serif]">{language === "en" ? "From" : "De"}</p>
+                <p className="font-['Playfair_Display',serif] italic font-bold text-[22px] text-black drop-shadow">{letter.from}</p>
+              </div>
+              <div>
+                <p className="italic text-[12px] text-black/70 font-['Cormorant_Garamond',serif]">{language === "en" ? "Date" : "Date"}</p>
+                <p className="font-['Cormorant_Garamond',serif] italic font-semibold text-[14px] text-black">{letter.date}</p>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-black/30 mb-5" />
+
+            {/* CONTENT AREA */}
             {!replyEnabled ? (
-              <>
-                <motion.div className="space-y-2 mb-5 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
-                  <p className="font-['Inter',sans-serif] font-light text-[13px] text-black/70">
-                    {language === "en" ? "From" : "De"}
-                  </p>
-                  <p className="font-['Kaushan_Script',sans-serif] text-[28px] text-black drop-shadow-lg">{letter.from}</p>
-                  <p className="font-['Inter',sans-serif] font-medium text-[14px] text-black">
-                    {formatDate(message.createdAt)} {formatTime(message.createdAt)}
-                  </p>
-                </motion.div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-[15px] p-5 border border-white/30 min-h-[180px] relative">
+                <div className="absolute top-2 left-3 text-black/25 font-serif text-[56px] leading-none">"</div>
+                <div className="absolute bottom-2 right-3 text-black/25 font-serif text-[56px] leading-none">"</div>
 
-                <motion.div className="h-[1px] bg-black/40 mb-5" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.7, duration: 0.6 }} />
-
-                <motion.div className="bg-white/20 backdrop-blur-sm rounded-[15px] p-6 border-2 border-white/30 min-h-[200px] relative" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
-                  <div className="absolute top-2 left-3 text-black/30 font-serif text-[60px] leading-none">"</div>
-                  <div className="absolute bottom-2 right-3 text-black/30 font-serif text-[60px] leading-none">"</div>
-
-                  <div className="relative z-10 pt-6 pb-6">
-                    {letter.message ? (
-                      <p className="font-['Inter',sans-serif] font-light text-[18px] leading-relaxed text-black text-center whitespace-pre-wrap">{letter.message}</p>
-                    ) : (
-                      <p className="font-['Inter',sans-serif] font-light italic text-[18px] leading-relaxed text-black/80 text-center">
-                        {language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi..."}
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              </>
+                <div className="relative z-10 pt-5 pb-5">
+                  {letter.message ? (
+                    <p className="font-['Cormorant_Garamond',serif] italic text-[16px] leading-relaxed text-black text-center whitespace-pre-wrap">
+                      {letter.message}
+                    </p>
+                  ) : (
+                    <p className="font-['Cormorant_Garamond',serif] italic text-[16px] leading-relaxed text-black/80 text-center">
+                      {language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi..."}
+                    </p>
+                  )}
+                </div>
+              </div>
             ) : (
-              // Replies enabled: show real conversation thread
-              <>
-                <motion.div className="flex items-center justify-center mb-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
-                  <div className="bg-white/25 border border-white/30 text-black/80 text-[12px] px-3 py-1 rounded-full">
-                    {formatDate(message.createdAt)}
+              <div className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border border-white/25 max-h-[300px] overflow-y-auto">
+                <div className="space-y-3">
+                  {/* original bubble */}
+                  <div className="flex justify-start">
+                    <div className="max-w-[85%]">
+                      <div className="rounded-[18px] px-4 py-3 bg-white/30 border border-white/30">
+                        <p className="font-['Cormorant_Garamond',serif] italic text-[15px] leading-relaxed text-black whitespace-pre-wrap">
+                          {letter.message ||
+                            (language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi...")}
+                        </p>
+                      </div>
+                      <p className="font-['Cormorant_Garamond',serif] italic text-[11px] text-black/50 mt-1 ml-2">
+                        {formatTimestamp(message.createdAt, language)}
+                      </p>
+                    </div>
                   </div>
-                </motion.div>
 
-                <motion.div className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border-2 border-white/25" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-                  <div className="space-y-4">
-                    {/* Original message = them (left) */}
-                    <Bubble side="left" name={themLabel} time={formatTime(message.createdAt)} text={letter.message || (language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi...")} />
-
-                    {/* Replies */}
-                    {replies.map((r: any) => {
-                      const from = String((r as any).from || "them");
-                      const isMe = from === "me";
-                      return (
-                        <Bubble
-                          key={r.id}
-                          side={isMe ? "right" : "left"}
-                          name={isMe ? meLabel : themLabel}
-                          time={formatTime((r as any).createdAt)}
-                          text={r.body}
-                        />
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              </>
+                  {/* replies */}
+                  {replies.map((r) => (
+                    <div key={r.id} className={`flex ${r.from === "me" ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[85%] ${r.from === "me" ? "items-end" : "items-start"} flex flex-col`}>
+                        <div className={`rounded-[18px] px-4 py-3 border border-white/30 ${r.from === "me" ? "bg-white/45" : "bg-white/25"}`}>
+                          <p className="font-['Cormorant_Garamond',serif] italic text-[15px] leading-relaxed text-black whitespace-pre-wrap">{r.body}</p>
+                        </div>
+                        <p className={`font-['Cormorant_Garamond',serif] italic text-[11px] text-black/50 mt-1 ${r.from === "me" ? "mr-2" : "ml-2"}`}>
+                          {formatTimestamp(r.createdAt, language)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
+
+            {/* To */}
+            <div className="mt-5 text-center">
+              <p className="italic text-[12px] text-black/70 font-['Cormorant_Garamond',serif]">{language === "en" ? "To" : "À"}</p>
+              <p className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-black drop-shadow">{letter.to}</p>
+            </div>
 
             {/* Anonymous badge */}
             {letter.isAnonymous && (
-              <motion.div className="mt-4 flex justify-center" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.9, type: "spring" }}>
+              <div className="mt-4 flex justify-center">
                 <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/40 flex items-center gap-2">
                   <span className="text-[16px]">🎭</span>
-                  <p className="font-['Inter',sans-serif] font-light italic text-[13px] text-black">
+                  <p className="font-['Cormorant_Garamond',serif] italic text-[12px] text-black">
                     {language === "en" ? "Sent anonymously" : "Envoyé anonymement"}
                   </p>
                 </div>
-              </motion.div>
+              </div>
             )}
           </motion.div>
 
-          {/* Action buttons */}
-          <motion.div className="mt-6 flex gap-3" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
-            <motion.button
+          {/* Actions */}
+          <div className="mt-4 flex gap-3">
+            <button
               onClick={onClose}
-              className="flex-1 bg-white text-[#2d1b1b] font-['Inter',sans-serif] font-bold text-[16px] rounded-[10px] h-[50px] shadow-lg"
-              whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(255,255,255,0.3)" }}
-              whileTap={{ scale: 0.95 }}
+              className="flex-1 rounded-[14px] h-[48px] bg-white/90 text-[color:var(--text)] font-['Playfair_Display',serif] italic font-bold text-[14px] shadow-md"
             >
               {language === "en" ? "Close" : "Fermer"}
-            </motion.button>
+            </button>
 
             {replyEnabled && (
-              <motion.button
+              <button
                 onClick={() => setShowReply(true)}
-                className={`flex-1 ${color} text-white font-['Inter',sans-serif] font-bold text-[16px] rounded-[10px] h-[50px] shadow-lg flex items-center justify-center gap-2`}
-                whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(0,0,0,0.3)" }}
-                whileTap={{ scale: 0.95 }}
+                className={`flex-1 rounded-[14px] h-[48px] ${color} text-white font-['Playfair_Display',serif] italic font-bold text-[14px] shadow-md`}
               >
-                <motion.span animate={{ rotate: [0, -10, 10, -10, 0] }} transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}>
-                  ✉️
-                </motion.span>
                 {language === "en" ? "Reply" : "Répondre"}
-              </motion.button>
+              </button>
             )}
-          </motion.div>
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

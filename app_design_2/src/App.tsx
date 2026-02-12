@@ -1,77 +1,117 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Toaster } from 'sonner@2.0.3';
-import { SessionProvider } from './contexts/SessionContext';
-import HomePage from './components/HomePage';
-import LettersPage from './components/LettersPage';
-import ComposePage from './components/ComposePage';
-import SettingsPage from './components/SettingsPage';
-import PinEntryScreen from './components/PinEntryScreen';
-import CreditsPage from './components/CreditsPage';
-import InboxLinkHandler from './components/InboxLinkHandler';
-import ClaimInboxPage from './components/ClaimInboxPage';
-import FirstPinSetup from './components/FirstPinSetup';
+import { useState, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Toaster } from "sonner@2.0.3";
+import { SessionProvider } from "./contexts/SessionContext";
+
+import HomePage from "./components/HomePage";
+import LettersPage from "./components/LettersPage";
+import ComposePage from "./components/ComposePage";
+import SettingsPage from "./components/SettingsPage";
+import PinEntryScreen from "./components/PinEntryScreen";
+import CreditsPage from "./components/CreditsPage";
+import InboxLinkHandler from "./components/InboxLinkHandler";
+import ClaimInboxPage from "./components/ClaimInboxPage";
+import FirstPinSetup from "./components/FirstPinSetup";
+
+import Petals from "./components/ui/Petals";
 
 export type Letter = {
   id: string;
   from: string;
   to: string;
-  type: 'love' | 'friend' | 'family' | 'crush';
+  type: "love" | "friend" | "family" | "crush";
   date: string;
   message?: string;
   isAnonymous: boolean;
 };
 
+type Page =
+  | "home"
+  | "letters"
+  | "compose"
+  | "settings"
+  | "pin"
+  | "credits"
+  | "claim"
+  | "inbox-link"
+  | "first-pin";
+
+type NavDir = "forward" | "back";
+
+/**
+ * Define a simple "depth" so we can infer back/forward
+ * (you can tweak this ordering to match your mental model)
+ */
+const PAGE_DEPTH: Record<Page, number> = {
+  home: 0,
+  letters: 1,
+  compose: 1,
+  claim: 1,
+  settings: 1,
+  credits: 1,
+  pin: 2,
+  "first-pin": 2,
+  "inbox-link": 3,
+};
+
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'letters' | 'compose' | 'settings' | 'pin' | 'credits' | 'claim' | 'inbox-link' | 'first-pin'>('home');
-  const [language, setLanguage] = useState<'en' | 'fr'>('en');
+  const [currentPage, setCurrentPage] = useState<Page>("home");
+  const [language, setLanguage] = useState<"en" | "fr">("en");
   const [pinCode, setPinCode] = useState<string | null>(null);
   const [isPinVerified, setIsPinVerified] = useState(false);
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [tempInboxId, setTempInboxId] = useState<string | null>(null);
   const [tempSessionToken, setTempSessionToken] = useState<string | null>(null);
-  
-  // Détection de token dans l'URL (/#/inbox?t=abc123)
+
+  const [navDir, setNavDir] = useState<NavDir>("forward");
+  const prevDepthRef = useMemo(() => ({ depth: PAGE_DEPTH[currentPage] }), []);
+  // note: we use a ref-like object to avoid extra imports; this is stable.
+
+  const setPage = (next: Page) => {
+    const prevDepth = prevDepthRef.depth;
+    const nextDepth = PAGE_DEPTH[next] ?? 0;
+    setNavDir(nextDepth < prevDepth ? "back" : "forward");
+    prevDepthRef.depth = nextDepth;
+    setCurrentPage(next);
+  };
+
+  // Detect inbox token in URL: /#/inbox?t=abc123
   useEffect(() => {
     const detectToken = () => {
       const hash = window.location.hash;
-      if (hash.includes('?t=')) {
-        const params = new URLSearchParams(hash.split('?')[1]);
-        const token = params.get('t');
+      if (hash.includes("?t=")) {
+        const params = new URLSearchParams(hash.split("?")[1]);
+        const token = params.get("t");
         if (token) {
           setLinkToken(token);
-          setCurrentPage('inbox-link');
-          // Nettoyer l'URL
-          window.history.replaceState({}, '', window.location.pathname);
+          setPage("inbox-link");
+          window.history.replaceState({}, "", window.location.pathname);
         }
       }
     };
 
     detectToken();
-    
-    // Écouter les changements de hash
-    window.addEventListener('hashchange', detectToken);
-    return () => window.removeEventListener('hashchange', detectToken);
+    window.addEventListener("hashchange", detectToken);
+    return () => window.removeEventListener("hashchange", detectToken);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleNavigateToLetters = () => {
     if (pinCode && !isPinVerified) {
-      setCurrentPage('pin');
+      setPage("pin");
     } else {
-      setCurrentPage('letters');
+      setPage("letters");
     }
   };
 
   const handlePinSuccess = () => {
     setIsPinVerified(true);
-    setCurrentPage('letters');
+    setPage("letters");
   };
 
   const handlePinChange = (newPin: string | null) => {
     setPinCode(newPin);
-    if (newPin === null) {
-      setIsPinVerified(false);
-    }
+    if (newPin === null) setIsPinVerified(false);
   };
 
   const handleFirstPinCreated = (pin: string) => {
@@ -79,7 +119,7 @@ function AppContent() {
     setIsPinVerified(true);
     setTempInboxId(null);
     setTempSessionToken(null);
-    setCurrentPage('letters');
+    setPage("letters");
   };
 
   const handleLogout = () => {
@@ -87,36 +127,43 @@ function AppContent() {
     setIsPinVerified(false);
     setTempInboxId(null);
     setTempSessionToken(null);
-    setCurrentPage('home');
+    setPage("home");
   };
 
+  // UI1-like slide variants (forward/back aware)
   const pageVariants = {
-    initial: { opacity: 0, x: 20 },
+    initial: (direction: NavDir) => ({
+      opacity: 0,
+      x: direction === "forward" ? 80 : -80,
+    }),
     animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -20 }
+    exit: (direction: NavDir) => ({
+      opacity: 0,
+      x: direction === "forward" ? -80 : 80,
+    }),
   };
 
-  // Gestion du lien inbox
-  if (currentPage === 'inbox-link' && linkToken) {
+  // Inbox link special flow
+  if (currentPage === "inbox-link" && linkToken) {
     return (
       <InboxLinkHandler
         token={linkToken}
         onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated) => {
           setLinkToken(null);
+
           if (pinMustBeCreated && sessionToken) {
-            // Nouveau flux : créer PIN obligatoire
             setTempInboxId(inboxId);
             setTempSessionToken(sessionToken);
-            setCurrentPage('first-pin');
+            setPage("first-pin");
           } else if (needsPin) {
-            setCurrentPage('pin');
+            setPage("pin");
           } else {
-            setCurrentPage('letters');
+            setPage("letters");
           }
         }}
         onError={() => {
           setLinkToken(null);
-          setCurrentPage('home');
+          setPage("home");
         }}
         language={language}
       />
@@ -124,143 +171,159 @@ function AppContent() {
   }
 
   return (
-    <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full mx-auto relative overflow-hidden">
-      <AnimatePresence mode="wait">
-        {currentPage === 'home' && (
+    <div className="app">
+      <Petals />
+
+      <AnimatePresence mode="wait" custom={navDir}>
+        {currentPage === "home" && (
           <motion.div
             key="home"
             variants={pageVariants}
+            custom={navDir}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
           >
-            <HomePage 
+            <HomePage
               onNavigate={(page) => {
-                if (page === 'letters') {
-                  handleNavigateToLetters();
-                } else {
-                  setCurrentPage(page as any);
-                }
-              }} 
+                if (page === "letters") handleNavigateToLetters();
+                else setPage(page as Page);
+              }}
               language={language}
             />
           </motion.div>
         )}
-        {currentPage === 'letters' && (
+
+        {currentPage === "letters" && (
           <motion.div
             key="letters"
             variants={pageVariants}
+            custom={navDir}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
           >
-            <LettersPage  
-              onBack={() => setCurrentPage('home')}
+            <LettersPage
+              onBack={() => setPage("home")}
               language={language}
-              onNavigate={(page) => setCurrentPage(page)}
+              onNavigate={(page) => setPage(page)}
             />
           </motion.div>
         )}
-        {currentPage === 'compose' && (
+
+        {currentPage === "compose" && (
           <motion.div
             key="compose"
             variants={pageVariants}
+            custom={navDir}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
           >
-            <ComposePage 
-              onBack={() => setCurrentPage('home')} 
+            <ComposePage
+              onBack={() => setPage("home")}
               language={language}
-              onNavigate={(page) => setCurrentPage(page)}
+              onNavigate={(page) => setPage(page)}
             />
           </motion.div>
         )}
-        {currentPage === 'claim' && (
+
+        {currentPage === "claim" && (
           <motion.div
             key="claim"
             variants={pageVariants}
+            custom={navDir}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
           >
-            <ClaimInboxPage
-              onBack={() => setCurrentPage('home')}
-              language={language}
-            />
+            <ClaimInboxPage onBack={() => setPage("home")} language={language} />
           </motion.div>
         )}
-        {currentPage === 'settings' && (
+
+        {currentPage === "settings" && (
           <motion.div
             key="settings"
             variants={pageVariants}
+            custom={navDir}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
           >
             <SettingsPage
               language={language}
               onLanguageChange={setLanguage}
               pinCode={pinCode}
               onPinCodeChange={handlePinChange}
-              onBack={() => setCurrentPage('home')}
+              onBack={() => setPage("home")}
               onLogout={handleLogout}
             />
           </motion.div>
         )}
-        {currentPage === 'first-pin' && tempInboxId && tempSessionToken && (
+
+        {currentPage === "first-pin" && tempInboxId && tempSessionToken && (
           <motion.div
             key="first-pin"
             variants={pageVariants}
+            custom={navDir}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
           >
             <FirstPinSetup
               inboxId={tempInboxId}
               sessionToken={tempSessionToken}
               onPinCreated={handleFirstPinCreated}
-              onBack={() => setCurrentPage('home')}
+              onBack={() => setPage("home")}
               language={language}
             />
           </motion.div>
         )}
-        {currentPage === 'pin' && (
+
+        {currentPage === "pin" && (
           <motion.div
             key="pin"
             variants={pageVariants}
+            custom={navDir}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
           >
             <PinEntryScreen
               correctPin={pinCode!}
               onSuccess={handlePinSuccess}
-              onBack={() => setCurrentPage('home')}
+              onBack={() => setPage("home")}
               language={language}
             />
           </motion.div>
         )}
-        {currentPage === 'credits' && (
+
+        {currentPage === "credits" && (
           <motion.div
             key="credits"
             variants={pageVariants}
+            custom={navDir}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
           >
-            <CreditsPage
-              onBack={() => setCurrentPage('home')}
-              language={language}
-            />
+            <CreditsPage onBack={() => setPage("home")} language={language} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -271,16 +334,14 @@ function AppContent() {
 export default function App() {
   return (
     <SessionProvider>
-      <Toaster 
-        position="top-center" 
-        richColors 
+      <Toaster
+        position="top-center"
+        richColors
         toastOptions={{
-          style: {
-            fontFamily: 'Inter, sans-serif',
-          }
+          style: { fontFamily: "Inter, sans-serif" },
         }}
       />
       <AppContent />
     </SessionProvider>
   );
-      }
+}

@@ -1,193 +1,204 @@
-import { motion } from 'motion/react';
-import { useSession } from '../contexts/SessionContext';
+import { motion } from "motion/react";
+import { useSession } from "../contexts/SessionContext";
 
 interface HomePageProps {
-  onNavigate: (page: 'home' | 'letters' | 'compose' | 'settings' | 'credits' | 'claim') => void;
-  language: 'en' | 'fr';
+  onNavigate: (page: "home" | "letters" | "compose" | "settings" | "credits" | "claim") => void;
+  language: "en" | "fr";
 }
 
 export default function HomePage({ onNavigate, language }: HomePageProps) {
-  const {isAuthenticated} = useSession()
+  const { isAuthenticated } = useSession();
 
   const translations = {
     en: {
-      title: 'Secret Valentine',
-      welcome: '"Welcome to Secret Valentine. Reveal your heart and keep your mystery..."',
-      writeMessage: 'Write your message',
-      claimInbox: 'Access my inbox',
-      footer: 'made by D&F with'
+      title: "Secret Valentine",
+      tagline1: "Reveal your heart,",
+      tagline2: "keep your mystery.",
+      writeTitle: "Write a message",
+      writeSub: "Send anonymous love",
+      inboxTitle: "Check my letters",
+      inboxSub: "Someone is thinking of you…",
+      footer: "made by D&F with",
     },
     fr: {
-      title: 'Valentin Secret',
-      welcome: '"Bienvenue sur Secret Valentine. Révélez votre cœur et gardez votre mystère..."',
-      writeMessage: 'Écrivez votre message',
-      claimInbox: 'Accéder à ma boîte',
-      footer: 'créé par D&F avec'
-    }
+      title: "Valentin Secret",
+      tagline1: "Révèle ton cœur,",
+      tagline2: "garde ton mystère.",
+      writeTitle: "Écrire un message",
+      writeSub: "Envoyer un mot anonyme",
+      inboxTitle: "Voir mes lettres",
+      inboxSub: "Quelqu’un pense à toi…",
+      footer: "créé par D&F avec",
+    },
   };
 
   const t = translations[language];
 
   return (
-    <div className="bg-[rgba(246,193,208,0.71)] relative min-h-screen w-full">
-      {/* Settings Button */}
-      <motion.button
-        onClick={() => onNavigate('settings')}
-        className="absolute top-10 right-5 size-[40px] rounded-full bg-white/80 flex items-center justify-center shadow-md z-10"
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,1)' }}
-        whileTap={{ scale: 0.9 }}
-      >
-        <span className="text-xl md:text-2xl">⚙️</span>
-      </motion.button>
-
-      {/* Header */}
-      <motion.div 
-        className="flex gap-[6px] items-center justify-center pt-[97px] pb-6"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
-      >
-        <motion.div
-          animate={{ 
-            scale: [1, 1.2, 1],
-            rotate: [0, 5, -5, 0]
-          }}
-          transition={{ 
-            duration: 2,
-            repeat: Infinity,
-            repeatDelay: 3
-          }}
-        >
-          <span className="text-[24px]">💕</span>
-        </motion.div>
-        <h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black">{t.title}</h1>
-        <motion.div
-          animate={{ 
-            scale: [1, 1.2, 1],
-            rotate: [0, -5, 5, 0]
-          }}
-          transition={{ 
-            duration: 2,
-            repeat: Infinity,
-            repeatDelay: 3,
-            delay: 0.3
-          }}
-        >
-          <span className="text-[24px]">💕</span>
-        </motion.div>
-      </motion.div>
-
-      {/* Divider */}
-      <motion.div 
-        className="w-full h-[1px] bg-black"
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ duration: 0.8, delay: 0.3 }}
+    <div
+      className="relative w-full min-h-[100dvh] overflow-hidden text-[#5a2d42]"
+      style={{
+        paddingTop: "max(14px, env(safe-area-inset-top))",
+        paddingBottom: "max(18px, env(safe-area-inset-bottom))",
+      }}
+    >
+      {/* FULLSCREEN UI1 background */}
+      <div className="absolute inset-0 -z-10 bg-[#fff5f8]" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#fce8ef] via-[#f7dde6] to-[#ead5ee]" />
+      <div
+        className="absolute inset-0 -z-10 opacity-[0.22]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c96080' fill-opacity='0.07'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E\")",
+        }}
       />
 
-      {/* Welcome Message */}
-      <motion.div 
-        className="px-6 md:px-8 pt-6 md:pt-8 pb-8 md:pb-12"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.5 }}
+      {/* Settings */}
+      <button
+        onClick={() => onNavigate("settings")}
+        className="
+          absolute right-4
+          top-[max(14px,env(safe-area-inset-top))]
+
+          size-12
+          rounded-full
+          bg-white/55 backdrop-blur-md
+          shadow-md
+          flex items-center justify-center
+          z-20
+          active:scale-95
+          transition
+        "
+        aria-label="Settings"
       >
-        <p className="font-['Inter',sans-serif] font-light text-[24px] text-[#2d1b1b] text-center leading-relaxed">
-          {t.welcome}
-        </p>
-      </motion.div>
+        <span className="text-2xl">⚙️</span>
+      </button>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col items-center gap-6 px-16flex flex-col items-center gap-4 md:gap-6 px-6 md:px-16 max-w-2xl mx-auto">
-        {/* Write Message Button */}
-        <motion.button
-          onClick={() => onNavigate('compose')}
-          className="bg-[#db8c8f] rounded-[10px] w-full min-h-[140px] flex flex-col items-center justify-center gap-4 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.9 }}
-          whileHover={{ 
-            scale: 1.05,
-            backgroundColor: '#c77c7f',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-          }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <motion.div
-            animate={{ 
-              rotate: [0, -10, 10, -10, 0]
-            }}
-            transition={{ 
-              duration: 2,
-              repeat: Infinity,
-              repeatDelay: 2
-            }}
-          >
-            <span className="text-[88px] leading-none">✍️</span>
-          </motion.div>
-          <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#2d1b1b]">{t.writeMessage}</p>
-        </motion.button>
-
-        {/* Claim Inbox Button */}
-        <motion.button
-          onClick={() => onNavigate(isAuthenticated ? 'letters' : 'claim')}
-          className="bg-[#db8c8f] rounded-[10px] w-full min-h-[140px] flex flex-col items-center justify-center gap-4 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 1.1 }}
-          whileHover={{ 
-            scale: 1.05,
-            backgroundColor: '#c77c7f',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-          }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <motion.div
-            animate={{ 
-              scale: [1, 1.2, 1],
-              rotate: [0, 5, -5, 0]
-            }}
-            transition={{ 
-              duration: 2,
-              repeat: Infinity,
-              repeatDelay: 3
-            }}
-          >
-            <span className="text-[88px] leading-none">💌</span>
-          </motion.div>
-          <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#2d1b1b]">{t.claimInbox}</p>
-        </motion.button>
-      </div>
-
-      {/* Footer - Clickable */}
-      <motion.button
-        onClick={() => onNavigate('credits')}
-        className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-1 cursor-pointer"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.1 }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <p className="font-['Inter',sans-serif] font-thin italic text-[15px] text-[#2d1b1b] text-center underline decoration-dotted">
-          {t.footer}
-        </p>
+      {/* CONTENT wrapper (keeps things readable on large screens) */}
+      <div className="mx-auto w-full max-w-[520px] px-6 pt-12 pb-10 flex flex-col min-h-[100dvh]">
+        {/* Header */}
         <motion.div
-          animate={{ 
-            scale: [1, 1.3, 1]
-          }}
-          transition={{ 
-            duration: 1,
-            repeat: Infinity,
-            repeatDelay: 2
-          }}
+          className="text-center"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
         >
-          <span className="text-[24px]">❤️</span>
+          <div className="flex justify-center items-center gap-3 mb-3">
+            <span className="text-xl">🤍</span>
+            <span className="text-xl">🌸</span>
+            <span className="text-xl">🤍</span>
+          </div>
+
+          <h1
+            className="
+              font-['Playfair_Display',serif]
+              italic font-bold
+              text-[#c9667a]
+              drop-shadow-[0_2px_12px_rgba(200,90,130,.2)]
+              leading-none
+            "
+            style={{ fontSize: "clamp(36px, 8vw, 52px)" }}
+          >
+            {t.title}
+          </h1>
+
+          <p className="mt-6 italic text-[#9e6b80] leading-relaxed" style={{ fontSize: "clamp(16px, 3.8vw, 20px)" }}>
+            {t.tagline1}
+            <br />
+            <span className="text-[#c9667a]">{t.tagline2}</span>
+          </p>
         </motion.div>
-      </motion.button>
+
+        {/* Divider */}
+        <motion.div
+          className="mt-8 mb-9 flex items-center gap-4"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#e8a0b4] to-transparent" />
+          <div className="text-[16px] text-[#c9667a]">♥</div>
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#e8a0b4] to-transparent" />
+        </motion.div>
+
+        {/* Buttons (≈ 1.5× bigger) */}
+        <div className="space-y-5">
+          {/* Compose */}
+          <button
+            onClick={() => onNavigate("compose")}
+            className="
+              w-full flex items-center gap-5
+              rounded-[22px]
+              px-7 py-6
+              text-left
+              shadow-[0_10px_36px_rgba(200,100,140,.38)]
+              bg-gradient-to-br from-[#e8a0b4] to-[#d4789c]
+              transition
+              hover:-translate-y-[3px]
+              active:scale-[0.99]
+            "
+          >
+            <div className="size-16 rounded-[20px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">
+              ✍️
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="font-['Playfair_Display',serif] font-bold text-white leading-tight"
+                   style={{ fontSize: "clamp(18px, 4.2vw, 22px)" }}>
+                {t.writeTitle}
+              </div>
+              <div className="italic text-white/85 truncate"
+                   style={{ fontSize: "clamp(14px, 3.7vw, 18px)" }}>
+                {t.writeSub}
+              </div>
+            </div>
+
+            <div className="text-white/75 text-2xl">→</div>
+          </button>
+
+          {/* Inbox / Claim */}
+          <button
+            onClick={() => onNavigate(isAuthenticated ? "letters" : "claim")}
+            className="
+              w-full flex items-center gap-5
+              rounded-[22px]
+              px-7 py-6
+              text-left
+              shadow-[0_10px_36px_rgba(160,110,200,.38)]
+              bg-gradient-to-br from-[#c9a8e0] to-[#a87cc8]
+              transition
+              hover:-translate-y-[3px]
+              active:scale-[0.99]
+            "
+          >
+            <div className="size-16 rounded-[20px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">
+              💌
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="font-['Playfair_Display',serif] font-bold text-white leading-tight"
+                   style={{ fontSize: "clamp(18px, 4.2vw, 22px)" }}>
+                {t.inboxTitle}
+              </div>
+              <div className="italic text-white/85 truncate"
+                   style={{ fontSize: "clamp(14px, 3.7vw, 18px)" }}>
+                {t.inboxSub}
+              </div>
+            </div>
+
+            <div className="text-white/75 text-2xl">→</div>
+          </button>
+        </div>
+
+        {/* Footer pinned at bottom of screen */}
+        <button
+          onClick={() => onNavigate("credits")}
+          className="mt-auto pt-10 text-center italic text-[#9e6b80] opacity-85"
+          style={{ fontSize: "clamp(13px, 3.2vw, 15px)" }}
+        >
+          {t.footer} ♥
+        </button>
+      </div>
     </div>
   );
 }

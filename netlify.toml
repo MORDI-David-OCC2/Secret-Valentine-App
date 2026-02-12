@@ -1,11 +1,11 @@
 [build]
   base = "app_design_2"
-  command = "npm install && npm run build"
+  command = "npm ci --include=optional && npm run build"
   functions = "netlify/functions"
   publish = "build"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "22"
 
 [[redirects]]
   from = "/*"

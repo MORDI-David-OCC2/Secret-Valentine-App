@@ -6,6 +6,7 @@ import { getMessage, MessageDetail, MessageReply } from "../services/api";
 import svgPaths from "../imports/svg-01d0jglvrw";
 import type { Letter } from "../App";
 import ReplyToLetterView from "./ReplyToLetterView";
+import FlowerIcon from "./Fleurs";
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -80,21 +81,6 @@ function getFlowerName(type: string) {
   }
 }
 
-function getFlowerEmoji(type: string) {
-  switch (type) {
-    case "love":
-      return "🌹";
-    case "friend":
-      return "🌻";
-    case "crush":
-      return "🌸";
-    case "family":
-      return "🌺";
-    default:
-      return "🌹";
-  }
-}
-
 export default function LetterDetailView({ messageId, color, onClose, language }: LetterDetailViewProps) {
   const { session } = useSession();
   const [message, setMessage] = useState<MessageDetail | null>(null);
@@ -143,15 +129,11 @@ export default function LetterDetailView({ messageId, color, onClose, language }
 
   if (loading || !message || !letter) {
     return (
-      <motion.div
-        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center flex-col gap-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
+      <motion.div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center flex-col gap-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="text-6xl">
           💌
         </motion.div>
-        <p className="font-['Cormorant_Garamond',serif] text-white text-lg italic">
+        <p className="text-white italic font-['Cormorant_Garamond',serif] text-[16px]">
           {language === "en" ? "Opening your love letter..." : "Ouverture de votre lettre d'amour..."}
         </p>
       </motion.div>
@@ -174,230 +156,157 @@ export default function LetterDetailView({ messageId, color, onClose, language }
 
   return (
     <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center px-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
+      <motion.div className="fixed inset-0 z-50 flex items-center justify-center px-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         {/* Backdrop */}
-        <motion.div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-        />
+        <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
         {/* Content */}
         <motion.div
-          className="relative w-full max-w-[360px] max-h-[90vh] overflow-y-auto"
+          className="relative w-full max-w-[380px] max-h-[90vh] overflow-y-auto"
           initial={{ scale: 0.5, opacity: 0, rotateY: -90 }}
           animate={{ scale: 1, opacity: 1, rotateY: 0 }}
           exit={{ scale: 0.5, opacity: 0, rotateY: 90 }}
           transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.6 }}
         >
-          {/* Close Button */}
+          {/* Close */}
           <motion.button
             onClick={onClose}
-            className="absolute -top-12 right-0 size-10 rounded-full bg-white/90 flex items-center justify-center text-[#2d1b1b] font-bold text-xl shadow-lg z-10"
-            whileHover={{ scale: 1.1, rotate: 90 }}
-            whileTap={{ scale: 0.9 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            className="absolute -top-12 right-0 size-10 rounded-full bg-white/90 flex items-center justify-center text-[color:var(--text)] font-bold text-xl shadow-lg z-10"
+            whileHover={{ scale: 1.08, rotate: 90 }}
+            whileTap={{ scale: 0.92 }}
           >
             ✕
           </motion.button>
 
-          <motion.div
-            className={`${color} rounded-[20px] p-8 shadow-2xl relative overflow-hidden`}
-            initial={{ y: 50 }}
-            animate={{ y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
+          <motion.div className={`${color} rounded-[20px] p-7 shadow-2xl relative overflow-hidden`} initial={{ y: 24 }} animate={{ y: 0 }}>
             {/* Decorative hearts */}
-            <motion.div
-              className="absolute top-4 left-4 opacity-20"
-              animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
-              transition={{ duration: 4, repeat: Infinity, repeatDelay: 2 }}
-            >
-              <MdiHeart className="size-[40px]" />
+            <motion.div className="absolute top-4 left-4 opacity-20" animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }} transition={{ duration: 4, repeat: Infinity, repeatDelay: 2 }}>
+              <MdiHeart className="size-[38px]" />
             </motion.div>
-            <motion.div
-              className="absolute bottom-4 right-4 opacity-20"
-              animate={{ rotate: [0, -10, 10, 0], scale: [1, 1.1, 1] }}
-              transition={{ duration: 4, repeat: Infinity, repeatDelay: 2, delay: 1 }}
-            >
-              <MdiHeart className="size-[40px]" />
+            <motion.div className="absolute bottom-4 right-4 opacity-20" animate={{ rotate: [0, -10, 10, 0], scale: [1, 1.1, 1] }} transition={{ duration: 4, repeat: Infinity, repeatDelay: 2, delay: 1 }}>
+              <MdiHeart className="size-[38px]" />
             </motion.div>
 
             {/* Header icon */}
-            <motion.div
-              className="flex justify-center mb-6"
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            >
+            <div className="flex justify-center mb-5">
               <OvalLoveIcon />
-            </motion.div>
+            </div>
 
-            {/* Type badge (KEEP: flower + name; change font only) */}
-            <motion.div
-              className="flex justify-center mb-6"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <div className="bg-white/30 backdrop-blur-sm px-6 py-2 rounded-full border-2 border-white/50">
-                <p className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-black flex items-center gap-2">
-                  <span className="text-[18px]">{getFlowerEmoji(letter.type)}</span>
+            {/* Type badge (FLOWER icon, not emoji) */}
+            <div className="flex justify-center mb-5">
+              <div className="bg-white/30 backdrop-blur-sm px-5 py-2 rounded-full border border-white/50 flex items-center gap-2">
+                <FlowerIcon type={letter.type} size="sm" />
+                <p className="font-['Playfair_Display',serif] italic font-bold text-[15px] text-black capitalize">
                   {getFlowerName(letter.type)}
                 </p>
               </div>
-            </motion.div>
+            </div>
 
             {/* From & Date */}
-            <motion.div className="space-y-3 mb-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
-              <div className="text-center">
-                <p className="font-['Cormorant_Garamond',serif] italic font-light text-[14px] text-black/70 mb-1">
-                  {language === "en" ? "From" : "De"}
-                </p>
-                <p className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-black drop-shadow-lg">
-                  {letter.from}
-                </p>
+            <div className="space-y-3 mb-5 text-center">
+              <div>
+                <p className="italic text-[12px] text-black/70 font-['Cormorant_Garamond',serif]">{language === "en" ? "From" : "De"}</p>
+                <p className="font-['Playfair_Display',serif] italic font-bold text-[22px] text-black drop-shadow">{letter.from}</p>
               </div>
-
-              <div className="text-center">
-                <p className="font-['Cormorant_Garamond',serif] italic font-light text-[14px] text-black/70 mb-1">
-                  {language === "en" ? "Date" : "Date"}
-                </p>
-                <p className="font-['Cormorant_Garamond',serif] font-medium text-[16px] text-black">
-                  {letter.date}
-                </p>
+              <div>
+                <p className="italic text-[12px] text-black/70 font-['Cormorant_Garamond',serif]">{language === "en" ? "Date" : "Date"}</p>
+                <p className="font-['Cormorant_Garamond',serif] italic font-semibold text-[14px] text-black">{letter.date}</p>
               </div>
-            </motion.div>
+            </div>
 
             {/* Divider */}
-            <motion.div className="h-[1px] bg-black/40 mb-6" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.5, duration: 0.4 }} />
+            <div className="h-px bg-black/30 mb-5" />
 
-            {/* CONTENT AREA (unchanged layout; font swap only) */}
+            {/* CONTENT AREA */}
             {!replyEnabled ? (
-              <motion.div
-                className="bg-white/20 backdrop-blur-sm rounded-[15px] p-6 border-2 border-white/30 min-h-[200px] relative"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-              >
-                <div className="absolute top-2 left-3 text-black/30 font-serif text-[60px] leading-none">"</div>
-                <div className="absolute bottom-2 right-3 text-black/30 font-serif text-[60px] leading-none">"</div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-[15px] p-5 border border-white/30 min-h-[180px] relative">
+                <div className="absolute top-2 left-3 text-black/25 font-serif text-[56px] leading-none">"</div>
+                <div className="absolute bottom-2 right-3 text-black/25 font-serif text-[56px] leading-none">"</div>
 
-                <div className="relative z-10 pt-6 pb-6">
+                <div className="relative z-10 pt-5 pb-5">
                   {letter.message ? (
-                    <p className="font-['Cormorant_Garamond',serif] italic font-light text-[20px] leading-relaxed text-black text-center whitespace-pre-wrap">
+                    <p className="font-['Cormorant_Garamond',serif] italic text-[16px] leading-relaxed text-black text-center whitespace-pre-wrap">
                       {letter.message}
                     </p>
                   ) : (
-                    <p className="font-['Cormorant_Garamond',serif] italic font-light text-[20px] leading-relaxed text-black/80 text-center">
+                    <p className="font-['Cormorant_Garamond',serif] italic text-[16px] leading-relaxed text-black/80 text-center">
                       {language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi..."}
                     </p>
                   )}
                 </div>
-              </motion.div>
+              </div>
             ) : (
-              <motion.div
-                className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border-2 border-white/25 max-h-[300px] overflow-y-auto"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-              >
+              <div className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border border-white/25 max-h-[300px] overflow-y-auto">
                 <div className="space-y-3">
+                  {/* original bubble */}
                   <div className="flex justify-start">
                     <div className="max-w-[85%]">
                       <div className="rounded-[18px] px-4 py-3 bg-white/30 border border-white/30">
-                        <p className="font-['Cormorant_Garamond',serif] italic text-[16px] leading-relaxed text-black whitespace-pre-wrap">
+                        <p className="font-['Cormorant_Garamond',serif] italic text-[15px] leading-relaxed text-black whitespace-pre-wrap">
                           {letter.message ||
                             (language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi...")}
                         </p>
                       </div>
-                      <p className="font-['Cormorant_Garamond',serif] italic text-[12px] text-black/50 mt-1 ml-2">
+                      <p className="font-['Cormorant_Garamond',serif] italic text-[11px] text-black/50 mt-1 ml-2">
                         {formatTimestamp(message.createdAt, language)}
                       </p>
                     </div>
                   </div>
 
+                  {/* replies */}
                   {replies.map((r) => (
                     <div key={r.id} className={`flex ${r.from === "me" ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[85%] ${r.from === "me" ? "items-end" : "items-start"} flex flex-col`}>
-                        <div
-                          className={`rounded-[18px] px-4 py-3 border border-white/30 ${
-                            r.from === "me" ? "bg-white/45" : "bg-white/25"
-                          }`}
-                        >
-                          <p className="font-['Cormorant_Garamond',serif] italic text-[16px] leading-relaxed text-black whitespace-pre-wrap">
-                            {r.body}
-                          </p>
+                        <div className={`rounded-[18px] px-4 py-3 border border-white/30 ${r.from === "me" ? "bg-white/45" : "bg-white/25"}`}>
+                          <p className="font-['Cormorant_Garamond',serif] italic text-[15px] leading-relaxed text-black whitespace-pre-wrap">{r.body}</p>
                         </div>
-                        <p
-                          className={`font-['Cormorant_Garamond',serif] italic text-[12px] text-black/50 mt-1 ${
-                            r.from === "me" ? "mr-2" : "ml-2"
-                          }`}
-                        >
+                        <p className={`font-['Cormorant_Garamond',serif] italic text-[11px] text-black/50 mt-1 ${r.from === "me" ? "mr-2" : "ml-2"}`}>
                           {formatTimestamp(r.createdAt, language)}
                         </p>
                       </div>
                     </div>
                   ))}
                 </div>
-              </motion.div>
+              </div>
             )}
 
-            {/* To field */}
-            <motion.div className="mt-6 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}>
-              <p className="font-['Cormorant_Garamond',serif] italic font-light text-[14px] text-black/70 mb-1">
-                {language === "en" ? "To" : "À"}
-              </p>
-              <p className="font-['Playfair_Display',serif] italic font-bold text-[22px] text-black drop-shadow-lg">{letter.to}</p>
-            </motion.div>
+            {/* To */}
+            <div className="mt-5 text-center">
+              <p className="italic text-[12px] text-black/70 font-['Cormorant_Garamond',serif]">{language === "en" ? "To" : "À"}</p>
+              <p className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-black drop-shadow">{letter.to}</p>
+            </div>
 
             {/* Anonymous badge */}
             {letter.isAnonymous && (
-              <motion.div className="mt-4 flex justify-center" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.8, type: "spring" }}>
+              <div className="mt-4 flex justify-center">
                 <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/40 flex items-center gap-2">
                   <span className="text-[16px]">🎭</span>
-                  <p className="font-['Cormorant_Garamond',serif] italic font-light text-[14px] text-black">
+                  <p className="font-['Cormorant_Garamond',serif] italic text-[12px] text-black">
                     {language === "en" ? "Sent anonymously" : "Envoyé anonymement"}
                   </p>
                 </div>
-              </motion.div>
+              </div>
             )}
           </motion.div>
 
-          {/* Action buttons */}
-          <motion.div className="mt-6 flex gap-3" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
-            <motion.button
+          {/* Actions */}
+          <div className="mt-4 flex gap-3">
+            <button
               onClick={onClose}
-              className="flex-1 bg-white text-[#2d1b1b] font-['Cormorant_Garamond',serif] italic font-bold text-[18px] rounded-[10px] h-[50px] shadow-lg"
-              whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(255,255,255,0.3)" }}
-              whileTap={{ scale: 0.95 }}
+              className="flex-1 rounded-[14px] h-[48px] bg-white/90 text-[color:var(--text)] font-['Playfair_Display',serif] italic font-bold text-[14px] shadow-md"
             >
               {language === "en" ? "No reply" : "Ne pas répondre"}
-            </motion.button>
+            </button>
 
             {replyEnabled && (
-              <motion.button
+              <button
                 onClick={() => setShowReply(true)}
-                className={`flex-1 ${color} text-white font-['Cormorant_Garamond',serif] italic font-bold text-[18px] rounded-[10px] h-[50px] shadow-lg flex items-center justify-center gap-2`}
-                whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(0,0,0,0.3)" }}
-                whileTap={{ scale: 0.95 }}
+                className={`flex-1 rounded-[14px] h-[48px] ${color} text-white font-['Playfair_Display',serif] italic font-bold text-[14px] shadow-md`}
               >
-                <motion.span animate={{ rotate: [0, -10, 10, -10, 0] }} transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 2 }}>
-                  ✉️
-                </motion.span>
                 {language === "en" ? "Reply" : "Répondre"}
-              </motion.button>
+              </button>
             )}
-          </motion.div>
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

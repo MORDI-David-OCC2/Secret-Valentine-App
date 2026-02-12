@@ -1,6 +1,8 @@
 /*! tailwindcss v4.1.3 | MIT License | https://tailwindcss.com */
 @import "tailwindcss";
 
+body { font-family: "Cormorant Garamond", serif; }
+
 /* Petals global CSS */
 .petals {
   position: fixed;

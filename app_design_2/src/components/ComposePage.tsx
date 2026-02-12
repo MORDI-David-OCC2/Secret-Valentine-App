@@ -4,6 +4,7 @@ import { toast } from "sonner@2.0.3";
 import svgPaths from "../imports/svg-kcw2rymt7y";
 import { sendMessage } from "../services/api";
 import FlowerIcon from "./Fleurs";
+import AppFrame from "./ui/AppFrame";
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -39,10 +40,10 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
   const [from, setFrom] = useState("");
   const [message, setMessage] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [selectedType, setSelectedType] = useState<"love" | "friend" | "family" | "crush" | null>("love");
+  const [selectedType, setSelectedType] = useState<"love" | "friend" | "family" | "crush" | null>(null);
   const [isSending, setIsSending] = useState(false);
 
-  // backend fields
+  // API backend
   const [toEmail, setToEmail] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [replyAllowed, setReplyAllowed] = useState(false);
@@ -99,9 +100,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
     }
 
     if (!message || message.length > 2000) {
-      toast.error(
-        language === "en" ? "Message required (max 2000 chars)" : "Message requis (max 2000 caractères)"
-      );
+      toast.error(language === "en" ? "Message required (max 2000 chars)" : "Message requis (max 2000 caractères)");
       return;
     }
 
@@ -140,7 +139,9 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
         toast.success(language === "en" ? "Message sent! 💌 They will receive an email." : "Message envoyé! 💌 Ils recevront un email.");
       }
 
-      setTimeout(() => onBack(), 1200);
+      setTimeout(() => {
+        onBack();
+      }, 1500);
     } catch (error: any) {
       const msg = String(error?.message || "");
       if (msg.includes("429")) {
@@ -148,7 +149,7 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
       } else if (msg.includes("block")) {
         toast.error(language === "en" ? "Message blocked by moderation" : "Message bloqué par la modération");
       } else {
-        toast.error(error?.message || (language === "en" ? "Failed to send" : "Échec d'envoi"));
+        toast.error(error.message || (language === "en" ? "Failed to send" : "Échec d'envoi"));
       }
     } finally {
       setIsSending(false);
@@ -156,174 +157,237 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
   };
 
   return (
-    <div className="screen screen-compose active">
-      {/* UI1 back */}
-      <button className="back-btn" onClick={onBack}>
-        ← {t.back}
-      </button>
-
-      {/* Header (keep your EnvelopeIcon element) */}
-      <div className="compose-header">
-        <motion.div
-          className="mail-icon"
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
+    <AppFrame>
+      <div className="relative">
+        {/* Back */}
+        <motion.button
+          onClick={onBack}
+          className="flex items-center gap-2 text-[14px] italic text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]"
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          whileHover={{ x: -2 }}
         >
-          <EnvelopeIcon />
+          ← {t.back}
+        </motion.button>
+
+        {/* Header */}
+        <motion.div
+          className="flex flex-col items-center mt-4"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <motion.div
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
+            className="mb-2"
+          >
+            <EnvelopeIcon />
+          </motion.div>
+
+          <h1 className="font-['Playfair_Display',serif] italic font-bold text-[28px] text-[color:var(--rose-deep)] text-center drop-shadow-[0_2px_12px_rgba(200,90,130,.18)]">
+            {t.title}
+          </h1>
+
+          <p className="mt-2 text-center italic text-[14px] text-[color:var(--text-light)] leading-relaxed">
+            {t.subtitle}
+          </p>
+
+          {/* Divider */}
+          <div className="mt-5 mb-5 flex items-center gap-3 w-full">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
+            <div className="text-[13px] text-[color:var(--rose-deep)]">♥</div>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
+          </div>
         </motion.div>
-        <h3>{t.title}</h3>
-      </div>
 
-      <p className="compose-sub">{t.subtitle}</p>
-
-      {/* UI1 card wrapper, BUT KEEP your internal elements */}
-      <div className="compose-card">
-        {/* To */}
-        <div className="field-group">
-          <span className="field-label">{t.to}</span>
-          <input className="field-input" value={to} onChange={(e) => setTo(e.target.value)} placeholder={t.toInput} />
-        </div>
-
-        {/* Recipient email */}
-        <div className="field-group">
-          <span className="field-label">Email:</span>
-          <input
-            className="field-input"
-            type="email"
-            inputMode="email"
-            autoCapitalize="none"
-            value={toEmail}
-            onChange={(e) => setToEmail(e.target.value)}
-            placeholder="olivia@example.com"
-          />
-        </div>
-
-        {/* From */}
-        <div className="field-group">
-          <span className="field-label">{t.from}</span>
-          <input
-            className="field-input"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            placeholder={t.fromInput}
-            disabled={isAnonymous}
-            style={{ opacity: isAnonymous ? 0.6 : 1 }}
-          />
-        </div>
-
-        {/* Anonymous checkbox (same logic) */}
-        <label className="anon-row">
-          <input className="anon-check" type="checkbox" checked={isAnonymous} onChange={(e) => setIsAnonymous(e.target.checked)} />
-          <span className="anon-label">{t.anonymous}</span>
-        </label>
-
-        {/* Allow replies checkbox (same logic) */}
-        <label className="anon-row">
-          <input className="anon-check" type="checkbox" checked={replyAllowed} onChange={(e) => setReplyAllowed(e.target.checked)} />
-          <span className="anon-label">{language === "en" ? "Allow replies" : "Autoriser les réponses"}</span>
-        </label>
-
-        {/* From email (if reply allowed) */}
-        {replyAllowed && (
-          <div className="field-group">
-            <span className="field-label">
-              {language === "en" ? "Your Email:" : "Votre email:"}{" "}
-              <span style={{ textTransform: "none", fontWeight: 400, color: "var(--text-light)" }}>
-                {language === "en" ? "For replies" : "Pour réponses"}
-              </span>
-            </span>
+        {/* Form card (keep your elements, just framed) */}
+        <motion.div
+          className="bg-white/60 backdrop-blur-md rounded-[20px] p-5 sm:p-6 space-y-5 border border-white/70 shadow-[0_10px_35px_rgba(180,90,130,.12)]"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
+          {/* To Field */}
+          <div>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+              {t.to}
+            </p>
             <input
-              className="field-input"
-              type="email"
-              inputMode="email"
-              autoCapitalize="none"
-              value={fromEmail}
-              onChange={(e) => setFromEmail(e.target.value)}
-              placeholder="your.email@example.com"
+              type="text"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder={t.toInput}
+              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
             />
           </div>
-        )}
 
-        {/* Type (KEEP your flower buttons exactly) */}
-        <span className="field-label">{t.type}</span>
-        <div className="grid grid-cols-2 gap-4" style={{ marginTop: 6 }}>
+          {/* Email destinataire */}
+          <div>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+              Email:
+            </p>
+            <input
+              type="email"
+              value={toEmail}
+              onChange={(e) => setToEmail(e.target.value)}
+              placeholder="olivia@example.com"
+              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
+            />
+          </div>
+
+          {/* From */}
+          <div>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+              {t.from}
+            </p>
+            <input
+              type="text"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              placeholder={t.fromInput}
+              disabled={isAnonymous}
+              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)] disabled:opacity-50"
+            />
+          </div>
+
+          {/* Anonymous + Reply allowed (keep behavior, UI1 row style) */}
+          <div className="flex flex-col gap-3">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isAnonymous}
+                onChange={() => setIsAnonymous(!isAnonymous)}
+                className="size-4 rounded border border-[color:var(--rose)] accent-[color:var(--rose-deep)]"
+              />
+              <span className="italic text-[14px] text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]">
+                {t.anonymous}
+              </span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={replyAllowed}
+                onChange={() => setReplyAllowed(!replyAllowed)}
+                className="size-4 rounded border border-[color:var(--rose)] accent-[color:var(--rose-deep)]"
+              />
+              <span className="italic text-[14px] text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]">
+                {language === "en" ? "Allow replies" : "Autoriser les réponses"}
+              </span>
+            </label>
+
+            {replyAllowed && (
+              <div>
+                <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+                  Your Email:
+                </p>
+                <input
+                  type="email"
+                  value={fromEmail}
+                  onChange={(e) => setFromEmail(e.target.value)}
+                  placeholder="your.email@example.com"
+                  className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Type selection (KEEP your flower elements; only layout tightened) */}
+          <div>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-3 font-['Cormorant_Garamond',serif]">
+              {t.type}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setSelectedType("love")}
+                className={`rounded-[14px] h-[78px] flex flex-col items-center justify-center gap-1 shadow-md border transition ${
+                  selectedType === "love" ? "ring-2 ring-[color:var(--rose-deep)]" : ""
+                } bg-gradient-to-br from-pink-200 to-amber-100 border-pink-300`}
+              >
+                <FlowerIcon type="love" size="sm" />
+                <span className="font-['Playfair_Display',serif] italic font-bold text-[14px] text-pink-700">
+                  {t.love}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedType("friend")}
+                className={`rounded-[14px] h-[78px] flex flex-col items-center justify-center gap-1 shadow-md border transition ${
+                  selectedType === "friend" ? "ring-2 ring-[color:var(--rose-deep)]" : ""
+                } bg-gradient-to-br from-yellow-100 via-lime-100 to-green-100 border-lime-300`}
+              >
+                <FlowerIcon type="friend" size="sm" />
+                <span className="font-['Playfair_Display',serif] italic font-bold text-[14px] text-[color:var(--text)]">
+                  {t.friend}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedType("family")}
+                className={`rounded-[14px] h-[78px] flex flex-col items-center justify-center gap-1 shadow-md border transition ${
+                  selectedType === "family" ? "ring-2 ring-[color:var(--rose-deep)]" : ""
+                } bg-gradient-to-br from-amber-300 to-rose-300 border-amber-300`}
+              >
+                <FlowerIcon type="family" size="sm" />
+                <span className="font-['Playfair_Display',serif] italic font-bold text-[14px] text-amber-900">
+                  {t.family}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedType("crush")}
+                className={`rounded-[14px] h-[78px] flex flex-col items-center justify-center gap-1 shadow-md border transition ${
+                  selectedType === "crush" ? "ring-2 ring-[color:var(--rose-deep)]" : ""
+                } bg-gradient-to-br from-pink-200 via-violet-200 to-white border-violet-200`}
+              >
+                <FlowerIcon type="crush" size="sm" />
+                <span className="font-['Playfair_Display',serif] italic font-bold text-[14px] text-violet-700">
+                  {t.crush}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Message */}
+          <div>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+              {t.message}
+            </p>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={t.messagePlaceholder}
+              rows={6}
+              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] p-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)] resize-none"
+            />
+          </div>
+
+          {/* Send button */}
           <motion.button
-            onClick={() => setSelectedType("love")}
-            type="button"
-            className={`bg-gradient-to-br from-pink-200 to-amber-100 border-2 border-pink-400 rounded-[14px] h-[90px] flex flex-col items-center justify-center gap-1 transition-all shadow-md ${
-              selectedType === "love" ? "ring-4 ring-pink-400 scale-105" : ""
-            }`}
-            whileHover={{ scale: 1.05, y: -3 }}
-            whileTap={{ scale: 0.97 }}
+            onClick={handleSubmit}
+            disabled={isSending}
+            className="w-full rounded-[16px] h-[50px] text-white font-['Playfair_Display',serif] italic font-bold text-[16px] shadow-[0_8px_28px_rgba(155,45,90,.35)] disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-br from-[#8b1f4e] to-[#6b1238]"
+            whileHover={!isSending ? { y: -2 } : {}}
+            whileTap={!isSending ? { scale: 0.98 } : {}}
           >
-            <FlowerIcon type="love" size="sm" />
-            <p className="font-['Inter',sans-serif] font-bold text-[15px] text-pink-700">{t.love}</p>
+            {isSending ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                {t.sending}
+              </span>
+            ) : (
+              t.sendLetter
+            )}
           </motion.button>
+        </motion.div>
 
-          <motion.button
-            onClick={() => setSelectedType("friend")}
-            type="button"
-            className={`bg-gradient-to-br from-yellow-100 via-lime-100 to-green-100 border-2 border-lime-400 rounded-[14px] h-[90px] flex flex-col items-center justify-center gap-1 transition-all shadow-md ${
-              selectedType === "friend" ? "ring-4 ring-lime-400 scale-105" : ""
-            }`}
-            whileHover={{ scale: 1.05, y: -3 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <FlowerIcon type="friend" size="sm" />
-            <p className="font-['Inter',sans-serif] font-bold text-[15px] text-black">{t.friend}</p>
-          </motion.button>
-
-          <motion.button
-            onClick={() => setSelectedType("family")}
-            type="button"
-            className={`bg-gradient-to-br from-amber-300 to-rose-300 border-2 border-amber-400 rounded-[14px] h-[90px] flex flex-col items-center justify-center gap-1 transition-all shadow-md ${
-              selectedType === "family" ? "ring-4 ring-amber-400 scale-105" : ""
-            }`}
-            whileHover={{ scale: 1.05, y: -3 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <FlowerIcon type="family" size="sm" />
-            <p className="font-['Inter',sans-serif] font-bold text-[15px] text-amber-800">{t.family}</p>
-          </motion.button>
-
-          <motion.button
-            onClick={() => setSelectedType("crush")}
-            type="button"
-            className={`bg-gradient-to-br from-pink-200 via-violet-200 to-white border-2 border-violet-300 rounded-[14px] h-[90px] flex flex-col items-center justify-center gap-1 transition-all shadow-md ${
-              selectedType === "crush" ? "ring-4 ring-violet-300 scale-105" : ""
-            }`}
-            whileHover={{ scale: 1.05, y: -3 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <FlowerIcon type="crush" size="sm" />
-            <p className="font-['Inter',sans-serif] font-bold text-[15px] text-violet-700">{t.crush}</p>
-          </motion.button>
-        </div>
-
-        {/* Message */}
-        <div className="field-group" style={{ marginTop: 12 }}>
-          <span className="field-label">{t.message}</span>
-          <textarea
-            className="field-textarea"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={t.messagePlaceholder}
-            maxLength={2000}
-          />
+        {/* Footer (flow, not absolute) */}
+        <div className="mt-6 flex items-center justify-center gap-2 text-[12px] italic text-[color:var(--text-light)] opacity-80">
+          <span className="font-['Cormorant_Garamond',serif]">{t.footer}</span>
+          <MdiHeart className="size-[18px]" />
         </div>
       </div>
-
-      {/* Send button (UI1) */}
-      <button className="send-btn" onClick={handleSubmit} disabled={isSending}>
-        {isSending ? t.sending : t.sendLetter}
-      </button>
-
-      {/* footer (keep your heart icon element) */}
-      <div style={{ marginTop: 10 }}>
-        <p className="footer">
-          {t.footer} <MdiHeart className="inline-block align-[-4px] size-[18px]" />
-        </p>
-      </div>
-    </div>
+    </AppFrame>
   );
 }

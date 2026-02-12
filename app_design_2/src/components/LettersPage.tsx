@@ -6,6 +6,7 @@ import { listInbox, InboxMessage } from "../services/api";
 import svgPaths from "../imports/svg-01d0jglvrw";
 import type { Letter } from "../App";
 import LetterDetailView from "./LetterDetailView";
+import AppFrame from "./ui/AppFrame";
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -83,67 +84,47 @@ function LetterCard({ letter, color, index, onClick }: LetterCardProps) {
   return (
     <motion.div
       onClick={onClick}
-      className={`${color} rounded-[15px] w-full max-w-[283px] h-[172px] relative mx-auto cursor-pointer shadow-lg overflow-hidden`}
-      initial={{ opacity: 0, y: 30, rotate: -5 }}
-      animate={{ opacity: 1, y: 0, rotate: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.15, type: "spring", stiffness: 100 }}
-      whileHover={{ scale: 1.05, rotate: 2, boxShadow: "0 15px 30px rgba(0,0,0,0.3)" }}
-      whileTap={{ scale: 0.98 }}
+      className={`${color} rounded-[18px] w-full h-[172px] relative cursor-pointer shadow-lg overflow-hidden`}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay: index * 0.1 }}
+      whileHover={{ y: -3, scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
     >
-      <motion.svg
-        className="absolute top-0 left-0 right-0 pointer-events-none w-full z-0"
-        height="60"
-        viewBox="0 0 283 60"
-        preserveAspectRatio="none"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: index * 0.15 + 0.2 }}
-      >
-        <line x1="0" y1="0" x2="141.5" y2="50" stroke="white" strokeOpacity="0.6" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        <line x1="283" y1="0" x2="141.5" y2="50" stroke="white" strokeOpacity="0.6" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        <line x1="0" y1="0" x2="283" y2="0" stroke="white" strokeOpacity="0.6" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+      {/* envelope flap */}
+      <motion.svg className="absolute top-0 left-0 right-0 pointer-events-none w-full z-0" height="60" viewBox="0 0 283 60" preserveAspectRatio="none">
+        <line x1="0" y1="0" x2="141.5" y2="50" stroke="white" strokeOpacity="0.55" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        <line x1="283" y1="0" x2="141.5" y2="50" stroke="white" strokeOpacity="0.55" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        <line x1="0" y1="0" x2="283" y2="0" stroke="white" strokeOpacity="0.55" strokeWidth="2" vectorEffect="non-scaling-stroke" />
       </motion.svg>
 
-      <motion.div
-        className="absolute left-[calc(50%+2px)] top-[50px] -translate-x-1/2 -translate-y-1/2 z-10"
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ delay: index * 0.15 + 0.3, type: "spring", stiffness: 200 }}
-      >
-        <div className="absolute inset-0 -m-2 rounded-full" style={{ backgroundColor: "inherit" }} />
-        <div className="relative z-10">
+      {/* center icon */}
+      <div className="absolute left-1/2 top-[50px] -translate-x-1/2 -translate-y-1/2 z-10">
+        <div className="relative">
           <OvalLoveIcon />
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div
-        className="absolute top-[100px] left-0 right-0 text-center space-y-1"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.15 + 0.4 }}
-      >
-        <p className={`font-['Cormorant_Garamond',serif] italic font-normal text-[15px] ${textColor} drop-shadow-md`}>
-          From: {letter.from}
+      {/* From + Date */}
+      <div className="absolute top-[100px] left-0 right-0 text-center space-y-1">
+        <p className={`font-['Cormorant_Garamond',serif] italic text-[14px] ${textColor} drop-shadow-md`}>
+          From: <span className="not-italic font-semibold">{letter.from}</span>
         </p>
-        <p className={`font-['Cormorant_Garamond',serif] italic font-normal text-[15px] ${textColor} drop-shadow-md`}>
-          Date: {letter.date}
+        <p className={`font-['Cormorant_Garamond',serif] italic text-[13px] ${textColor} drop-shadow-md`}>
+          Date: <span className="not-italic font-semibold">{letter.date}</span>
         </p>
-      </motion.div>
+      </div>
 
-      <motion.div
-        className="absolute bottom-3 right-4"
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: index * 0.15 + 0.5 }}
-      >
+      {/* type tag */}
+      <div className="absolute bottom-3 right-4">
         <p
-          className={`font-['Playfair_Display',serif] italic font-light text-[14px] ${
+          className={`font-['Playfair_Display',serif] italic text-[13px] ${
             textColor === "text-white" ? "text-white/80" : "text-black/70"
           } capitalize`}
         >
           {letter.type}
         </p>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
@@ -172,10 +153,11 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
         const response = await listInbox(session.inboxId, session.sessionToken);
         setMessages(response.messages);
       } catch (error: any) {
-        if (error.message.includes("401")) {
+        const msg = String(error?.message || "");
+        if (msg.includes("401")) {
           toast.error(language === "en" ? "Session expired" : "Session expirée");
           onBack();
-        } else if (error.message.includes("429")) {
+        } else if (msg.includes("429")) {
           toast.error(language === "en" ? "Too many requests" : "Trop de requêtes");
         } else {
           toast.error(error.message || (language === "en" ? "Failed to load" : "Échec du chargement"));
@@ -188,11 +170,11 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
     loadMessages();
   }, [session.inboxId, session.sessionToken, language, onBack]);
 
-  const letters = messages.map((msg) => ({
+  const letters: Letter[] = messages.map((msg) => ({
     id: msg.id,
     from: msg.fromName,
     to: "You",
-    type: msg.type === "friendship" ? ("friend" as const) : msg.type,
+    type: msg.type === "friendship" ? ("friend" as const) : (msg.type as any),
     date: new Date(msg.lastActiveAt).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", {
       month: "2-digit",
       day: "2-digit",
@@ -203,104 +185,113 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
   }));
 
   const translations = {
-    en: { back: "Back", title: "Your Love Letters", youHave: "You have", message: "message", messages: "messages", waitingForYou: "waiting for you", footer: "made by D&F with" },
-    fr: { back: "Retour", title: "Vos Lettres d'Amour", youHave: "Vous avez", message: "message", messages: "messages", waitingForYou: "qui vous attendent", footer: "créé par D&F avec" },
+    en: {
+      back: "Back",
+      title: "Your Love Letters",
+      youHave: "You have",
+      message: "message",
+      messages: "messages",
+      waitingForYou: "waiting for you",
+      footer: "made by D&F with",
+    },
+    fr: {
+      back: "Retour",
+      title: "Vos Lettres d'Amour",
+      youHave: "Vous avez",
+      message: "message",
+      messages: "messages",
+      waitingForYou: "qui vous attendent",
+      footer: "créé par D&F avec",
+    },
   };
 
   const t = translations[language];
 
   if (loading) {
     return (
-      <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex items-center justify-center">
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="text-6xl">
-          💌
-        </motion.div>
-      </div>
+      <AppFrame>
+        <div className="flex items-center justify-center py-20">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="text-5xl">
+            💌
+          </motion.div>
+        </div>
+      </AppFrame>
     );
   }
 
   return (
-    <div className="bg-[rgba(246,193,208,0.71)] relative min-h-screen w-full pb-24 overflow-x-hidden">
-      <motion.button
-        onClick={onBack}
-        className="absolute top-6 md:top-10 left-4 md:left-5 font-['Cormorant_Garamond',serif] italic font-bold text-xl md:text-[25px] text-[#2d1b1b] z-10"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-        whileHover={{ x: -5, scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        ← {t.back}
-      </motion.button>
+    <AppFrame>
+      <div className="relative">
+        {/* Back */}
+        <motion.button
+          onClick={onBack}
+          className="flex items-center gap-2 text-[14px] italic text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]"
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          whileHover={{ x: -2 }}
+        >
+          ← {t.back}
+        </motion.button>
 
-      <motion.div
-        className="flex gap-1.5 md:gap-[6px] items-center justify-center pt-16 md:pt-[93px] pb-4 md:pb-6 px-4"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
-      >
-        <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>
-          <EnvelopeIcon />
-        </motion.div>
-        <h1 className="font-['Playfair_Display',serif] italic font-bold text-2xl md:text-[35px] text-black text-center">
-          {t.title}
-        </h1>
-      </motion.div>
+        {/* Header */}
+        <div className="mt-4 flex flex-col items-center">
+          <motion.div animate={{ rotate: [0, 8, -8, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>
+            <EnvelopeIcon />
+          </motion.div>
 
-      <motion.div className="w-full h-[1px] bg-black" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.8, delay: 0.3 }} />
+          <h1 className="mt-2 font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)] text-center drop-shadow-[0_2px_12px_rgba(200,90,130,.18)]">
+            {t.title}
+          </h1>
 
-      <motion.div className="px-6 md:px-8 pt-6 md:pt-8 pb-8 md:pb-12" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.5 }}>
-        <p className="font-['Cormorant_Garamond',serif] italic font-light text-lg md:text-xl lg:text-2xl text-[#2d1b1b] text-center">
-          {t.youHave}{" "}
-          <motion.span className="font-bold text-[#a31e46]" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.6, delay: 0.8 }}>
-            {letters.length}
-          </motion.span>{" "}
-          {letters.length === 1 ? t.message : t.messages} {t.waitingForYou}
-        </p>
-      </motion.div>
+          {/* Divider */}
+          <div className="mt-5 mb-4 flex items-center gap-3 w-full">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
+            <div className="text-[13px] text-[color:var(--rose-deep)]">♥</div>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
+          </div>
 
-      <div className="flex flex-col gap-6 px-6 md:px-12">
-        {letters.map((letter, index) => (
-          <LetterCard
-            key={letter.id}
-            letter={letter}
-            color={getThemeColor(letter.type)}
-            index={index}
-            onClick={() =>
-              setSelectedLetter({
-                letter,
-                color: getThemeColor(letter.type),
-              })
-            }
+          {/* Count */}
+          <p className="text-center italic text-[14px] text-[color:var(--text-light)] leading-relaxed">
+            {t.youHave}{" "}
+            <span className="font-['Playfair_Display',serif] text-[color:var(--rose-deep)] font-bold not-italic">
+              {letters.length}
+            </span>{" "}
+            {letters.length === 1 ? t.message : t.messages} {t.waitingForYou}
+          </p>
+        </div>
+
+        {/* List */}
+        <div className="mt-6 flex flex-col gap-4">
+          {letters.map((letter, index) => (
+            <LetterCard
+              key={letter.id}
+              letter={letter}
+              color={getThemeColor(letter.type)}
+              index={index}
+              onClick={() => setSelectedLetter({ letter, color: getThemeColor(letter.type) })}
+            />
+          ))}
+        </div>
+
+        {/* Footer */}
+        <button
+          onClick={() => onNavigate?.("credits")}
+          className="mt-7 w-full flex items-center justify-center gap-2 text-[12px] italic text-[color:var(--text-light)] opacity-80"
+        >
+          <span className="font-['Cormorant_Garamond',serif]">{t.footer}</span>
+          <MdiHeart className="size-[18px]" />
+        </button>
+
+        {/* Detail modal */}
+        {selectedLetter && (
+          <LetterDetailView
+            messageId={selectedLetter.letter.id}
+            color={selectedLetter.color}
+            onClose={() => setSelectedLetter(null)}
+            language={language}
           />
-        ))}
+        )}
       </div>
-
-      <motion.button
-        onClick={() => onNavigate?.("credits")}
-        className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-1 cursor-pointer"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1 }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <p className="font-['Cormorant_Garamond',serif] italic font-light text-[16px] text-[#2d1b1b] text-center underline decoration-dotted">
-          {t.footer}
-        </p>
-        <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1, repeat: Infinity, repeatDelay: 2 }}>
-          <MdiHeart className="size-[24px]" />
-        </motion.div>
-      </motion.button>
-
-      {selectedLetter && (
-        <LetterDetailView
-          messageId={selectedLetter.letter.id}
-          color={selectedLetter.color}
-          onClose={() => setSelectedLetter(null)}
-          language={language}
-        />
-      )}
-    </div>
+    </AppFrame>
   );
 }

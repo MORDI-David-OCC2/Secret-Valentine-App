@@ -63,7 +63,7 @@ function getThemeColor(type: string): string {
     case "love":
       return "bg-gradient-to-br from-pink-500 via-pink-400 to-rose-400 border-2 border-amber-400";
     case "friend":
-      return "bg-gradient-to-br from-yellow-300 via-lime-300 to-green-300 border-2 border-lime-400";
+      return "bg-gradient-to-br from-amber-200 via-lime-100 to-emerald-100 border-2 border-emerald-200";
     case "crush":
       return "bg-gradient-to-br from-pink-300 via-violet-300 to-white border-2 border-violet-300";
     case "family":

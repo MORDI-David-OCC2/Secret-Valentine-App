@@ -94,16 +94,29 @@ export default function FirstPinSetup({
     <div className="bg-[rgba(246,193,208,0.71)] relative min-h-screen w-full pb-24">
       {/* Back Button */}
       <motion.button
-        onClick={onBack}
-        className="absolute top-10 left-5 font-['Inter',sans-serif] font-medium text-[25px] text-[#2d1b1b] z-10"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-        whileHover={{ x: -5, scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        ← {t.back}
-      </motion.button>
+  onClick={onBack}
+  className="
+    inline-flex items-center gap-3
+    text-[24px] italic
+    text-[color:var(--text-light)]
+    font-['Cormorant_Garamond',serif]
+    px-3 py-2
+    rounded-[14px]
+    bg-white/35 backdrop-blur
+    border border-white/50
+    shadow-[0_10px_30px_rgba(180,90,130,.10)]
+    hover:bg-white/45
+    active:scale-[0.99]
+    transition
+  "
+  initial={{ opacity: 0, x: -12 }}
+  animate={{ opacity: 1, x: 0 }}
+  whileHover={{ x: -3 }}
+  whileTap={{ scale: 0.98 }}
+>
+  <span className="text-[30px] leading-none">←</span>
+  <span className="leading-none">{t.back}</span>
+</motion.button>
 
       {/* Header */}
       <motion.div 

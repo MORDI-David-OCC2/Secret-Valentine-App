@@ -194,7 +194,6 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
         <button
           onClick={() => onNavigate("credits")}
           className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition">
-          style={{ fontSize: "clamp(13px, 3.2vw, 15px)" }}
           {t.footer} ♥
         </button>
       </div>

@@ -16,7 +16,7 @@ export function urlBase64ToUint8Array(base64String: string) {
     const perm = await Notification.requestPermission();
     if (perm !== "granted") throw new Error("Permission denied");
   
-    const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY; // expose this in Vite
+    const publicKey = import.meta.env.VAPID_PUBLIC_KEY; // expose this in Vite
     if (!publicKey) throw new Error("Missing VITE_VAPID_PUBLIC_KEY");
   
     const sub = await reg.pushManager.subscribe({

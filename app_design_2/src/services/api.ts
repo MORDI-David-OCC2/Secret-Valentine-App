@@ -48,6 +48,7 @@ export interface OpenLinkResponse {
   ok: true;
   inboxId: string;
   pinRequired: boolean;
+  pinMustBeCreated: boolean;
   sessionToken: string | null;
 }
 

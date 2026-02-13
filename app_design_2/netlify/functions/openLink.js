@@ -84,14 +84,14 @@ exports.handler = async (event) => {
     const inbox = inboxSnap.data() || {};
     const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
 
-    // NEW: if no PIN exists yet, we explicitly require the user to create one
+    // ✅ If no PIN yet => user MUST create it
     const pinMustBeCreated = !pinRequired;
 
-    // If no PIN yet, create a session token so API calls work (FirstPinSetup needs it).
-    // If PIN exists, do NOT create session here.
+    // If no PIN yet, create a session token so listInbox works immediately.
+    // If PIN exists, do NOT create session + do NOT return messages.
     let sessionToken = null;
 
-    if (pinMustBeCreated) {
+    if (!pinRequired) {
       sessionToken = randomTokenBase64Url(32);
       const sessionHash = sha256Hex(sessionToken);
 
@@ -100,15 +100,14 @@ exports.handler = async (event) => {
         new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
       );
 
-      await inboxRef.collection("sessions").doc(sessionHash).set({
+      await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).set({
         inboxId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         expiresAt: expiresAtSession,
       });
     }
 
-    // mark inbox as activated the first time a user opens a secure link
-    await inboxRef.set(
+    await db.collection("inboxes").doc(inboxId).set(
       { activatedAt: admin.firestore.FieldValue.serverTimestamp() },
       { merge: true }
     );
@@ -117,8 +116,8 @@ exports.handler = async (event) => {
       ok: true,
       inboxId,
       pinRequired,
-      pinMustBeCreated, // ✅ NEW FLAG
-      sessionToken,     // only returned when pinMustBeCreated = true
+      pinMustBeCreated, // ✅ IMPORTANT FOR FRONT
+      sessionToken,
     });
   } catch (err) {
     console.error(err);

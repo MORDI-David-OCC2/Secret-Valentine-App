@@ -214,12 +214,22 @@ export async function getMessage(
 }
 
 // ================== SEND MESSAGE ==================
+export type DeliveryMode = "email" | "share" | "instagram";
+
 export interface SendMessageRequest {
-  toEmail: string;
+  deliveryMode: DeliveryMode;
+
+  // required only if deliveryMode === "email"
+  toEmail?: string;
+
+  // required only if deliveryMode === "instagram"
+  instaHandle?: string;
+
   fromName: string;
   fromEmail?: string;
   replyAllowed?: boolean;
-  type: 'love' | 'friendship' | 'family' | 'crush';
+
+  type: "love" | "friendship" | "family" | "crush";
   stickerId?: string;
   body: string;
 }
@@ -228,9 +238,15 @@ export interface SendMessageResponse {
   ok: true;
   inboxId: string;
   messageId: string;
+  deliveryMode: DeliveryMode;
+  link: string;
+
   emailed: boolean;
+  relayedToAdmin?: boolean;
+  push?: { ok: boolean; reason?: string; sent?: number; removed?: number };
+
   quarantined?: boolean;
-  moderationStatus?: 'allow' | 'quarantine' | 'block';
+  moderationStatus?: "allow" | "quarantine" | "block";
 }
 
 export async function sendMessage(

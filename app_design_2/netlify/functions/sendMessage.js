@@ -59,6 +59,8 @@ function getClientIp(event) {
   return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
+/** ---------------- EMAIL (Resend) ---------------- */
+
 async function sendWithResend({ to, subject, html }) {
   const apiKey = process.env.API_EMAIL_KEY;
   const from = process.env.EMAIL_VALENTINE;
@@ -80,8 +82,7 @@ async function sendWithResend({ to, subject, html }) {
   return data;
 }
 
-function subjectForType() {
-  // Sujet volontairement générique (nom caché)
+function subjectGeneric() {
   return "💌 You received a Secret Valentine letter";
 }
 
@@ -114,7 +115,6 @@ function emailHtml({ type, link, baseUrl }) {
   const meta = emailTypeMeta(type);
   const badgeText = `1 new secret ${meta.text.toLowerCase()} letter`;
 
-  // IMPORTANT: image publique stable servie par ton site (voir étapes plus bas)
   const envelopeImg = `${String(baseUrl).replace(/\/+$/, "")}/email/envelope.png`;
 
   return `<!DOCTYPE html>
@@ -132,7 +132,6 @@ function emailHtml({ type, link, baseUrl }) {
 </style>
 </head>
 <body style="margin:0;padding:0;background-color:#fff5f8;">
-
 <div class="preheader">A secret letter is waiting for you… 💌 Tap to reveal it.</div>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff5f8; padding:32px 16px;">
@@ -149,7 +148,6 @@ function emailHtml({ type, link, baseUrl }) {
       ">
         <div style="position:relative; z-index:1;">
           <p style="font-size:1.3rem; letter-spacing:10px; margin-bottom:10px; opacity:.9;">🤍 🌸 🤍</p>
-
           <h1 style="
             font-family: 'Playfair Display', Georgia, serif;
             font-style: italic;
@@ -161,7 +159,6 @@ function emailHtml({ type, link, baseUrl }) {
             text-shadow: 0 3px 16px rgba(150,40,80,.3);
             margin-bottom: 8px;
           ">Secret Valentine</h1>
-
           <p style="
             font-family: 'Cormorant Garamond', Georgia, serif;
             font-style: italic;
@@ -205,7 +202,6 @@ function emailHtml({ type, link, baseUrl }) {
           </tr>
         </table>
 
-        <!-- Badge -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
           <tr>
             <td align="center">
@@ -236,7 +232,6 @@ function emailHtml({ type, link, baseUrl }) {
           line-height:1.25;
         ">A secret letter<br>is waiting for you… 🌷</h2>
 
-        <!-- Body (NO sender name) -->
         <p style="
           font-family:'Cormorant Garamond',Georgia,serif;
           font-style:italic;
@@ -252,7 +247,6 @@ function emailHtml({ type, link, baseUrl }) {
           <span style="color:#c9667a;">Tap to reveal who it is.</span>
         </p>
 
-        <!-- CTA -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px;">
           <tr>
             <td align="center">
@@ -270,31 +264,6 @@ function emailHtml({ type, link, baseUrl }) {
                 letter-spacing:.3px;
                 box-shadow:0 8px 28px rgba(155,45,90,.4);
               ">Open my letter ♥️</a>
-            </td>
-          </tr>
-        </table>
-
-        <!-- Hint -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
-          <tr>
-            <td style="
-              background:rgba(255,255,255,.55);
-              border:1px solid rgba(232,160,180,.3);
-              border-radius:16px;
-              padding:18px 20px;
-            ">
-              <p style="
-                font-family:'Cormorant Garamond',Georgia,serif;
-                font-style:italic;
-                font-size:.88rem;
-                color:#9e6b80;
-                text-align:center;
-                line-height:1.65;
-                margin:0;
-              ">
-                🔒 <strong style="color:#c9667a;font-weight:400;">Name hidden</strong> until you open the message.<br>
-                You can reply privately if replies are enabled.
-              </p>
             </td>
           </tr>
         </table>
@@ -323,18 +292,18 @@ function emailHtml({ type, link, baseUrl }) {
 
 </td></tr>
 </table>
-
 </body>
 </html>`;
 }
 
-/** ---------- PUSH HELPERS ---------- **/
+/** ---------------- PUSH HELPERS ---------------- */
 
 function initWebPush() {
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
   const subject = process.env.VAPID_SUBJECT || "mailto:secret.valentineesilv@gmail.com";
   if (!pub || !priv) return false;
+
   webpush.setVapidDetails(subject, pub, priv);
   return true;
 }
@@ -366,7 +335,21 @@ async function sendPushToInbox(db, inboxId, payloadObj) {
   return { ok: sent > 0, sent, removed };
 }
 
-/** ---------- DB helpers ---------- **/
+/** ---------------- DB HELPERS ---------------- */
+
+async function createStandaloneInbox(db) {
+  const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
+  await db.collection("inboxes").doc(inboxId).set({
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    pinHash: null,
+    pinSalt: null,
+    pinIter: null,
+    pinSetAt: null,
+    // not attached to an email
+    standalone: true,
+  });
+  return inboxId;
+}
 
 async function getOrCreateInboxIdForEmail(db, email) {
   const emailHash = sha256Hex(email);
@@ -401,6 +384,8 @@ function encryptTextForInbox(inboxKeyBuf, text) {
   const dekWrapped = seal(inboxKeyBuf, dek);
   return { bodyEnc, dekWrapped, cryptoVersion: 1 };
 }
+
+/** ---------------- HANDLER ---------------- */
 
 exports.handler = async (event) => {
   try {
@@ -438,7 +423,16 @@ exports.handler = async (event) => {
       return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
     }
 
+    // ✅ NEW: deliveryMode
+    const deliveryMode = String(payload.deliveryMode || "email").trim(); // "email" | "share" | "instagram"
+    const allowedDelivery = ["email", "share", "instagram"];
+    if (!allowedDelivery.includes(deliveryMode)) {
+      return jsonResponse(400, { ok: false, error: "Invalid deliveryMode" });
+    }
+
     const toEmail = normalizeEmail(payload.toEmail);
+    const instaHandle = String(payload.instaHandle || "").trim(); // required for instagram mode
+
     const fromName = String(payload.fromName || "Someone").trim().slice(0, 40);
     const replyAllowed = !!payload.replyAllowed;
     const fromEmail = normalizeEmail(payload.fromEmail);
@@ -447,16 +441,23 @@ exports.handler = async (event) => {
     const stickerId = String(payload.stickerId || "heart_01").trim();
     const body = String(payload.body || "").trim();
 
-    if (!toEmail || !toEmail.includes("@")) return jsonResponse(400, { ok: false, error: "Invalid toEmail" });
+    const allowedTypes = ["love", "friendship", "family", "crush"];
+    if (!mustBeOneOf(type, allowedTypes)) return jsonResponse(400, { ok: false, error: "Invalid type" });
+
     if (!body || body.length < 1 || body.length > 2000) {
       return jsonResponse(400, { ok: false, error: "Message body must be 1..2000 chars" });
     }
 
-    const allowedTypes = ["love", "friendship", "family", "crush"];
-    if (!mustBeOneOf(type, allowedTypes)) return jsonResponse(400, { ok: false, error: "Invalid type" });
-
     if (replyAllowed && (!fromEmail || !fromEmail.includes("@"))) {
       return jsonResponse(400, { ok: false, error: "fromEmail required when replyAllowed is true" });
+    }
+
+    // Delivery validations
+    if (deliveryMode === "email") {
+      if (!toEmail || !toEmail.includes("@")) return jsonResponse(400, { ok: false, error: "Invalid toEmail" });
+    }
+    if (deliveryMode === "instagram") {
+      if (!instaHandle) return jsonResponse(400, { ok: false, error: "instaHandle required for instagram mode" });
     }
 
     // Moderation
@@ -468,8 +469,11 @@ exports.handler = async (event) => {
       quarantined = mod?.status === "quarantine";
     }
 
-    // Recipient inbox
-    const inboxId = await getOrCreateInboxIdForEmail(db, toEmail);
+    // ✅ Recipient inbox selection:
+    // - email mode => inbox tied to emailIndex
+    // - share/instagram => standalone inbox (no email needed)
+    const inboxId =
+      deliveryMode === "email" ? await getOrCreateInboxIdForEmail(db, toEmail) : await createStandaloneInbox(db);
 
     // Sender inbox (only if replyAllowed)
     let senderInboxId = null;
@@ -490,12 +494,11 @@ exports.handler = async (event) => {
     const preview = body.slice(0, 80);
     const previewForRecipient = encryptTextForInbox(recipientInboxKey, preview);
 
-    // Create message doc
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc();
 
     await msgRef.set({
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      fromName, // stocké en DB
+      fromName,
       type,
       stickerId,
       ...encForRecipient,
@@ -511,9 +514,13 @@ exports.handler = async (event) => {
       replyEnabled: replyAllowed,
       replyToInboxId: replyAllowed ? senderInboxId : null,
       replyToEmail: replyAllowed ? fromEmail : null,
+
+      // ✅ keep trace of how it was delivered (helpful later)
+      deliveryMode,
+      relayInstaHandle: deliveryMode === "instagram" ? instaHandle : null,
     });
 
-    // Sender thread copy (same messageId)
+    // Sender thread copy
     if (replyAllowed && senderInboxId && senderInboxKey) {
       const senderThreadRef = db.collection("inboxes").doc(senderInboxId).collection("messages").doc(msgRef.id);
       const encForSender = encryptTextForInbox(senderInboxKey, body);
@@ -537,21 +544,19 @@ exports.handler = async (event) => {
 
           replyEnabled: true,
           replyToInboxId: inboxId,
-          replyToEmail: toEmail,
+          replyToEmail: deliveryMode === "email" ? toEmail : null,
           sentCopy: true,
         },
         { merge: true }
       );
     }
 
-    // Open token for recipient
+    // Open token for recipient (always)
     const token = randomTokenBase64Url(32);
     const tokenHash = sha256Hex(token);
 
     const expiresDays = 7;
-    const expiresAt = admin.firestore.Timestamp.fromDate(
-      new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
-    );
+    const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000));
 
     await db.collection("tokens").doc(tokenHash).set({
       inboxId,
@@ -563,36 +568,69 @@ exports.handler = async (event) => {
     const baseUrl = buildBaseUrl(event);
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
-    // --- Notifications ---
+    // Delivery actions
     let push = { ok: false, reason: "not_attempted" };
     let emailed = false;
+    let relayedToAdmin = false;
 
-    // 1) try push first
-    push = await sendPushToInbox(db, inboxId, {
-      kind: "new_message",
-      inboxId,
-      messageId: msgRef.id,
-      type,
-      url: link,
-      title: "Secret Valentine 💌",
-      body: "A secret letter is waiting. Tap to reveal it.",
-    });
-
-    // 2) fallback email (if not quarantined and push failed)
-    if (!quarantined && !push.ok) {
-      await sendWithResend({
-        to: toEmail,
-        subject: subjectForType(type),
-        html: emailHtml({ type, link, baseUrl }),
+    if (deliveryMode === "email") {
+      // 1) try push first
+      push = await sendPushToInbox(db, inboxId, {
+        kind: "new_message",
+        inboxId,
+        messageId: msgRef.id,
+        type,
+        url: link,
+        title: "Secret Valentine 💌",
+        body: "A secret letter is waiting. Tap to reveal it.",
       });
-      emailed = true;
+
+      // 2) fallback email if not quarantined and push failed
+      if (!quarantined && !push.ok) {
+        await sendWithResend({
+          to: toEmail,
+          subject: subjectGeneric(),
+          html: emailHtml({ type, link, baseUrl }),
+        });
+        emailed = true;
+      }
     }
+
+    if (deliveryMode === "instagram") {
+      // Always email your admin IG relay mailbox (unless quarantined)
+      if (!quarantined) {
+        const adminRelay = "secret.valentineesilv@gmail.com";
+        const html = `
+          <div style="font-family:Arial,sans-serif;line-height:1.5">
+            <h2>New IG Relay Request</h2>
+            <p><strong>Instagram handle:</strong> ${escapeHtml(instaHandle)}</p>
+            <p><strong>Type:</strong> ${escapeHtml(type)}</p>
+            <p><strong>From:</strong> ${escapeHtml(fromName)}</p>
+            <p><strong>Secure link (7 days):</strong><br/>
+              <a href="${escapeHtml(link)}">${escapeHtml(link)}</a>
+            </p>
+            <p>⚠️ Do not share sender name. The app reveals it inside the message.</p>
+          </div>
+        `;
+        await sendWithResend({
+          to: adminRelay,
+          subject: `📩 IG relay – new Secret Valentine (${type})`,
+          html,
+        });
+        relayedToAdmin = true;
+      }
+    }
+
+    // share mode: no send, just return link
 
     return jsonResponse(200, {
       ok: true,
       inboxId,
       messageId: msgRef.id,
+      deliveryMode,
+      link, // ✅ IMPORTANT: returned for share + instagram tracking
       emailed,
+      relayedToAdmin,
       push,
       quarantined,
       moderationStatus: mod?.status ?? "allow",

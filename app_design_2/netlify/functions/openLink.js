@@ -49,8 +49,11 @@ exports.handler = async (event) => {
     const db = admin.firestore();
 
     let payload;
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return jsonResponse(400, { ok: false, error: "Invalid JSON body" }); }
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
+    }
 
     const token = String(payload.token || "").trim();
     if (!token) return jsonResponse(400, { ok: false, error: "Missing token" });
@@ -81,11 +84,14 @@ exports.handler = async (event) => {
     const inbox = inboxSnap.data() || {};
     const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
 
-    // If no PIN yet, create a session token so listInbox works immediately.
-    // If PIN exists, do NOT create session + do NOT return messages.
+    // NEW: if no PIN exists yet, we explicitly require the user to create one
+    const pinMustBeCreated = !pinRequired;
+
+    // If no PIN yet, create a session token so API calls work (FirstPinSetup needs it).
+    // If PIN exists, do NOT create session here.
     let sessionToken = null;
 
-    if (!pinRequired) {
+    if (pinMustBeCreated) {
       sessionToken = randomTokenBase64Url(32);
       const sessionHash = sha256Hex(sessionToken);
 
@@ -94,21 +100,26 @@ exports.handler = async (event) => {
         new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
       );
 
-      await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).set({
-        // store canonical inbox id (legacy used inboxId1)
+      await inboxRef.collection("sessions").doc(sessionHash).set({
         inboxId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         expiresAt: expiresAtSession,
       });
     }
 
-    // mark inbox as "activated" the first time a user opens a secure link
-    await db.collection("inboxes").doc(inboxId).set(
+    // mark inbox as activated the first time a user opens a secure link
+    await inboxRef.set(
       { activatedAt: admin.firestore.FieldValue.serverTimestamp() },
       { merge: true }
     );
 
-    return jsonResponse(200, { ok: true, inboxId, pinRequired, sessionToken });
+    return jsonResponse(200, {
+      ok: true,
+      inboxId,
+      pinRequired,
+      pinMustBeCreated, // ✅ NEW FLAG
+      sessionToken,     // only returned when pinMustBeCreated = true
+    });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

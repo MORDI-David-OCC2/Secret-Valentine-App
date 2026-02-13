@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 /**
  * Context pour gérer la session utilisateur (inbox + sessionToken)
@@ -8,8 +8,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface SessionData {
   inboxId: string | null;
   sessionToken: string | null;
-  isLocked: boolean; // true si PIN requis mais pas encore vérifié
-  isPinRequired: boolean;
+  isLocked: boolean;       // true si PIN requis mais pas encore vérifié
+  isPinRequired: boolean;  // backend dit "PIN existe"
+  mustCreatePin: boolean;  // ✅ NEW: backend dit "PIN n'existe pas encore, il faut en créer un"
 }
 
 interface SessionContextType {
@@ -18,6 +19,7 @@ interface SessionContextType {
   setSessionToken: (token: string | null) => void;
   setIsLocked: (locked: boolean) => void;
   setIsPinRequired: (required: boolean) => void;
+  setMustCreatePin: (v: boolean) => void; // ✅ NEW
   unlock: (sessionToken: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
@@ -25,74 +27,83 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'valentine_session';
+const STORAGE_KEY = "valentine_session";
+
+const DEFAULT_SESSION: SessionData = {
+  inboxId: null,
+  sessionToken: null,
+  isLocked: false,
+  isPinRequired: false,
+  mustCreatePin: false,
+};
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionData>(() => {
-    // Charger depuis localStorage au démarrage
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+
+        // ✅ forward-compatible: si l'ancien storage n'a pas mustCreatePin
+        return {
+          ...DEFAULT_SESSION,
+          ...parsed,
+          mustCreatePin: !!parsed.mustCreatePin,
+        };
       }
     } catch (error) {
-      console.error('Error loading session:', error);
+      console.error("Error loading session:", error);
     }
-    return {
-      inboxId: null,
-      sessionToken: null,
-      isLocked: false,
-      isPinRequired: false
-    };
+    return DEFAULT_SESSION;
   });
 
-  // Persister dans localStorage à chaque changement
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     } catch (error) {
-      console.error('Error saving session:', error);
+      console.error("Error saving session:", error);
     }
   }, [session]);
 
   const setInboxId = (inboxId: string) => {
-    setSession(prev => ({ ...prev, inboxId }));
+    setSession((prev) => ({ ...prev, inboxId }));
   };
 
   const setSessionToken = (token: string | null) => {
-    setSession(prev => ({ ...prev, sessionToken: token }));
+    setSession((prev) => ({ ...prev, sessionToken: token }));
   };
 
   const setIsLocked = (locked: boolean) => {
-    setSession(prev => ({ ...prev, isLocked: locked }));
+    setSession((prev) => ({ ...prev, isLocked: locked }));
   };
 
   const setIsPinRequired = (required: boolean) => {
-    setSession(prev => ({ ...prev, isPinRequired: required }));
+    setSession((prev) => ({ ...prev, isPinRequired: required }));
+  };
+
+  const setMustCreatePin = (v: boolean) => {
+    setSession((prev) => ({ ...prev, mustCreatePin: v }));
   };
 
   const unlock = (sessionToken: string) => {
-    setSession(prev => ({
+    setSession((prev) => ({
       ...prev,
       sessionToken,
-      isLocked: false
+      isLocked: false,
+      mustCreatePin: false, // ✅ une fois "unlock", on n'est plus en mode "création requise"
     }));
   };
 
   const logout = () => {
-    setSession({
-      inboxId: null,
-      sessionToken: null,
-      isLocked: false,
-      isPinRequired: false
-    });
+    setSession(DEFAULT_SESSION);
     localStorage.removeItem(STORAGE_KEY);
   };
 
   const isAuthenticated = !!(
-    session.inboxId && 
-    session.sessionToken && 
-    !session.isLocked
+    session.inboxId &&
+    session.sessionToken &&
+    !session.isLocked &&
+    !session.mustCreatePin // ✅ si on doit créer un PIN, on ne considère pas authentifié "normalement"
   );
 
   return (
@@ -103,9 +114,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setSessionToken,
         setIsLocked,
         setIsPinRequired,
+        setMustCreatePin,
         unlock,
         logout,
-        isAuthenticated
+        isAuthenticated,
       }}
     >
       {children}
@@ -116,7 +128,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 export function useSession() {
   const context = useContext(SessionContext);
   if (!context) {
-    throw new Error('useSession must be used within SessionProvider');
+    throw new Error("useSession must be used within SessionProvider");
   }
   return context;
 }

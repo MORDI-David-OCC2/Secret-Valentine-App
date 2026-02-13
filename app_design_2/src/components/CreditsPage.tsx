@@ -21,12 +21,12 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
       subtitle: "Built with love, mystery, and a bit of magic.",
       creatorsTitle: "Creators",
 
-      dName: "D",
+      dName: "David MORDI",
       dRole: "Backend & Product Engineering",
       dDesc:
         "Responsible for the core app logic, Netlify Functions, Firebase, encryption/session flows, and overall integration.",
 
-      fName: "F",
+      fName: "Fleurine LAM",
       fRole: "UI/UX Design & Frontend",
       fDesc:
         "Designed the UI1 visual style and helped implement the frontend interactions, animations, and overall polish.",
@@ -125,20 +125,20 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
 
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <div className="font-['Kaushan_Script',sans-serif] text-[28px] text-[#a31e46]">
+              <div className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
                 {name}
               </div>
-              <div className="font-['Kaushan_Script',sans-serif] text-[28px] text-[#a31e46]">
+              <div className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
                 {role}
               </div>
             </div>
 
-            <p className="mt-2 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)] leading-relaxed">
+            <p className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
               {desc}
             </p>
 
             <div className="mt-4">
-              <div className="text-[12px] italic text-[color:var(--text-light)] opacity-80 mb-2">
+              <div className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
                 {t.links}
               </div>
               <div className="flex flex-wrap gap-3">

@@ -185,23 +185,36 @@ function emailHtml({ type, link, baseUrl }) {
     <tr>
       <td style="background-color:#fce8ef; padding:36px 36px 28px;">
 
-        <!-- ENVELOPE IMAGE (PNG) -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td align="center" style="padding-bottom:22px;">
+      <!-- ENVELOPE IMAGE (PNG) with purple background -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td align="center" style="padding-bottom:22px;">
+            <div style="
+              display:inline-block;
+              background: linear-gradient(135deg,#9b2d5a,#7a1a45);
+              border-radius:20px;
+              padding:16px 20px;
+              box-shadow:0 10px 36px rgba(155,45,90,.35);
+              border:1px solid rgba(255,255,255,0.25);
+            ">
               <img
                 src="${escapeHtml(envelopeImg)}"
                 width="220"
                 alt="Envelope"
-                style="display:block; width:220px; max-width:80%; height:auto; border:0; outline:none; text-decoration:none;"
-                onerror="this.style.display='none';"
+                style="
+                  display:block;
+                  width:220px;
+                  max-width:80%;
+                  height:auto;
+                  border:0;
+                  outline:none;
+                  text-decoration:none;
+                "
               />
-              <!-- Fallback if image blocked -->
-              <div style="font-size:40px; line-height:1; margin-top:10px;">💌</div>
-            </td>
-          </tr>
-        </table>
-
+            </div>
+          </td>
+        </tr>
+      </table>   
         <!-- Badge -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
           <tr>

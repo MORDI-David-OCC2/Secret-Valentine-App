@@ -125,10 +125,10 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
 
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <div className="font-['Playfair_Display',serif] italic font-bold text-[22px] text-[color:var(--rose-deep)]">
+              <div className="font-['Kaushan_Script',sans-serif] text-[28px] text-[#a31e46]">
                 {name}
               </div>
-              <div className="text-[12px] italic text-[color:var(--text-light)] truncate">
+              <div className="font-['Kaushan_Script',sans-serif] text-[28px] text-[#a31e46]">
                 {role}
               </div>
             </div>

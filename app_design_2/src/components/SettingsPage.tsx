@@ -3,6 +3,28 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import { useSession } from "../contexts/SessionContext";
 import AppFrame from "./ui/AppFrame";
+import { savePushSub } from "../services/api";
+import { urlBase64ToUint8Array } from "../push/push";
+
+async function enableNotifications() {
+  if (!("serviceWorker" in navigator)) throw new Error("No service worker");
+  if (!("PushManager" in window)) throw new Error("No PushManager");
+
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") throw new Error("Permission not granted");
+
+  const reg = await navigator.serviceWorker.ready;
+
+  // ⚠️ VAPID PUBLIC KEY en base64url
+  const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
+
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+  });
+
+  return sub;
+}
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -24,6 +46,26 @@ export default function SettingsPage({
   onNavigate
 }: SettingsPageProps) {
   const { session } = useSession();
+  const onEnablePush = async () => {
+    if (!session.inboxId || !session.sessionToken) {
+      toast.error("Not logged in");
+      return;
+    }
+  
+    try {
+      const sub = await enableNotifications();
+  
+      await savePushSub({
+        inboxId: session.inboxId,
+        sessionToken: session.sessionToken,
+        subscription: sub,
+      });
+  
+      toast.success("Notifications enabled ✅");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed");
+    }
+  };
   const [showPinOptions, setShowPinOptions] = useState(false);
   const [mode, setMode] = useState<"create" | "change" | "remove">("create");
   const [currentPin, setCurrentPin] = useState("");

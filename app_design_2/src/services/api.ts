@@ -295,3 +295,21 @@ export async function sendReply(
 
   return response.json();
 }
+
+export async function savePushSub(params: {
+  inboxId: string;
+  sessionToken: string;
+  subscription: PushSubscription;
+}) {
+  const response = await fetch(`${API_BASE}/savePushSub`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `HTTP ${response.status}`);
+  }
+  return response.json();
+}

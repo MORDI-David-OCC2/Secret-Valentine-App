@@ -128,10 +128,11 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
               <div className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
                 {name}
               </div>
-              <div className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
-                {role}
-              </div>
             </div>
+            
+            <div className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
+                {role}
+              </div>            
 
             <p className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
               {desc}

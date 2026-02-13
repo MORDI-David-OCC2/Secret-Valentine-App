@@ -2201,3 +2201,8 @@ html {
   syntax: "*";
   inherits: false
 }
+
+html,
+body {
+  touch-action: manipulation; /* réduit double-tap zoom */
+}

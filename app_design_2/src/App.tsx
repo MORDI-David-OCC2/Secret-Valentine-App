@@ -75,6 +75,62 @@ function AppContent() {
     setCurrentPage(next);
   };
 
+  /**
+   * ✅ 1) Disable zoom (pinch + double-tap) globally
+   * Works especially for iOS Safari (Android is mostly covered by meta viewport)
+   */
+  useEffect(() => {
+    const preventGesture = (e: Event) => e.preventDefault();
+
+    // iOS pinch zoom events
+    document.addEventListener("gesturestart", preventGesture as any, { passive: false } as any);
+    document.addEventListener("gesturechange", preventGesture as any, { passive: false } as any);
+    document.addEventListener("gestureend", preventGesture as any, { passive: false } as any);
+
+    // iOS double-tap zoom
+    let lastTouchEnd = 0;
+    const onTouchEnd = (e: TouchEvent) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    };
+    document.addEventListener("touchend", onTouchEnd, { passive: false });
+
+    return () => {
+      document.removeEventListener("gesturestart", preventGesture as any);
+      document.removeEventListener("gesturechange", preventGesture as any);
+      document.removeEventListener("gestureend", preventGesture as any);
+      document.removeEventListener("touchend", onTouchEnd as any);
+    };
+  }, []);
+
+  /**
+   * ✅ 2) Disable scroll ONLY on HomePage
+   * Locks body scroll when currentPage === "home"
+   */
+  useEffect(() => {
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevBodyTouchAction = (document.body.style as any).touchAction;
+
+    if (currentPage === "home") {
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      // Helps prevent "scroll/pan" gestures on touch devices
+      (document.body.style as any).touchAction = "none";
+    } else {
+      document.documentElement.style.overflow = prevHtmlOverflow || "";
+      document.body.style.overflow = prevBodyOverflow || "";
+      (document.body.style as any).touchAction = prevBodyTouchAction || "";
+    }
+
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow || "";
+      document.body.style.overflow = prevBodyOverflow || "";
+      (document.body.style as any).touchAction = prevBodyTouchAction || "";
+    };
+  }, [currentPage]);
+
   // Detect inbox token in URL: /#/inbox?t=abc123
   useEffect(() => {
     const detectToken = () => {
@@ -207,11 +263,7 @@ function AppContent() {
             transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
             style={{ height: "100%" }}
           >
-            <LettersPage
-              onBack={() => setPage("home")}
-              language={language}
-              onNavigate={(page) => setPage(page)}
-            />
+            <LettersPage onBack={() => setPage("home")} language={language} onNavigate={(page) => setPage(page)} />
           </motion.div>
         )}
 
@@ -226,11 +278,7 @@ function AppContent() {
             transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
             style={{ height: "100%" }}
           >
-            <ComposePage
-              onBack={() => setPage("home")}
-              language={language}
-              onNavigate={(page) => setPage(page)}
-            />
+            <ComposePage onBack={() => setPage("home")} language={language} onNavigate={(page) => setPage(page)} />
           </motion.div>
         )}
 
@@ -303,12 +351,7 @@ function AppContent() {
             transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
             style={{ height: "100%" }}
           >
-            <PinEntryScreen
-              correctPin={pinCode!}
-              onSuccess={handlePinSuccess}
-              onBack={() => setPage("home")}
-              language={language}
-            />
+            <PinEntryScreen correctPin={pinCode!} onSuccess={handlePinSuccess} onBack={() => setPage("home")} language={language} />
           </motion.div>
         )}
 

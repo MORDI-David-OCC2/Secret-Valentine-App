@@ -7,9 +7,10 @@ import AppFrame from "./ui/AppFrame";
 interface ClaimInboxPageProps {
   onBack: () => void;
   language: "en" | "fr";
+  onNavigate?: (page: "home" | "letters" | "compose" | "settings" | "credits" | "claim") => void;
 }
 
-export default function ClaimInboxPage({ onBack, language }: ClaimInboxPageProps) {
+export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimInboxPageProps) {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -91,37 +92,40 @@ export default function ClaimInboxPage({ onBack, language }: ClaimInboxPageProps
           </p>
 
           <button
-  onClick={onBack}
-  className="
-    mt-10 w-full
-    rounded-[22px]
-    px-7 py-6
-    text-left
-    shadow-[0_14px_40px_rgba(155,45,90,.28)]
-    bg-gradient-to-br from-[#e8a0b4] to-[#d4789c]
-    transition
-    active:scale-[0.99]
-  "
->
-  <div className="flex items-center gap-5">
-    <div className="size-16 rounded-[22px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">
-      ←
-    </div>
+            onClick={onBack}
+            className="
+              mt-10 w-full
+              rounded-[22px]
+              px-7 py-6
+              text-left
+              shadow-[0_14px_40px_rgba(155,45,90,.28)]
+              bg-gradient-to-br from-[#e8a0b4] to-[#d4789c]
+              transition
+              active:scale-[0.99]
+            "
+          >
+            <div className="flex items-center gap-5">
+              <div className="size-16 rounded-[22px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">
+                ←
+              </div>
 
-    <div className="flex-1 min-w-0">
-      <div className="font-['Playfair_Display',serif] text-[22px] font-bold text-white leading-tight">
-        {t.back}
-      </div>
-      <div className="text-[16px] italic text-white/80 truncate mt-0.5">
-        {language === "fr" ? "Revenir à l’accueil" : "Back to home"}
-      </div>
-    </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-['Playfair_Display',serif] text-[22px] font-bold text-white leading-tight">
+                  {t.back}
+                </div>
+                <div className="text-[16px] italic text-white/80 truncate mt-0.5">
+                  {language === "fr" ? "Revenir à l’accueil" : "Back to home"}
+                </div>
+              </div>
 
-    <div className="text-white/70 text-2xl">→</div>
-  </div>
-</button>
+              <div className="text-white/70 text-2xl">→</div>
+            </div>
+          </button>
 
-          <button className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80">
+          <button
+            onClick={() => onNavigate?.("credits")}
+            className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition"
+          >
             {t.footer} ♥
           </button>
         </div>
@@ -134,30 +138,29 @@ export default function ClaimInboxPage({ onBack, language }: ClaimInboxPageProps
       <div className="relative">
         {/* Back */}
         <motion.button
-  onClick={onBack}
-  className="
-    inline-flex items-center gap-3
-    text-[24px] italic
-    text-[color:var(--text-light)]
-    font-['Cormorant_Garamond',serif]
-    px-3 py-2
-    rounded-[14px]
-    bg-white/35 backdrop-blur
-    border border-white/50
-    shadow-[0_10px_30px_rgba(180,90,130,.10)]
-    hover:bg-white/45
-    active:scale-[0.99]
-    transition
-  "
-  initial={{ opacity: 0, x: -12 }}
-  animate={{ opacity: 1, x: 0 }}
-  whileHover={{ x: -3 }}
-  whileTap={{ scale: 0.98 }}
->
-  <span className="text-[30px] leading-none">←</span>
-  <span className="leading-none">{t.back}</span>
-</motion.button>
-
+          onClick={onBack}
+          className="
+            inline-flex items-center gap-3
+            text-[24px] italic
+            text-[color:var(--text-light)]
+            font-['Cormorant_Garamond',serif]
+            px-3 py-2
+            rounded-[14px]
+            bg-white/35 backdrop-blur
+            border border-white/50
+            shadow-[0_10px_30px_rgba(180,90,130,.10)]
+            hover:bg-white/45
+            active:scale-[0.99]
+            transition
+          "
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          whileHover={{ x: -3 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <span className="text-[30px] leading-none">←</span>
+          <span className="leading-none">{t.back}</span>
+        </motion.button>
 
         {/* Header */}
         <div className="mt-4 text-center">
@@ -177,7 +180,6 @@ export default function ClaimInboxPage({ onBack, language }: ClaimInboxPageProps
             {t.subtitle}
           </p>
 
-          {/* Divider */}
           <div className="mt-5 mb-4 flex items-center gap-3 w-full">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
             <div className="text-[13px] text-[color:var(--rose-deep)]">♥</div>
@@ -240,7 +242,10 @@ export default function ClaimInboxPage({ onBack, language }: ClaimInboxPageProps
         </div>
 
         {/* Footer */}
-        <button className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80">
+        <button
+          onClick={() => onNavigate?.("credits")}
+          className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition"
+        >
           {t.footer} ♥
         </button>
       </div>

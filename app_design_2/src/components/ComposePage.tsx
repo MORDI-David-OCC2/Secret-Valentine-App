@@ -33,9 +33,10 @@ function EnvelopeIcon() {
 interface ComposePageProps {
   onBack: () => void;
   language: "en" | "fr";
+  onNavigate?: (page: "home" | "letters" | "compose" | "settings" | "credits" | "claim") => void;
 }
 
-export default function ComposePage({ onBack, language }: ComposePageProps) {
+export default function ComposePage({ onBack, language, onNavigate }: ComposePageProps) {
   const [to, setTo] = useState("");
   const [from, setFrom] = useState("");
   const [message, setMessage] = useState("");
@@ -399,10 +400,11 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
         </motion.div>
 
         {/* Footer (flow, not absolute) */}
-        <div className="mt-6 flex items-center justify-center gap-2 text-[12px] italic text-[color:var(--text-light)] opacity-80">
-          <span className="font-['Cormorant_Garamond',serif]">{t.footer}</span>
-          <MdiHeart className="size-[18px]" />
-        </div>
+        <button
+          onClick={() => onNavigate?.("credits")}
+          className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition">
+          {t.footer} ♥
+        </button>
       </div>
     </AppFrame>
   );

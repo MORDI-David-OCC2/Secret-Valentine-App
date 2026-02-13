@@ -11,6 +11,7 @@ interface SettingsPageProps {
   pinCode: string | null;
   onPinCodeChange: (pin: string | null) => void;
   onLogout: () => void;
+  onNavigate?: (page: "home" | "letters" | "compose" | "settings" | "credits" | "claim") => void;
 }
 
 export default function SettingsPage({
@@ -20,6 +21,7 @@ export default function SettingsPage({
   pinCode,
   onPinCodeChange,
   onLogout,
+  onNavigate
 }: SettingsPageProps) {
   const { session } = useSession();
   const [showPinOptions, setShowPinOptions] = useState(false);
@@ -402,7 +404,9 @@ export default function SettingsPage({
         </div>
 
         {/* Footer */}
-        <button className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition">
+        <button
+          onClick={() => onNavigate("credits")}
+          className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition">
           {t.footer} ♥
         </button>
       </div>

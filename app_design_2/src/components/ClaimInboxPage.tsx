@@ -91,24 +91,35 @@ export default function ClaimInboxPage({ onBack, language }: ClaimInboxPageProps
           </p>
 
           <button
-            onClick={onBack}
-            className="mt-8 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)] bg-gradient-to-br from-[#e8a0b4] to-[#d4789c] transition active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-4">
-              <div className="size-12 rounded-[18px] bg-white/25 backdrop-blur flex items-center justify-center text-[24px]">
-                ←
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-white leading-tight">
-                  {t.back}
-                </div>
-                <div className="text-[14px] italic text-white/80 truncate">
-                  {language === "fr" ? "Revenir à l’accueil" : "Back to home"}
-                </div>
-              </div>
-              <div className="text-white/70 text-xl">→</div>
-            </div>
-          </button>
+  onClick={onBack}
+  className="
+    mt-10 w-full
+    rounded-[22px]
+    px-7 py-6
+    text-left
+    shadow-[0_14px_40px_rgba(155,45,90,.28)]
+    bg-gradient-to-br from-[#e8a0b4] to-[#d4789c]
+    transition
+    active:scale-[0.99]
+  "
+>
+  <div className="flex items-center gap-5">
+    <div className="size-16 rounded-[22px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">
+      ←
+    </div>
+
+    <div className="flex-1 min-w-0">
+      <div className="font-['Playfair_Display',serif] text-[22px] font-bold text-white leading-tight">
+        {t.back}
+      </div>
+      <div className="text-[16px] italic text-white/80 truncate mt-0.5">
+        {language === "fr" ? "Revenir à l’accueil" : "Back to home"}
+      </div>
+    </div>
+
+    <div className="text-white/70 text-2xl">→</div>
+  </div>
+</button>
 
           <button className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80">
             {t.footer} ♥

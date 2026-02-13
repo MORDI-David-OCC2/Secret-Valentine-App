@@ -161,14 +161,30 @@ export default function ComposePage({ onBack, language }: ComposePageProps) {
       <div className="relative">
         {/* Back */}
         <motion.button
-          onClick={onBack}
-          className="flex items-center gap-2 text-[14px] italic text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]"
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
-          whileHover={{ x: -2 }}
-        >
-          ← {t.back}
-        </motion.button>
+  onClick={onBack}
+  className="
+    inline-flex items-center gap-3
+    text-[24px] italic
+    text-[color:var(--text-light)]
+    font-['Cormorant_Garamond',serif]
+    px-3 py-2
+    rounded-[14px]
+    bg-white/35 backdrop-blur
+    border border-white/50
+    shadow-[0_10px_30px_rgba(180,90,130,.10)]
+    hover:bg-white/45
+    active:scale-[0.99]
+    transition
+  "
+  initial={{ opacity: 0, x: -12 }}
+  animate={{ opacity: 1, x: 0 }}
+  whileHover={{ x: -3 }}
+  whileTap={{ scale: 0.98 }}
+>
+  <span className="text-[30px] leading-none">←</span>
+  <span className="leading-none">{t.back}</span>
+</motion.button>
+
 
         {/* Header */}
         <motion.div

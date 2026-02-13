@@ -7,12 +7,12 @@ interface CreditsPageProps {
 }
 
 export default function CreditsPage({ onBack, language }: CreditsPageProps) {
-  // ✅ Replace these with your real links
   const LINKS = {
     dLinkedIn: "https://www.linkedin.com/in/david-mordi/",
     fLinkedIn: "https://www.linkedin.com/in/fleuriane-lam-b6ab66259/",
     fPortfolio: "https://fleuriane-s-portfolio.vercel.app/",
-    appInstagram: "https://www.instagram.com/secrets_valentines?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
+    appInstagram:
+      "https://www.instagram.com/secrets_valentines?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
   };
 
   const translations = {
@@ -20,22 +20,29 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
       title: "Credits",
       subtitle: "Built with love, mystery, and a bit of magic.",
       creatorsTitle: "Creators",
+
       dName: "D",
       dRole: "Backend & Product Engineering",
       dDesc:
         "Responsible for the core app logic, Netlify Functions, Firebase, encryption/session flows, and overall integration.",
+
       fName: "F",
       fRole: "UI/UX Design & Frontend",
       fDesc:
         "Designed the UI1 visual style and helped implement the frontend interactions, animations, and overall polish.",
+
       links: "Links",
       linkedIn: "LinkedIn",
       instagram: "Instagram",
       portfolio: "Portfolio",
+
       techTitle: "Tech Stack",
       tech: "Vite · React · Netlify Functions · Firebase · Web Push",
+
       thanksTitle: "Thanks",
-      thanks: "To everyone who tested the app. If you have any feedback to give us, here is our Instagram.",
+      thanks:
+        "To everyone who tested the app. If you have any feedback to give us, you can reach us here:",
+
       back: "Back",
       footer: "made by D&F with",
     },
@@ -43,22 +50,29 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
       title: "Crédits",
       subtitle: "Créé avec amour, mystère, et un peu de magie.",
       creatorsTitle: "Créateurs",
+
       dName: "D",
       dRole: "Backend & Ingénierie produit",
       dDesc:
         "Responsable de la logique principale, des Netlify Functions, de Firebase, du chiffrement/sessions et de l’intégration globale.",
+
       fName: "F",
       fRole: "UI/UX Design & Frontend",
       fDesc:
         "A conçu l’identité UI1 et a participé au frontend : interactions, animations, et finitions visuelles.",
+
       links: "Liens",
       linkedIn: "LinkedIn",
       instagram: "Instagram",
       portfolio: "Portfolio",
+
       techTitle: "Tech",
       tech: "Vite · React · Netlify Functions · Firebase · Web Push",
+
       thanksTitle: "Merci",
-      thanks: "À tous ceux qui ont testé l’app. Si vous avez des retours à nous faire, notre Instagram est ci-dessous.",
+      thanks:
+        "À tous ceux qui ont testé l’app. Si vous avez des retours à nous faire, vous pouvez nous écrire ici :",
+
       back: "Retour",
       footer: "créé par D&F avec",
     },
@@ -66,34 +80,30 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
 
   const t = translations[language];
 
-  const LinkButton = ({
-    href,
-    label,
-  }: {
-    href: string;
-    label: string;
-  }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer noopener"
-      className="
-        inline-flex items-center justify-center
-        rounded-[14px] px-4 py-3
-        bg-white/55 border border-white/70
-        shadow-[0_10px_25px_rgba(180,90,130,.10)]
-        font-['Cormorant_Garamond',serif] italic text-[16px]
-        text-[color:var(--rose-deep)]
-        hover:bg-white/70 hover:-translate-y-[1px]
-        active:scale-[0.99]
-        transition
-      "
-    >
-      {label} ↗
-    </a>
-  );
+  function LinkButton({ href, label }: { href: string; label: string }) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="
+          inline-flex items-center justify-center
+          rounded-[14px] px-4 py-3
+          bg-white/55 border border-white/70
+          shadow-[0_10px_25px_rgba(180,90,130,.10)]
+          font-['Cormorant_Garamond',serif] italic text-[16px]
+          text-[color:var(--rose-deep)]
+          hover:bg-white/70 hover:-translate-y-[1px]
+          active:scale-[0.99]
+          transition
+        "
+      >
+        {label} ↗
+      </a>
+    );
+  }
 
-  const PersonCard = ({
+  function PersonCard({
     emoji,
     name,
     role,
@@ -105,41 +115,43 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
     role: string;
     desc: string;
     links: { label: string; href: string }[];
-  }) => (
-    <div className="rounded-[20px] bg-white/55 border border-white/60 shadow-[0_12px_32px_rgba(180,90,130,.12)] px-5 py-5">
-      <div className="flex items-start gap-4">
-        <div className="size-12 rounded-[18px] bg-white/35 border border-white/60 flex items-center justify-center text-[26px] shrink-0">
-          {emoji}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <div className="font-['Playfair_Display',serif] italic font-bold text-[22px] text-[color:var(--rose-deep)]">
-              {name}
-            </div>
-            <div className="text-[12px] italic text-[color:var(--text-light)] truncate">
-              {role}
-            </div>
+  }) {
+    return (
+      <div className="rounded-[20px] bg-white/55 border border-white/60 shadow-[0_12px_32px_rgba(180,90,130,.12)] px-5 py-5">
+        <div className="flex items-start gap-4">
+          <div className="size-12 rounded-[18px] bg-white/35 border border-white/60 flex items-center justify-center text-[26px] shrink-0">
+            {emoji}
           </div>
 
-          <p className="mt-2 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)] leading-relaxed">
-            {desc}
-          </p>
-
-          <div className="mt-4">
-            <div className="text-[12px] italic text-[color:var(--text-light)] opacity-80 mb-2">
-              {t.links}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <div className="font-['Playfair_Display',serif] italic font-bold text-[22px] text-[color:var(--rose-deep)]">
+                {name}
+              </div>
+              <div className="text-[12px] italic text-[color:var(--text-light)] truncate">
+                {role}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              {links.map((l) => (
-                <LinkButton key={l.href} href={l.href} label={l.label} />
-              ))}
+
+            <p className="mt-2 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)] leading-relaxed">
+              {desc}
+            </p>
+
+            <div className="mt-4">
+              <div className="text-[12px] italic text-[color:var(--text-light)] opacity-80 mb-2">
+                {t.links}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {links.map((l) => (
+                  <LinkButton key={l.href} href={l.href} label={l.label} />
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <AppFrame>
@@ -147,12 +159,27 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
         {/* Back */}
         <motion.button
           onClick={onBack}
-          className="flex items-center gap-2 text-[14px] italic text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]"
+          className="
+            inline-flex items-center gap-3
+            text-[24px] italic
+            text-[color:var(--text-light)]
+            font-['Cormorant_Garamond',serif]
+            px-3 py-2
+            rounded-[14px]
+            bg-white/35 backdrop-blur
+            border border-white/50
+            shadow-[0_10px_30px_rgba(180,90,130,.10)]
+            hover:bg-white/45
+            active:scale-[0.99]
+            transition
+          "
           initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
-          whileHover={{ x: -2 }}
+          whileHover={{ x: -3 }}
+          whileTap={{ scale: 0.98 }}
         >
-          ← {t.back}
+          <span className="text-[30px] leading-none">←</span>
+          <span className="leading-none">{t.back}</span>
         </motion.button>
 
         {/* Header */}
@@ -173,7 +200,6 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
             {t.subtitle}
           </p>
 
-          {/* Divider */}
           <div className="mt-5 mb-4 flex items-center gap-3 w-full">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
             <div className="text-[13px] text-[color:var(--rose-deep)]">♥</div>
@@ -195,9 +221,7 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
               name={t.dName}
               role={t.dRole}
               desc={t.dDesc}
-              links={[
-                { label: t.linkedIn, href: LINKS.dLinkedIn },
-              ]}
+              links={[{ label: t.linkedIn, href: LINKS.dLinkedIn }]}
             />
 
             <PersonCard
@@ -225,45 +249,24 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
           </div>
 
           <div className="rounded-[20px] bg-white/55 border border-white/60 shadow-[0_10px_30px_rgba(180,90,130,.10)] px-5 py-4">
-  <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
-    {t.thanksTitle}
-  </div>
+            <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
+              {t.thanksTitle}
+            </div>
 
-  <p className="mt-1 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)] leading-relaxed">
-    {t.thanks}
-  </p>
+            <p className="mt-1 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
+              {t.thanks}
+            </p>
 
-  <div className="mt-4 flex flex-wrap gap-3">
-    <LinkButton href={LINKS.appInstagram} label={t.instagram} />
-  </div>
-</div>
+            <div className="mt-4 flex justify-center">
+              <LinkButton href={LINKS.appInstagram} label={t.instagram} />
+            </div>
+          </div>
+        </div>
 
-
-        {/* Footer (clickable-looking) */}
-        <motion.button
-  onClick={onBack}
-  className="
-    inline-flex items-center gap-3
-    text-[24px] italic
-    text-[color:var(--text-light)]
-    font-['Cormorant_Garamond',serif]
-    px-3 py-2
-    rounded-[14px]
-    bg-white/35 backdrop-blur
-    border border-white/50
-    shadow-[0_10px_30px_rgba(180,90,130,.10)]
-    hover:bg-white/45
-    active:scale-[0.99]
-    transition
-  "
-  initial={{ opacity: 0, x: -12 }}
-  animate={{ opacity: 1, x: 0 }}
-  whileHover={{ x: -3 }}
-  whileTap={{ scale: 0.98 }}
->
-  <span className="text-[30px] leading-none">←</span>
-  <span className="leading-none">{t.back}</span>
-</motion.button>
+        {/* Footer */}
+        <button className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition">
+          {t.footer} ♥
+        </button>
       </div>
     </AppFrame>
   );

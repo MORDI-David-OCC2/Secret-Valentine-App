@@ -225,18 +225,19 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
           </div>
 
           <div className="rounded-[20px] bg-white/55 border border-white/60 shadow-[0_10px_30px_rgba(180,90,130,.10)] px-5 py-4">
-            <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
-              {t.thanksTitle}
-            </div>
-            <div className="mt-1 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
-              {t.thanks}
-              links={[
-                { label: t.Instagram, href: LINKS.appInstagram },
-              ]}
-            </div>
-            
-          </div>
-        </div>
+  <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
+    {t.thanksTitle}
+  </div>
+
+  <p className="mt-1 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)] leading-relaxed">
+    {t.thanks}
+  </p>
+
+  <div className="mt-4 flex flex-wrap gap-3">
+    <LinkButton href={LINKS.appInstagram} label={t.instagram} />
+  </div>
+</div>
+
 
         {/* Footer (clickable-looking) */}
         <motion.button

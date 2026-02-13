@@ -18,7 +18,7 @@ async function enableNotifications() {
   const reg = await navigator.serviceWorker.ready;
 
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY as string;
-  if (!vapidPublicKey) throw new Error("Missing VITE_VAPID_PUBLIC_KEY");
+  if (!vapidPublicKey) throw new Error("Missing VITE_VAPID_PUBLIC_KEY1");
 
   const sub = await reg.pushManager.subscribe({
     userVisibleOnly: true,

@@ -1,57 +1,51 @@
-import { useState } from 'react';
-import { motion } from 'motion/react';
-import { toast } from 'sonner@2.0.3';
-import { claimPending } from '../services/api';
-
-/**
- * Page pour réclamer/ouvrir sa boîte via email
- * Envoie un lien d'accès par email
- */
+import { useState } from "react";
+import { motion } from "motion/react";
+import { toast } from "sonner@2.0.3";
+import { claimPending } from "../services/api";
+import AppFrame from "./ui/AppFrame";
 
 interface ClaimInboxPageProps {
   onBack: () => void;
-  language: 'en' | 'fr';
+  language: "en" | "fr";
 }
 
 export default function ClaimInboxPage({ onBack, language }: ClaimInboxPageProps) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
   const translations = {
     en: {
-      back: 'Back',
-      title: 'Access Your Inbox',
-      subtitle: 'Enter your email to receive your inbox link',
-      emailLabel: 'Email:',
-      emailPlaceholder: 'your.email@example.com',
-      sendButton: 'Send Link',
-      sending: 'Sending...',
-      successTitle: 'Email Sent! 📧',
-      successMessage: 'Check your inbox for the access link',
-      footer: 'made by D&F with',
-      invalidEmail: 'Please enter a valid email address'
+      back: "Back",
+      title: "Access Your Inbox",
+      subtitle: "Enter your email to receive your private inbox link.",
+      emailLabel: "Email",
+      emailPlaceholder: "your.email@example.com",
+      sendButton: "Send my link",
+      sending: "Sending…",
+      successTitle: "Email Sent!",
+      successMessage: "Check your inbox for the access link.",
+      footer: "made by D&F with",
+      invalidEmail: "Please enter a valid email address",
     },
     fr: {
-      back: 'Retour',
-      title: 'Accéder à votre boîte',
-      subtitle: 'Entrez votre email pour recevoir votre lien d\'accès',
-      emailLabel: 'Email :',
-      emailPlaceholder: 'votre.email@exemple.com',
-      sendButton: 'Envoyer le Lien',
-      sending: 'Envoi...',
-      successTitle: 'Email Envoyé ! 📧',
-      successMessage: 'Vérifiez votre boîte mail pour le lien d\'accès',
-      footer: 'créé par D&F avec',
-      invalidEmail: 'Veuillez entrer une adresse email valide'
-    }
+      back: "Retour",
+      title: "Accéder à ta boîte",
+      subtitle: "Entre ton email pour recevoir ton lien privé.",
+      emailLabel: "Email",
+      emailPlaceholder: "ton.email@exemple.com",
+      sendButton: "Recevoir mon lien",
+      sending: "Envoi…",
+      successTitle: "Email envoyé !",
+      successMessage: "Regarde ta boîte mail pour le lien d’accès.",
+      footer: "créé par D&F avec",
+      invalidEmail: "Veuillez entrer une adresse email valide",
+    },
   };
 
   const t = translations[language];
 
-  const validateEmail = (email: string) => {
-    return email.includes('@') && email.includes('.');
-  };
+  const validateEmail = (v: string) => v.includes("@") && v.includes(".");
 
   const handleSubmit = async () => {
     if (!validateEmail(email)) {
@@ -60,16 +54,16 @@ export default function ClaimInboxPage({ onBack, language }: ClaimInboxPageProps
     }
 
     setIsSubmitting(true);
-
     try {
       await claimPending(email);
       setEmailSent(true);
       toast.success(t.successTitle);
     } catch (error: any) {
-      if (error.message.includes('429')) {
-        toast.error('Trop de tentatives. Réessayez dans quelques minutes.');
+      const msg = String(error?.message || "");
+      if (msg.includes("429")) {
+        toast.error(language === "fr" ? "Trop de tentatives. Réessaie plus tard." : "Too many attempts. Try again later.");
       } else {
-        toast.error(error.message || 'Erreur lors de l\'envoi');
+        toast.error(error?.message || (language === "fr" ? "Erreur lors de l’envoi" : "Failed to send"));
       }
     } finally {
       setIsSubmitting(false);
@@ -78,187 +72,151 @@ export default function ClaimInboxPage({ onBack, language }: ClaimInboxPageProps
 
   if (emailSent) {
     return (
-      <div className="bg-[rgba(246,193,208,0.71)] relative min-h-screen w-full flex flex-col items-center justify-center px-8">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200 }}
-          className="text-center"
-        >
+      <AppFrame>
+        <div className="text-center py-10">
           <motion.div
-            animate={{ 
-              rotate: [0, -10, 10, -10, 0],
-              y: [0, -10, 0]
-            }}
-            transition={{ 
-              duration: 2,
-              repeat: Infinity,
-              repeatDelay: 1
-            }}
-            className="text-8xl mb-6"
+            className="text-7xl"
+            animate={{ y: [0, -8, 0], rotate: [0, -6, 6, 0] }}
+            transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
           >
             💌
           </motion.div>
-          
-          <h1 className="font-['Kaushan_Script',sans-serif] text-[40px] text-[#a31e46] mb-4">
+
+          <h1 className="mt-6 font-['Playfair_Display',serif] italic font-bold text-[28px] text-[color:var(--rose-deep)]">
             {t.successTitle}
           </h1>
-          
-          <p className="font-['Inter',sans-serif] text-[18px] text-[#2d1b1b] mb-8">
+
+          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
             {t.successMessage}
           </p>
 
-          <motion.button
+          <button
             onClick={onBack}
-            className="bg-[#a31e46] text-white px-8 py-3 rounded-full font-['Inter',sans-serif] font-medium"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className="mt-8 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)] bg-gradient-to-br from-[#e8a0b4] to-[#d4789c] transition active:scale-[0.99]"
           >
-            {t.back}
-          </motion.button>
-        </motion.div>
-      </div>
+            <div className="flex items-center gap-4">
+              <div className="size-12 rounded-[18px] bg-white/25 backdrop-blur flex items-center justify-center text-[24px]">
+                ←
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-white leading-tight">
+                  {t.back}
+                </div>
+                <div className="text-[14px] italic text-white/80 truncate">
+                  {language === "fr" ? "Revenir à l’accueil" : "Back to home"}
+                </div>
+              </div>
+              <div className="text-white/70 text-xl">→</div>
+            </div>
+          </button>
+
+          <button className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80">
+            {t.footer} ♥
+          </button>
+        </div>
+      </AppFrame>
     );
   }
 
   return (
-    <div className="bg-[rgba(246,193,208,0.71)] relative min-h-screen w-full pb-24">
-      {/* Back Button */}
-      <motion.button
-        onClick={onBack}
-        className="absolute top-10 left-5 font-['Inter',sans-serif] font-medium text-[25px] text-[#2d1b1b] z-10"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-        whileHover={{ x: -5, scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        ← {t.back}
-      </motion.button>
-
-      {/* Header */}
-      <motion.div 
-        className="flex flex-col items-center justify-center pt-[120px] pb-6 px-8"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
-      >
-        <motion.div
-          animate={{ 
-            scale: [1, 1.1, 1]
-          }}
-          transition={{ 
-            duration: 2,
-            repeat: Infinity,
-            repeatDelay: 1
-          }}
-          className="text-7xl mb-6"
-        >
-          📬
-        </motion.div>
-        
-        <h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black text-center mb-4">
-          {t.title}
-        </h1>
-        
-        <p className="font-['Inter',sans-serif] font-extralight text-[20px] text-[#2d1b1b] text-center">
-          {t.subtitle}
-        </p>
-      </motion.div>
-
-      {/* Divider */}
-      <motion.div 
-        className="w-full h-[1px] bg-black mb-12"
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ duration: 0.8, delay: 0.3 }}
-      />
-
-      {/* Form */}
-      <motion.div 
-        className="mx-5 bg-[rgba(255,255,255,0.7)] rounded-[10px] p-7 space-y-6 shadow-lg"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.5 }}
-      >
-        {/* Email Field */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.7 }}
-        >
-          <p className="font-['Inter',sans-serif] font-medium text-[15px] text-[#a31e46] mb-2">
-            <span className="font-bold">{t.emailLabel}</span>
-          </p>
-          <motion.input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={t.emailPlaceholder}
-            className="w-full bg-[rgba(219,140,143,0.25)] border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] font-normal text-[15px] text-[#2d1b1b] placeholder:text-[rgba(0,0,0,0.4)] focus:outline-none focus:ring-2 focus:ring-[#a31e46] focus:border-transparent transition-all"
-            whileFocus={{ scale: 1.02 }}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleSubmit();
-              }
-            }}
-          />
-        </motion.div>
-
-        {/* Send Button */}
+    <AppFrame>
+      <div className="relative">
+        {/* Back */}
         <motion.button
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className="w-full bg-[#a31e46] hover:bg-[#8b1838] text-white font-['Inter',sans-serif] font-bold text-[18px] rounded-[10px] h-[50px] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.9 }}
-          whileHover={!isSubmitting ? { scale: 1.05, boxShadow: '0 10px 25px rgba(163,30,70,0.4)' } : {}}
-          whileTap={!isSubmitting ? { scale: 0.95 } : {}}
+          onClick={onBack}
+          className="flex items-center gap-2 text-[14px] italic text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]"
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          whileHover={{ x: -2 }}
         >
-          {isSubmitting ? (
-            <motion.div
-              className="flex items-center justify-center gap-2"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              <motion.div
-                className="size-5 border-2 border-white border-t-transparent rounded-full"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              />
-              {t.sending}
-            </motion.div>
-          ) : (
-            t.sendButton
-          )}
+          ← {t.back}
         </motion.button>
-      </motion.div>
 
-      {/* Footer */}
-      <motion.div 
-        className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-1"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.1 }}
-      >
-        <p className="font-['Inter',sans-serif] font-thin italic text-[15px] text-[#2d1b1b] text-center">
-          {t.footer}
-        </p>
-        <motion.div
-          animate={{ 
-            scale: [1, 1.3, 1]
-          }}
-          transition={{ 
-            duration: 1,
-            repeat: Infinity,
-            repeatDelay: 2
-          }}
-          className="text-[20px]"
-        >
-          ❤️
-        </motion.div>
-      </motion.div>
-    </div>
+        {/* Header */}
+        <div className="mt-4 text-center">
+          <motion.div
+            className="text-6xl"
+            animate={{ scale: [1, 1.06, 1] }}
+            transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+          >
+            📬
+          </motion.div>
+
+          <h1 className="mt-3 font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)] drop-shadow-[0_2px_12px_rgba(200,90,130,.18)]">
+            {t.title}
+          </h1>
+
+          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
+            {t.subtitle}
+          </p>
+
+          {/* Divider */}
+          <div className="mt-5 mb-4 flex items-center gap-3 w-full">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
+            <div className="text-[13px] text-[color:var(--rose-deep)]">♥</div>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
+          </div>
+        </div>
+
+        {/* Form */}
+        <div className="mt-4 space-y-4">
+          <div>
+            <p className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">
+              {t.emailLabel}
+            </p>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={t.emailPlaceholder}
+              className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
+                         font-['Cormorant_Garamond',serif] italic text-[18px] text-[#5a2d42]
+                         placeholder:text-[#9e6b80]
+                         outline-none focus:ring-2 focus:ring-[#e8a0b4]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSubmit();
+              }}
+            />
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
+                       bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] transition
+                       disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-4">
+              <div className="size-12 rounded-[18px] bg-white/20 backdrop-blur flex items-center justify-center text-[24px]">
+                {isSubmitting ? "…" : "✉️"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-white leading-tight">
+                  {isSubmitting ? t.sending : t.sendButton}
+                </div>
+                <div className="text-[14px] italic text-white/80 truncate">
+                  {language === "fr" ? "Lien sécurisé, valable 7 jours" : "Secure link, valid for 7 days"}
+                </div>
+              </div>
+
+              {isSubmitting ? (
+                <motion.div
+                  className="size-6 border-2 border-white border-t-transparent rounded-full"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                />
+              ) : (
+                <div className="text-white/70 text-xl">→</div>
+              )}
+            </div>
+          </button>
+        </div>
+
+        {/* Footer */}
+        <button className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80">
+          {t.footer} ♥
+        </button>
+      </div>
+    </AppFrame>
   );
 }

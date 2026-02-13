@@ -40,7 +40,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
   const [fromEmail, setFromEmail] = useState("");
   const [replyAllowed, setReplyAllowed] = useState(false);
 
-  // NEW: delivery mode
+  // delivery mode
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>("email");
   const [instagramHandle, setInstagramHandle] = useState("");
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
@@ -75,6 +75,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
       sendLetter: "Send Letter",
       sending: "Sending...",
       linkReady: "Your link is ready ✨",
+      generateLink: "Generate link",
       copyLink: "Copy link",
       close: "Close",
       footer: "made by D&F with",
@@ -108,6 +109,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
       sendLetter: "Envoyer la Lettre",
       sending: "Envoi...",
       linkReady: "Ton lien est prêt ✨",
+      generateLink: "Générer le lien",
       copyLink: "Copier le lien",
       close: "Fermer",
       footer: "créé par D&F avec",
@@ -133,7 +135,8 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
   };
 
   const handleSubmit = async () => {
-    // basic validations
+    if (deliveryMode !== "share") setGeneratedLink(null);
+
     if (!message || message.length > 2000) {
       toast.error(language === "en" ? "Message required (max 2000 chars)" : "Message requis (max 2000 caractères)");
       return;
@@ -147,7 +150,6 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
       return;
     }
 
-    // delivery-specific validations
     if (deliveryMode === "email") {
       if (!validateEmail(toEmail)) {
         toast.error(language === "en" ? "Invalid recipient email" : "Email destinataire invalide");
@@ -164,7 +166,6 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
     }
 
     setIsSending(true);
-    setGeneratedLink(null);
 
     try {
       const typeMapping = {
@@ -174,38 +175,38 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
         crush: "crush" as const,
       };
 
-      const res = await sendMessage({
-        // NEW:
-        deliveryMode, // "email" | "share" | "instagram"
+      const res: any = await sendMessage({
+        deliveryMode,
         instagramHandle: deliveryMode === "instagram" ? normalizeHandle(instagramHandle) : undefined,
-
-        // Existing:
-        toEmail: deliveryMode === "email" ? toEmail.trim().toLowerCase() : undefined, // allow undefined for share/instagram (backend update needed)
+        toEmail: deliveryMode === "email" ? toEmail.trim().toLowerCase() : undefined,
         fromName: isAnonymous ? "Secret Admirer" : from || "Anonymous",
         fromEmail: replyAllowed ? fromEmail.trim().toLowerCase() : undefined,
-        replyAllowed: deliveryMode === "share" ? false : replyAllowed, // safer: no reply flow on pure share
+        replyAllowed: deliveryMode === "share" ? false : replyAllowed,
         type: typeMapping[selectedType],
         body: message.trim(),
-
-        // optional meta shown only to admin relay email (backend)
         toNameHint: to.trim() || undefined,
       });
 
-      // If backend returns link for share mode
-      if (deliveryMode === "share" && res?.link) {
-        setGeneratedLink(res.link);
-        toast.success(language === "fr" ? "Lien généré ✨" : "Link generated ✨");
-        return; // stay on page so user can copy
+      if (deliveryMode === "share") {
+        if (res?.link) {
+          setGeneratedLink(res.link);
+          toast.success(language === "fr" ? "Lien généré ✨" : "Link generated ✨");
+          return;
+        }
+        toast.error(
+          language === "fr"
+            ? "Le serveur n’a pas renvoyé de lien (res.link)."
+            : "Server did not return a link (res.link)."
+        );
+        return;
       }
 
-      // Instagram relay: you’ll likely email your admin address
       if (deliveryMode === "instagram") {
         toast.success(language === "fr" ? "Envoyé à l’équipe (relais Instagram) ✨" : "Sent to the team (Instagram relay) ✨");
         setTimeout(() => onBack(), 1200);
         return;
       }
 
-      // email mode (normal)
       if (res?.quarantined) {
         toast.warning(language === "en" ? "Message sent but pending moderation" : "Message envoyé mais en attente de modération");
       } else {
@@ -275,23 +276,23 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
           </div>
         </motion.div>
 
-        {/* Link modal (share mode) */}
-        {generatedLink && (
+        {/* Share link box */}
+        {deliveryMode === "share" && generatedLink && (
           <div className="mb-4 rounded-[20px] bg-white/70 border border-white/70 shadow-[0_10px_35px_rgba(180,90,130,.12)] p-5">
-            <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
-              {t.linkReady}
-            </div>
+            <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">{t.linkReady}</div>
             <div className="mt-3 break-all rounded-[14px] bg-white/60 border border-white/70 px-4 py-3 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] italic">
               {generatedLink}
             </div>
             <div className="mt-4 flex gap-3">
               <button
+                type="button"
                 onClick={() => handleCopy(generatedLink)}
                 className="flex-1 rounded-[14px] px-4 py-3 bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] text-white font-['Playfair_Display',serif] italic font-bold shadow-[0_8px_24px_rgba(155,45,90,.25)] active:scale-[0.99] transition"
               >
                 {t.copyLink}
               </button>
               <button
+                type="button"
                 onClick={() => setGeneratedLink(null)}
                 className="rounded-[14px] px-4 py-3 bg-white/60 border border-white/70 text-[color:var(--text-light)] italic font-['Cormorant_Garamond',serif] active:scale-[0.99] transition"
               >
@@ -319,7 +320,10 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setDeliveryMode(m)}
+                  onClick={() => {
+                    setDeliveryMode(m);
+                    setGeneratedLink(null);
+                  }}
                   className={[
                     "w-full text-left rounded-[14px] px-4 py-3 border shadow-sm transition",
                     "bg-white/55 border-white/70",
@@ -329,23 +333,14 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
                   <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-[color:var(--rose-deep)]">
                     {m === "email" ? t.deliveryEmail : m === "share" ? t.deliveryShare : t.deliveryInstagram}
                   </div>
-                  {m === "instagram" && (
-                    <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">
-                      {language === "fr"
-                        ? "Le lien sera envoyé à l’équipe, qui transmettra via Instagram."
-                        : "The link will be sent to the team who will relay it via Instagram."}
-                    </div>
-                  )}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* To Field */}
+          {/* To */}
           <div>
-            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
-              {t.to}
-            </p>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">{t.to}</p>
             <input
               type="text"
               value={to}
@@ -355,12 +350,10 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
             />
           </div>
 
-          {/* Delivery details */}
+          {/* email recipient */}
           {deliveryMode === "email" && (
             <div>
-              <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
-                {t.emailTo}
-              </p>
+              <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">{t.emailTo}</p>
               <input
                 type="email"
                 value={toEmail}
@@ -371,11 +364,10 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
             </div>
           )}
 
+          {/* instagram recipient */}
           {deliveryMode === "instagram" && (
             <div>
-              <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
-                {t.instaTo}
-              </p>
+              <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">{t.instaTo}</p>
               <input
                 type="text"
                 value={instagramHandle}
@@ -383,89 +375,12 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
                 placeholder={t.instaToPlaceholder}
                 className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
               />
-              <p className="mt-2 text-[12px] italic text-[color:var(--text-light)]">
-                {language === "fr"
-                  ? "On enverra le lien à secret.valentineesilv@gmail.com avec ce @ pour relayer."
-                  : "We will email the link to secret.valentineesilv@gmail.com with this @ for relay."}
-              </p>
             </div>
           )}
 
-          {/* From */}
-          <div>
-            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
-              {t.from}
-            </p>
-            <input
-              type="text"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              placeholder={t.fromInput}
-              disabled={isAnonymous}
-              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)] disabled:opacity-50"
-            />
-          </div>
-
-          {/* Anonymous + Replies */}
-          <div className="flex flex-col gap-3">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={isAnonymous}
-                onChange={() => setIsAnonymous(!isAnonymous)}
-                className="size-4 rounded border border-[color:var(--rose)] accent-[color:var(--rose-deep)]"
-              />
-              <span className="italic text-[14px] text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]">
-                {t.anonymous}
-              </span>
-            </label>
-
-            {/* replies only if email/instagram (share => disabled) */}
-            {deliveryMode !== "share" && (
-              <>
-                <label className="flex items-center gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={replyAllowed}
-                    onChange={() => setReplyAllowed(!replyAllowed)}
-                    className="size-4 rounded border border-[color:var(--rose)] accent-[color:var(--rose-deep)]"
-                  />
-                  <span className="italic text-[14px] text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]">
-                    {t.allowReplies}
-                  </span>
-                </label>
-
-                {replyAllowed && (
-                  <div>
-                    <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
-                      {t.yourEmail}
-                    </p>
-                    <input
-                      type="email"
-                      value={fromEmail}
-                      onChange={(e) => setFromEmail(e.target.value)}
-                      placeholder="your.email@example.com"
-                      className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            {deliveryMode === "share" && (
-              <p className="text-[12px] italic text-[color:var(--text-light)]">
-                {language === "fr"
-                  ? "En mode lien, les réponses sont désactivées (plus sûr)."
-                  : "In link mode, replies are disabled (safer)."}
-              </p>
-            )}
-          </div>
-
           {/* Type */}
           <div>
-            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-3 font-['Cormorant_Garamond',serif]">
-              {t.type}
-            </p>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-3 font-['Cormorant_Garamond',serif]">{t.type}</p>
 
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -487,7 +402,9 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
                 } bg-gradient-to-br from-yellow-100 via-lime-100 to-green-100 border-lime-300`}
               >
                 <FlowerIcon type="friend" size="sm" />
-                <span className="font-['Playfair_Display',serif] italic font-bold text-[14px] text-[color:var(--text)]">{t.friend}</span>
+                <span className="font-['Playfair_Display',serif] italic font-bold text-[14px] text-[color:var(--text)]">
+                  {t.friend}
+                </span>
               </button>
 
               <button
@@ -516,9 +433,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
 
           {/* Message */}
           <div>
-            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
-              {t.message}
-            </p>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">{t.message}</p>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -528,23 +443,56 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
             />
           </div>
 
-          {/* Send */}
-          <motion.button
-            onClick={handleSubmit}
-            disabled={isSending}
-            className="w-full rounded-[16px] h-[50px] text-white font-['Playfair_Display',serif] italic font-bold text-[16px] shadow-[0_8px_28px_rgba(155,45,90,.35)] disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-br from-[#8b1f4e] to-[#6b1238]"
-            whileHover={!isSending ? { y: -2 } : {}}
-            whileTap={!isSending ? { scale: 0.98 } : {}}
-          >
-            {isSending ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                {t.sending}
-              </span>
+          {/* Action button area */}
+          {deliveryMode === "share" ? (
+            generatedLink ? (
+              <motion.button
+                type="button"
+                onClick={() => handleCopy(generatedLink)}
+                className="w-full rounded-[16px] h-[50px] text-white font-['Playfair_Display',serif] italic font-bold text-[16px] shadow-[0_8px_28px_rgba(155,45,90,.35)] bg-gradient-to-br from-[#8b1f4e] to-[#6b1238]"
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {t.copyLink}
+              </motion.button>
             ) : (
-              t.sendLetter
-            )}
-          </motion.button>
+              <motion.button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSending}
+                className="w-full rounded-[16px] h-[50px] text-white font-['Playfair_Display',serif] italic font-bold text-[16px] shadow-[0_8px_28px_rgba(155,45,90,.35)] disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-br from-[#8b1f4e] to-[#6b1238]"
+                whileHover={!isSending ? { y: -2 } : {}}
+                whileTap={!isSending ? { scale: 0.98 } : {}}
+              >
+                {isSending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    {t.sending}
+                  </span>
+                ) : (
+                  t.generateLink
+                )}
+              </motion.button>
+            )
+          ) : (
+            <motion.button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSending}
+              className="w-full rounded-[16px] h-[50px] text-white font-['Playfair_Display',serif] italic font-bold text-[16px] shadow-[0_8px_28px_rgba(155,45,90,.35)] disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-br from-[#8b1f4e] to-[#6b1238]"
+              whileHover={!isSending ? { y: -2 } : {}}
+              whileTap={!isSending ? { scale: 0.98 } : {}}
+            >
+              {isSending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {t.sending}
+                </span>
+              ) : (
+                t.sendLetter
+              )}
+            </motion.button>
+          )}
         </motion.div>
 
         {/* Footer */}

@@ -9,9 +9,9 @@ interface CreditsPageProps {
 export default function CreditsPage({ onBack, language }: CreditsPageProps) {
   // ✅ Replace these with your real links
   const LINKS = {
-    dLinkedIn: "https://www.linkedin.com/in/your-link-here",
-    fLinkedIn: "https://www.linkedin.com/in/your-link-here",
-    fPortfolio: "https://your-portfolio-link-here.com",
+    dLinkedIn: "https://www.linkedin.com/in/david-mordi/",
+    fLinkedIn: "https://www.linkedin.com/in/fleuriane-lam-b6ab66259/",
+    fPortfolio: "https://fleuriane-s-portfolio.vercel.app/",
   };
 
   const translations = {

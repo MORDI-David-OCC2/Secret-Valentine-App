@@ -1,31 +1,23 @@
-/* public/sw.js */
-
-self.addEventListener("install", (event) => {
-    self.skipWaiting();
-  });
-  
-  self.addEventListener("activate", (event) => {
-    event.waitUntil(self.clients.claim());
-  });
-  
-  self.addEventListener("push", (event) => {
+self.addEventListener("push", (event) => {
     let data = {};
     try {
       data = event.data ? event.data.json() : {};
     } catch {
-      data = { title: "Secret Valentine", body: "New message 💌" };
+      data = { title: "Secret Valentine 💌", body: "You received a new letter." };
     }
   
-    const title = data.title || "Secret Valentine";
+    const title = data.title || "Secret Valentine 💌";
     const options = {
-      body: data.body || "You received a new letter 💌",
-      icon: data.icon || "/icons/icon-192.png",     // à créer/mettre si tu veux
-      badge: data.badge || "/icons/badge-72.png",   // optionnel
+      body: data.body || "A secret letter is waiting. Tap to reveal it.",
       data: {
-        url: data.url || "/#/",
-        inboxId: data.inboxId || null,
-        messageId: data.messageId || null,
+        url: data.url || "/",
+        inboxId: data.inboxId,
+        messageId: data.messageId,
+        kind: data.kind,
       },
+      // optionnel: icons si tu as des fichiers stables dans public/
+      // icon: "/icons/icon-192.png",
+      // badge: "/icons/badge-72.png",
     };
   
     event.waitUntil(self.registration.showNotification(title, options));
@@ -33,19 +25,19 @@ self.addEventListener("install", (event) => {
   
   self.addEventListener("notificationclick", (event) => {
     event.notification.close();
-    const url = (event.notification?.data && event.notification.data.url) || "/#/";
+    const url = event.notification?.data?.url || "/";
   
     event.waitUntil(
       (async () => {
-        const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-        const existing = allClients.find((c) => "focus" in c);
-  
-        if (existing) {
-          existing.focus();
-          existing.navigate(url);
-          return;
+        const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
+        for (const client of allClients) {
+          if ("focus" in client) {
+            client.focus();
+            client.navigate(url);
+            return;
+          }
         }
-        await self.clients.openWindow(url);
+        if (clients.openWindow) return clients.openWindow(url);
       })()
     );
   });  

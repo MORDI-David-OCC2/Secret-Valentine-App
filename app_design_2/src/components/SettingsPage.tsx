@@ -17,7 +17,7 @@ async function enableNotifications() {
 
   const reg = await navigator.serviceWorker.ready;
 
-  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY as string;
+  const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
   console.log(vapidPublicKey);
   if (!vapidPublicKey) throw new Error("Missing VITE_VAPID_PUBLIC_KEY1");
 

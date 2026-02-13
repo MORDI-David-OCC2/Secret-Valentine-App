@@ -38,9 +38,7 @@ function initAdmin() {
   if (admin.apps.length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({
-    credential: admin.credential.cert(JSON.parse(raw)),
-  });
+  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
 }
 
 function buildBaseUrl(event) {
@@ -81,11 +79,12 @@ async function sendWithResend({ to, subject, html }) {
 }
 
 function subjectForType(type) {
-  if (type === "love") return "💘 You received a Secret Valentine message";
-  if (type === "friendship") return "🫶 You received a Secret Valentine message";
-  if (type === "family") return "👨‍👩‍👧‍👦 You received a Secret Valentine message";
-  if (type === "crush") return "😳 You received a Secret Valentine message";
-  return "💌 You received a Secret Valentine message";
+  // Nom caché -> sujet neutre
+  if (type === "love") return "💘 You received a Secret Valentine letter";
+  if (type === "friendship") return "🫶 You received a Secret Valentine letter";
+  if (type === "family") return "👨‍👩‍👧‍👦 You received a Secret Valentine letter";
+  if (type === "crush") return "😳 You received a Secret Valentine letter";
+  return "💌 You received a Secret Valentine letter";
 }
 
 function escapeHtml(str) {
@@ -98,7 +97,6 @@ function escapeHtml(str) {
 }
 
 function emailTypeMeta(type) {
-  // Returns an OBJECT (your previous bug was returning a string then using .text)
   switch (type) {
     case "love":
       return { text: "Love", emoji: "💘" };
@@ -113,14 +111,32 @@ function emailTypeMeta(type) {
   }
 }
 
+function inferOriginFromLink(link) {
+  try {
+    const u = new URL(String(link));
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return null;
+  }
+}
+
 function emailHtml({ type, link, baseUrl }) {
   const safeLink = escapeHtml(link);
   const meta = emailTypeMeta(type);
+
   const badgeText = `1 new secret ${meta.text.toLowerCase()} letter`;
 
-  // IMPORTANT: host the image in /public/email/envelope.png
-  // so it is reachable as https://yoursite.com/email/envelope.png
-  const envelopeImg = `${String(baseUrl).replace(/\/+$/, "")}/email/envelope.png`;
+  // ✅ Image URL publique stable:
+  // - idéal: /public/email/envelope.png (sera servi à la racine)
+  // - sinon: variable EMAIL_ENVELOPE_URL (CDN)
+  const origin =
+    String(baseUrl || "").trim().replace(/\/+$/, "") ||
+    inferOriginFromLink(link) ||
+    "";
+
+  const envelopeImg =
+    process.env.EMAIL_ENVELOPE_URL ||
+    (origin ? `${origin}/email/envelope.png` : "");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -145,6 +161,7 @@ function emailHtml({ type, link, baseUrl }) {
 
   <table role="presentation" width="100%" style="max-width:560px; border-radius:28px; overflow:hidden; box-shadow:0 20px 60px rgba(180,90,130,.18), 0 0 0 1px rgba(232,160,180,.25);">
 
+    <!-- HEADER -->
     <tr>
       <td style="
         background: linear-gradient(150deg, #f2c4d4 0%, #e8a0b4 35%, #d4789c 70%, #c9667a 100%);
@@ -182,39 +199,38 @@ function emailHtml({ type, link, baseUrl }) {
       </td>
     </tr>
 
+    <!-- MAIN -->
     <tr>
       <td style="background-color:#fce8ef; padding:36px 36px 28px;">
 
-      <!-- ENVELOPE IMAGE (PNG) with purple background -->
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td align="center" style="padding-bottom:22px;">
-            <div style="
-              display:inline-block;
-              background: linear-gradient(135deg,#9b2d5a,#7a1a45);
-              border-radius:20px;
-              padding:16px 20px;
-              box-shadow:0 10px 36px rgba(155,45,90,.35);
-              border:1px solid rgba(255,255,255,0.25);
-            ">
-              <img
-                src="${escapeHtml(envelopeImg)}"
-                width="220"
-                alt="Envelope"
-                style="
-                  display:block;
-                  width:220px;
-                  max-width:80%;
-                  height:auto;
-                  border:0;
-                  outline:none;
-                  text-decoration:none;
-                "
-              />
-            </div>
-          </td>
-        </tr>
-      </table>   
+        <!-- ENVELOPE IMAGE (PNG) with purple background -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td align="center" style="padding-bottom:22px;">
+              <div style="
+                display:inline-block;
+                background: linear-gradient(135deg,#9b2d5a,#7a1a45);
+                border-radius:20px;
+                padding:16px 20px;
+                box-shadow:0 10px 36px rgba(155,45,90,.35);
+                border:1px solid rgba(255,255,255,0.25);
+              ">
+                ${
+                  envelopeImg
+                    ? `<img src="${escapeHtml(envelopeImg)}" width="220" alt="Envelope"
+                        style="display:block; width:220px; max-width:80%; height:auto; border:0; outline:none; text-decoration:none;" />`
+                    : `<div style="width:220px; max-width:80%; padding:22px 14px; text-align:center; color:rgba(255,255,255,.85); font-family:Georgia,serif; font-style:italic;">
+                         💌
+                       </div>`
+                }
+              </div>
+              <div style="font-size:12px; color:#b88a9a; font-style:italic; margin-top:8px;">
+                (If images are disabled, enable them to see the envelope.)
+              </div>
+            </td>
+          </tr>
+        </table>
+
         <!-- Badge -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
           <tr>
@@ -324,6 +340,7 @@ function emailHtml({ type, link, baseUrl }) {
       </td>
     </tr>
 
+    <!-- PETALS -->
     <tr>
       <td style="background-color:#fce8ef; padding:0 36px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -336,6 +353,7 @@ function emailHtml({ type, link, baseUrl }) {
       </td>
     </tr>
 
+    <!-- FOOTER -->
     <tr>
       <td style="
         background:linear-gradient(170deg,#f0d0de 0%,#e8c8d8 100%);
@@ -387,9 +405,7 @@ async function getOrCreateInboxIdForEmail(db, email) {
   const emailIndexRef = db.collection("emailIndex").doc(emailHash);
   const emailIndexSnap = await emailIndexRef.get();
 
-  if (emailIndexSnap.exists) {
-    return emailIndexSnap.data().inboxId;
-  }
+  if (emailIndexSnap.exists) return emailIndexSnap.data().inboxId;
 
   const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
   const inboxRef = db.collection("inboxes").doc(inboxId);
@@ -478,14 +494,9 @@ exports.handler = async (event) => {
     // Moderation
     let mod = null;
     let quarantined = false;
-
     if (typeof moderateText === "function") {
       mod = await moderateText(body);
-
-      if (mod?.status === "block") {
-        return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
-      }
-
+      if (mod?.status === "block") return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
       quarantined = (mod?.status === "quarantine");
     }
 
@@ -496,7 +507,7 @@ exports.handler = async (event) => {
     let senderInboxId = null;
     if (replyAllowed) senderInboxId = await getOrCreateInboxIdForEmail(db, fromEmail);
 
-    // Ensure crypto exists + get keys
+    // Crypto keys
     await ensureInboxCrypto(db, inboxId);
     const recipientInboxKey = await getInboxKeyViaRecovery(db, inboxId);
 
@@ -534,7 +545,7 @@ exports.handler = async (event) => {
       replyToEmail: replyAllowed ? fromEmail : null,
     });
 
-    // Sender thread copy (same messageId)
+    // Sender thread copy
     if (replyAllowed && senderInboxId && senderInboxKey) {
       const senderThreadRef = db.collection("inboxes").doc(senderInboxId).collection("messages").doc(msgRef.id);
       const encForSender = encryptTextForInbox(senderInboxKey, body);
@@ -585,7 +596,6 @@ exports.handler = async (event) => {
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
     let emailed = false;
-
     if (!quarantined) {
       await sendWithResend({
         to: toEmail,

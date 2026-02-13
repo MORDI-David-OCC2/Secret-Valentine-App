@@ -193,9 +193,8 @@ export default function HomePage({ onNavigate, language }: HomePageProps) {
         {/* Footer pinned at bottom of screen */}
         <button
           onClick={() => onNavigate("credits")}
-          className="mt-auto pt-10 text-center italic text-[#9e6b80] opacity-85"
+          className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition">
           style={{ fontSize: "clamp(13px, 3.2vw, 15px)" }}
-        >
           {t.footer} ♥
         </button>
       </div>

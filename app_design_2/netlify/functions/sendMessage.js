@@ -431,7 +431,7 @@ exports.handler = async (event) => {
     }
 
     const toEmail = normalizeEmail(payload.toEmail);
-    const instaHandle = String(payload.instaHandle || "").trim(); // required for instagram mode
+    const instaHandle = String(payload.instagramHandle || "").trim(); // required for instagram mode
 
     const fromName = String(payload.fromName || "Someone").trim().slice(0, 40);
     const replyAllowed = !!payload.replyAllowed;

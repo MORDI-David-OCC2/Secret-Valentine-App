@@ -51,12 +51,12 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
       subtitle: "Créé avec amour, mystère, et un peu de magie.",
       creatorsTitle: "Créateurs",
 
-      dName: "D",
+      dName: "David MORDI",
       dRole: "Backend & Ingénierie produit",
       dDesc:
         "Responsable de la logique principale, des Netlify Functions, de Firebase, du chiffrement/sessions et de l’intégration globale.",
 
-      fName: "F",
+      fName: "Fleuriane LAM",
       fRole: "UI/UX Design & Frontend",
       fDesc:
         "A conçu l’identité UI1 et a participé au frontend : interactions, animations, et finitions visuelles.",
@@ -119,22 +119,19 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
     return (
       <div className="rounded-[20px] bg-white/55 border border-white/60 shadow-[0_12px_32px_rgba(180,90,130,.12)] px-5 py-5">
         <div className="flex items-start gap-4">
-          <div className="size-12 rounded-[18px] bg-white/35 border border-white/60 flex items-center justify-center text-[26px] shrink-0">
+          <div className="size-20 rounded-[18px] bg-white/35 border border-white/60 flex items-center justify-center text-[45px] shrink-0">
             {emoji}
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2">
-              <div className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
+              <div className="font-['Playfair_Display',serif] italic bold text-[25px] text-[color:var(--text-light)] leading-relaxed">
                 {name}
               </div>
-            </div>
-            
-            <div className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
+            <div className="mt-2 font-['Cormorant_Garamond',serif] text-[17px] text-[color:var(--text-light)] leading-relaxed">
                 {role}
               </div>            
 
-            <p className="mt-2 font-['Cormorant_Garamond',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
+            <p className="font-['PlayFair_Display',serif] text-[16px] text-[color:var(--text-light)] leading-relaxed">
               {desc}
             </p>
 

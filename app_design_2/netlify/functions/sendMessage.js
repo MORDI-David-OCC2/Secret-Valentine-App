@@ -1,5 +1,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const webpush = require("web-push");
+
 const { rateLimit } = require("./rateLimit");
 const { moderateText } = require("./moderation");
 const { seal } = require("./wrap");
@@ -38,7 +40,9 @@ function initAdmin() {
   if (admin.apps.length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
+  admin.initializeApp({
+    credential: admin.credential.cert(JSON.parse(raw)),
+  });
 }
 
 function buildBaseUrl(event) {
@@ -79,11 +83,7 @@ async function sendWithResend({ to, subject, html }) {
 }
 
 function subjectForType(type) {
-  // Nom caché -> sujet neutre
-  if (type === "love") return "💘 You received a Secret Valentine letter";
-  if (type === "friendship") return "🫶 You received a Secret Valentine letter";
-  if (type === "family") return "👨‍👩‍👧‍👦 You received a Secret Valentine letter";
-  if (type === "crush") return "😳 You received a Secret Valentine letter";
+  // Tu as demandé de cacher le nom -> sujet générique
   return "💌 You received a Secret Valentine letter";
 }
 
@@ -111,32 +111,13 @@ function emailTypeMeta(type) {
   }
 }
 
-function inferOriginFromLink(link) {
-  try {
-    const u = new URL(String(link));
-    return `${u.protocol}//${u.host}`;
-  } catch {
-    return null;
-  }
-}
-
 function emailHtml({ type, link, baseUrl }) {
   const safeLink = escapeHtml(link);
   const meta = emailTypeMeta(type);
-
   const badgeText = `1 new secret ${meta.text.toLowerCase()} letter`;
 
-  // ✅ Image URL publique stable:
-  // - idéal: /public/email/envelope.png (sera servi à la racine)
-  // - sinon: variable EMAIL_ENVELOPE_URL (CDN)
-  const origin =
-    String(baseUrl || "").trim().replace(/\/+$/, "") ||
-    inferOriginFromLink(link) ||
-    "";
-
-  const envelopeImg =
-    process.env.EMAIL_ENVELOPE_URL ||
-    (origin ? `${origin}/email/envelope.png` : "");
+  // IMPORTANT: l'image doit être servie depuis /public/email/envelope.png
+  const envelopeImg = `${String(baseUrl).replace(/\/+$/, "")}/email/envelope.png`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -161,7 +142,6 @@ function emailHtml({ type, link, baseUrl }) {
 
   <table role="presentation" width="100%" style="max-width:560px; border-radius:28px; overflow:hidden; box-shadow:0 20px 60px rgba(180,90,130,.18), 0 0 0 1px rgba(232,160,180,.25);">
 
-    <!-- HEADER -->
     <tr>
       <td style="
         background: linear-gradient(150deg, #f2c4d4 0%, #e8a0b4 35%, #d4789c 70%, #c9667a 100%);
@@ -199,37 +179,31 @@ function emailHtml({ type, link, baseUrl }) {
       </td>
     </tr>
 
-    <!-- MAIN -->
     <tr>
       <td style="background-color:#fce8ef; padding:36px 36px 28px;">
 
-        <!-- ENVELOPE IMAGE (PNG) with purple background -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td align="center" style="padding-bottom:22px;">
-              <div style="
-                display:inline-block;
-                background: linear-gradient(135deg,#9b2d5a,#7a1a45);
-                border-radius:20px;
-                padding:16px 20px;
-                box-shadow:0 10px 36px rgba(155,45,90,.35);
-                border:1px solid rgba(255,255,255,0.25);
-              ">
-                ${
-                  envelopeImg
-                    ? `<img src="${escapeHtml(envelopeImg)}" width="220" alt="Envelope"
-                        style="display:block; width:220px; max-width:80%; height:auto; border:0; outline:none; text-decoration:none;" />`
-                    : `<div style="width:220px; max-width:80%; padding:22px 14px; text-align:center; color:rgba(255,255,255,.85); font-family:Georgia,serif; font-style:italic;">
-                         💌
-                       </div>`
-                }
-              </div>
-              <div style="font-size:12px; color:#b88a9a; font-style:italic; margin-top:8px;">
-                (If images are disabled, enable them to see the envelope.)
-              </div>
-            </td>
-          </tr>
-        </table>
+      <!-- ENVELOPE IMAGE (PNG) with purple background -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td align="center" style="padding-bottom:22px;">
+            <div style="
+              display:inline-block;
+              background: linear-gradient(135deg,#9b2d5a,#7a1a45);
+              border-radius:20px;
+              padding:16px 20px;
+              box-shadow:0 10px 36px rgba(155,45,90,.35);
+              border:1px solid rgba(255,255,255,0.25);
+            ">
+              <img
+                src="${escapeHtml(envelopeImg)}"
+                width="220"
+                alt="Envelope"
+                style="display:block; width:220px; max-width:80%; height:auto; border:0; outline:none; text-decoration:none;"
+              />
+            </div>
+          </td>
+        </tr>
+      </table>
 
         <!-- Badge -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
@@ -251,7 +225,6 @@ function emailHtml({ type, link, baseUrl }) {
           </tr>
         </table>
 
-        <!-- Headline -->
         <h2 style="
           font-family:'Playfair Display',Georgia,serif;
           font-style:italic;
@@ -301,18 +274,6 @@ function emailHtml({ type, link, baseUrl }) {
           </tr>
         </table>
 
-        <!-- Divider -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
-          <tr>
-            <td style="padding:0 20px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr><td style="height:1px; background:linear-gradient(90deg,transparent,#e8a0b4,transparent);"></td></tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-
-        <!-- Hint -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
           <tr>
             <td style="
@@ -340,20 +301,6 @@ function emailHtml({ type, link, baseUrl }) {
       </td>
     </tr>
 
-    <!-- PETALS -->
-    <tr>
-      <td style="background-color:#fce8ef; padding:0 36px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td align="center" style="padding:4px 0 20px; font-size:.9rem; letter-spacing:12px; color:#e8a0b4;">
-              🌸 ♥️ 🌸
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-
-    <!-- FOOTER -->
     <tr>
       <td style="
         background:linear-gradient(170deg,#f0d0de 0%,#e8c8d8 100%);
@@ -361,26 +308,6 @@ function emailHtml({ type, link, baseUrl }) {
         text-align:center;
         border-top:1px solid rgba(232,160,180,.2);
       ">
-        <p style="
-          font-family:'Playfair Display',Georgia,serif;
-          font-style:italic;
-          font-size:.95rem;
-          color:#c9667a;
-          margin-bottom:10px;
-        ">Secret Valentine</p>
-
-        <p style="
-          font-family:'Cormorant Garamond',Georgia,serif;
-          font-size:.78rem;
-          color:#b88a9a;
-          font-style:italic;
-          line-height:1.6;
-          margin-bottom:14px;
-        ">
-          You received this email because a Secret Valentine letter was sent to you.<br>
-          If you didn’t expect this email, you can ignore it.
-        </p>
-
         <p style="
           font-family:'Cormorant Garamond',Georgia,serif;
           font-size:.72rem;
@@ -400,12 +327,57 @@ function emailHtml({ type, link, baseUrl }) {
 </html>`;
 }
 
+/** ---------- PUSH HELPERS ---------- **/
+
+function initWebPush() {
+  const pub = process.env.VAPID_PUBLIC_KEY;
+  const priv = process.env.VAPID_PRIVATE_KEY;
+  const subject = process.env.VAPID_SUBJECT || "mailto:admin@example.com";
+  if (!pub || !priv) return false;
+
+  webpush.setVapidDetails(subject, pub, priv);
+  return true;
+}
+
+async function sendPushToInbox(db, inboxId, payloadObj) {
+  if (!initWebPush()) return { ok: false, reason: "missing_vapid" };
+
+  // pull subscriptions
+  const subsSnap = await db.collection("inboxes").doc(inboxId).collection("pushSubs").get();
+  if (subsSnap.empty) return { ok: false, reason: "no_subscriptions" };
+
+  const payload = JSON.stringify(payloadObj);
+  let sent = 0;
+  let removed = 0;
+
+  for (const doc of subsSnap.docs) {
+    const sub = doc.data();
+    try {
+      await webpush.sendNotification(sub, payload);
+      sent++;
+    } catch (err) {
+      // remove dead subscriptions
+      const statusCode = err?.statusCode || err?.status;
+      if (statusCode === 404 || statusCode === 410) {
+        await doc.ref.delete().catch(() => {});
+        removed++;
+      }
+    }
+  }
+
+  return { ok: sent > 0, sent, removed };
+}
+
+/** ---------- DB helpers ---------- **/
+
 async function getOrCreateInboxIdForEmail(db, email) {
   const emailHash = sha256Hex(email);
   const emailIndexRef = db.collection("emailIndex").doc(emailHash);
   const emailIndexSnap = await emailIndexRef.get();
 
-  if (emailIndexSnap.exists) return emailIndexSnap.data().inboxId;
+  if (emailIndexSnap.exists) {
+    return emailIndexSnap.data().inboxId;
+  }
 
   const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
   const inboxRef = db.collection("inboxes").doc(inboxId);
@@ -482,7 +454,8 @@ exports.handler = async (event) => {
     const body = String(payload.body || "").trim();
 
     if (!toEmail || !toEmail.includes("@")) return jsonResponse(400, { ok: false, error: "Invalid toEmail" });
-    if (!body || body.length < 1 || body.length > 2000) return jsonResponse(400, { ok: false, error: "Message body must be 1..2000 chars" });
+    if (!body || body.length < 1 || body.length > 2000)
+      return jsonResponse(400, { ok: false, error: "Message body must be 1..2000 chars" });
 
     const allowedTypes = ["love", "friendship", "family", "crush"];
     if (!mustBeOneOf(type, allowedTypes)) return jsonResponse(400, { ok: false, error: "Invalid type" });
@@ -494,10 +467,11 @@ exports.handler = async (event) => {
     // Moderation
     let mod = null;
     let quarantined = false;
+
     if (typeof moderateText === "function") {
       mod = await moderateText(body);
       if (mod?.status === "block") return jsonResponse(400, { ok: false, error: "Message blocked by moderation" });
-      quarantined = (mod?.status === "quarantine");
+      quarantined = mod?.status === "quarantine";
     }
 
     // Recipient inbox
@@ -507,7 +481,7 @@ exports.handler = async (event) => {
     let senderInboxId = null;
     if (replyAllowed) senderInboxId = await getOrCreateInboxIdForEmail(db, fromEmail);
 
-    // Crypto keys
+    // Ensure crypto exists + get keys
     await ensureInboxCrypto(db, inboxId);
     const recipientInboxKey = await getInboxKeyViaRecovery(db, inboxId);
 
@@ -527,7 +501,7 @@ exports.handler = async (event) => {
 
     await msgRef.set({
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      fromName, // stored in DB, but NOT shown in email
+      fromName, // stocké en DB, mais pas affiché dans l’email/push
       type,
       stickerId,
       ...encForRecipient,
@@ -545,7 +519,7 @@ exports.handler = async (event) => {
       replyToEmail: replyAllowed ? fromEmail : null,
     });
 
-    // Sender thread copy
+    // Sender thread copy (same messageId)
     if (replyAllowed && senderInboxId && senderInboxKey) {
       const senderThreadRef = db.collection("inboxes").doc(senderInboxId).collection("messages").doc(msgRef.id);
       const encForSender = encryptTextForInbox(senderInboxKey, body);
@@ -581,9 +555,7 @@ exports.handler = async (event) => {
     const tokenHash = sha256Hex(token);
 
     const expiresDays = 7;
-    const expiresAt = admin.firestore.Timestamp.fromDate(
-      new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
-    );
+    const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000));
 
     await db.collection("tokens").doc(tokenHash).set({
       inboxId,
@@ -595,8 +567,25 @@ exports.handler = async (event) => {
     const baseUrl = buildBaseUrl(event);
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
+    // --- Notifications ---
+    let push = { ok: false, reason: "not_attempted" };
     let emailed = false;
-    if (!quarantined) {
+
+    // 1) try push first (if user enabled)
+    push = await sendPushToInbox(db, inboxId, {
+      kind: "new_message",
+      inboxId,
+      messageId: msgRef.id,
+      type,
+      url: link, // link direct (et tu caches le nom dans la notif)
+      title: "Secret Valentine 💌",
+      body: "A secret letter is waiting. Tap to reveal it.",
+    });
+
+    // 2) fallback email if:
+    // - quarantined => no email
+    // - push not delivered
+    if (!quarantined && !push.ok) {
       await sendWithResend({
         to: toEmail,
         subject: subjectForType(type),
@@ -610,6 +599,7 @@ exports.handler = async (event) => {
       inboxId,
       messageId: msgRef.id,
       emailed,
+      push,
       quarantined,
       moderationStatus: mod?.status ?? "allow",
     });

@@ -31,18 +31,22 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
   const [to, setTo] = useState("");
   const [from, setFrom] = useState("");
   const [message, setMessage] = useState("");
+
   const [isAnonymous, setIsAnonymous] = useState(false);
+
   const [selectedType, setSelectedType] = useState<"love" | "friend" | "family" | "crush" | null>(null);
   const [isSending, setIsSending] = useState(false);
 
-  // backend fields
-  const [toEmail, setToEmail] = useState("");
-  const [fromEmail, setFromEmail] = useState("");
-  const [replyAllowed, setReplyAllowed] = useState(false);
-
-  // delivery mode
+  // delivery
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>("email");
+  const [toEmail, setToEmail] = useState("");
   const [instagramHandle, setInstagramHandle] = useState("");
+
+  // replies
+  const [replyAllowed, setReplyAllowed] = useState(false);
+  const [fromEmail, setFromEmail] = useState("");
+
+  // share link
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
 
   const translations = {
@@ -50,69 +54,113 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
       back: "Back",
       title: "Compose your letter",
       subtitle: "Write a heartful message to someone special",
+
       delivery: "Delivery",
-      deliveryEmail: "I know the email (send it)",
-      deliveryShare: "I’ll share the link myself",
-      deliveryInstagram: "I don’t know the email (Instagram relay)",
+      deliveryEmail: "1) I know the email (send it)",
+      deliveryShare: "2) I’ll share the link myself",
+      deliveryInstagram: "3) I don’t know the email (Instagram relay)",
+
       to: "To:",
       toInput: "Olivia...",
+
       emailTo: "Recipient email",
       emailToPlaceholder: "olivia@example.com",
+
       instaTo: "Recipient Instagram @",
       instaToPlaceholder: "@theirname",
+
       from: "From:",
       fromInput: "Your name...",
+
       anonymous: "Send anonymously",
+
       allowReplies: "Allow replies",
       yourEmail: "Your email (for replies)",
+      yourEmailPlaceholder: "your.email@example.com",
+
       type: "Type:",
       love: "Love",
       friend: "Friend",
       family: "Family",
       crush: "Crush",
+
       message: "Message:",
       messagePlaceholder: "Write your heartfelt message here...",
+
       sendLetter: "Send Letter",
-      sending: "Sending...",
-      linkReady: "Your link is ready ✨",
       generateLink: "Generate link",
+      sending: "Sending...",
+
+      linkReady: "Your link is ready ✨",
       copyLink: "Copy link",
       close: "Close",
+
       footer: "made by D&F with",
+
+      errors: {
+        invalidRecipientEmail: "Invalid recipient email",
+        invalidReplyEmail: "Valid email required to allow replies",
+        invalidInstagram: "Please enter a valid Instagram @",
+        messageRequired: "Message required (max 2000 chars)",
+        typeRequired: "Please select a type",
+        noLinkReturned: "Server did not return a link (res.link).",
+      },
     },
     fr: {
       back: "Retour",
       title: "Composez votre lettre",
       subtitle: "Écrivez un message sincère à quelqu'un de spécial",
+
       delivery: "Envoi",
-      deliveryEmail: "Je connais l’email (envoyer)",
-      deliveryShare: "Je partage le lien moi-même",
-      deliveryInstagram: "Je ne connais pas l’email (relais Instagram)",
+      deliveryEmail: "1) Je connais l’email (envoyer)",
+      deliveryShare: "2) Je partage le lien moi-même",
+      deliveryInstagram: "3) Je ne connais pas l’email (relais Instagram)",
+
       to: "À :",
       toInput: "Olivia...",
+
       emailTo: "Email du destinataire",
       emailToPlaceholder: "olivia@example.com",
+
       instaTo: "Instagram du destinataire @",
       instaToPlaceholder: "@sonpseudo",
+
       from: "De :",
       fromInput: "Votre nom...",
+
       anonymous: "Envoyer anonymement",
+
       allowReplies: "Autoriser les réponses",
       yourEmail: "Ton email (pour répondre)",
+      yourEmailPlaceholder: "ton.email@exemple.com",
+
       type: "Type :",
       love: "Amour",
       friend: "Ami",
       family: "Famille",
       crush: "Crush",
+
       message: "Message :",
       messagePlaceholder: "Écrivez votre message sincère ici...",
+
       sendLetter: "Envoyer la Lettre",
-      sending: "Envoi...",
-      linkReady: "Ton lien est prêt ✨",
       generateLink: "Générer le lien",
+      sending: "Envoi...",
+
+      linkReady: "Ton lien est prêt ✨",
       copyLink: "Copier le lien",
       close: "Fermer",
+
       footer: "créé par D&F avec",
+
+      errors: {
+        invalidRecipientEmail: "Email destinataire invalide",
+        invalidReplyEmail: "Email valide requis pour autoriser les réponses",
+        invalidInstagram: "Veuillez entrer un @Instagram valide",
+        messageRequired: "Message requis (max 2000 caractères)",
+        typeRequired: "Veuillez sélectionner un type",
+        noLinkReturned: "Le serveur n’a pas renvoyé de lien (res.link).",
+      },
     },
   };
 
@@ -135,32 +183,32 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
   };
 
   const handleSubmit = async () => {
+    // reset link when switching away from share
     if (deliveryMode !== "share") setGeneratedLink(null);
 
+    // validations
     if (!message || message.length > 2000) {
-      toast.error(language === "en" ? "Message required (max 2000 chars)" : "Message requis (max 2000 caractères)");
+      toast.error(t.errors.messageRequired);
       return;
     }
     if (!selectedType) {
-      toast.error(language === "en" ? "Please select a type" : "Veuillez sélectionner un type");
+      toast.error(t.errors.typeRequired);
       return;
     }
     if (replyAllowed && !validateEmail(fromEmail)) {
-      toast.error(language === "en" ? "Valid email required to allow replies" : "Email valide requis pour autoriser les réponses");
+      toast.error(t.errors.invalidReplyEmail);
       return;
     }
 
-    if (deliveryMode === "email") {
-      if (!validateEmail(toEmail)) {
-        toast.error(language === "en" ? "Invalid recipient email" : "Email destinataire invalide");
-        return;
-      }
+    if (deliveryMode === "email" && !validateEmail(toEmail)) {
+      toast.error(t.errors.invalidRecipientEmail);
+      return;
     }
 
     if (deliveryMode === "instagram") {
       const handle = normalizeHandle(instagramHandle);
       if (!handle || handle.length < 2) {
-        toast.error(language === "en" ? "Please enter a valid Instagram @" : "Veuillez entrer un @Instagram valide");
+        toast.error(t.errors.invalidInstagram);
         return;
       }
     }
@@ -176,37 +224,45 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
       };
 
       const res: any = await sendMessage({
+        // NEW: delivery info
         deliveryMode,
         instagramHandle: deliveryMode === "instagram" ? normalizeHandle(instagramHandle) : undefined,
+
+        // recipient email only if email mode
         toEmail: deliveryMode === "email" ? toEmail.trim().toLowerCase() : undefined,
-        fromName: isAnonymous ? "Secret Admirer" : from || "Anonymous",
+
+        // sender identity
+        fromName: isAnonymous ? "Secret Admirer" : (from || "Anonymous"),
+        replyAllowed,
         fromEmail: replyAllowed ? fromEmail.trim().toLowerCase() : undefined,
-        replyAllowed: deliveryMode === "share" ? false : replyAllowed,
+
+        // content
         type: typeMapping[selectedType],
         body: message.trim(),
+
+        // optional hint for relay/admin (safe)
         toNameHint: to.trim() || undefined,
       });
 
+      // SHARE mode: show link and stay on page
       if (deliveryMode === "share") {
         if (res?.link) {
           setGeneratedLink(res.link);
           toast.success(language === "fr" ? "Lien généré ✨" : "Link generated ✨");
           return;
         }
-        toast.error(
-          language === "fr"
-            ? "Le serveur n’a pas renvoyé de lien (res.link)."
-            : "Server did not return a link (res.link)."
-        );
+        toast.error(t.errors.noLinkReturned);
         return;
       }
 
+      // Instagram relay: success then go back
       if (deliveryMode === "instagram") {
-        toast.success(language === "fr" ? "Envoyé à l’équipe (relais Instagram) ✨" : "Sent to the team (Instagram relay) ✨");
+        toast.success(language === "fr" ? "Envoyé à l’équipe ✨" : "Sent to the team ✨");
         setTimeout(() => onBack(), 1200);
         return;
       }
 
+      // Email classic
       if (res?.quarantined) {
         toast.warning(language === "en" ? "Message sent but pending moderation" : "Message envoyé mais en attente de modération");
       } else {
@@ -267,7 +323,9 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
             {t.title}
           </h1>
 
-          <p className="mt-2 text-center italic text-[14px] text-[color:var(--text-light)] leading-relaxed">{t.subtitle}</p>
+          <p className="mt-2 text-center italic text-[14px] text-[color:var(--text-light)] leading-relaxed">
+            {t.subtitle}
+          </p>
 
           <div className="mt-5 mb-5 flex items-center gap-3 w-full">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
@@ -279,10 +337,14 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
         {/* Share link box */}
         {deliveryMode === "share" && generatedLink && (
           <div className="mb-4 rounded-[20px] bg-white/70 border border-white/70 shadow-[0_10px_35px_rgba(180,90,130,.12)] p-5">
-            <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">{t.linkReady}</div>
+            <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
+              {t.linkReady}
+            </div>
+
             <div className="mt-3 break-all rounded-[14px] bg-white/60 border border-white/70 px-4 py-3 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] italic">
               {generatedLink}
             </div>
+
             <div className="mt-4 flex gap-3">
               <button
                 type="button"
@@ -291,6 +353,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
               >
                 {t.copyLink}
               </button>
+
               <button
                 type="button"
                 onClick={() => setGeneratedLink(null)}
@@ -340,7 +403,9 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
 
           {/* To */}
           <div>
-            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">{t.to}</p>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+              {t.to}
+            </p>
             <input
               type="text"
               value={to}
@@ -350,10 +415,12 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
             />
           </div>
 
-          {/* email recipient */}
+          {/* Recipient details by mode */}
           {deliveryMode === "email" && (
             <div>
-              <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">{t.emailTo}</p>
+              <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+                {t.emailTo}
+              </p>
               <input
                 type="email"
                 value={toEmail}
@@ -364,10 +431,11 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
             </div>
           )}
 
-          {/* instagram recipient */}
           {deliveryMode === "instagram" && (
             <div>
-              <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">{t.instaTo}</p>
+              <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+                {t.instaTo}
+              </p>
               <input
                 type="text"
                 value={instagramHandle}
@@ -378,9 +446,68 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
             </div>
           )}
 
+          {/* From name */}
+          <div>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+              {t.from}
+            </p>
+            <input
+              type="text"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              placeholder={t.fromInput}
+              disabled={isAnonymous}
+              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)] disabled:opacity-50"
+            />
+          </div>
+
+          {/* Anonymous + Replies */}
+          <div className="flex flex-col gap-3">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isAnonymous}
+                onChange={() => setIsAnonymous(!isAnonymous)}
+                className="size-4 rounded border border-[color:var(--rose)] accent-[color:var(--rose-deep)]"
+              />
+              <span className="italic text-[14px] text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]">
+                {t.anonymous}
+              </span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={replyAllowed}
+                onChange={() => setReplyAllowed(!replyAllowed)}
+                className="size-4 rounded border border-[color:var(--rose)] accent-[color:var(--rose-deep)]"
+              />
+              <span className="italic text-[14px] text-[color:var(--text-light)] font-['Cormorant_Garamond',serif]">
+                {t.allowReplies}
+              </span>
+            </label>
+
+            {replyAllowed && (
+              <div>
+                <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+                  {t.yourEmail}
+                </p>
+                <input
+                  type="email"
+                  value={fromEmail}
+                  onChange={(e) => setFromEmail(e.target.value)}
+                  placeholder={t.yourEmailPlaceholder}
+                  className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Type */}
           <div>
-            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-3 font-['Cormorant_Garamond',serif]">{t.type}</p>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-3 font-['Cormorant_Garamond',serif]">
+              {t.type}
+            </p>
 
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -433,7 +560,9 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
 
           {/* Message */}
           <div>
-            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">{t.message}</p>
+            <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[color:var(--rose-deep)] mb-2 font-['Cormorant_Garamond',serif]">
+              {t.message}
+            </p>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}

@@ -12,6 +12,7 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
     dLinkedIn: "https://www.linkedin.com/in/david-mordi/",
     fLinkedIn: "https://www.linkedin.com/in/fleuriane-lam-b6ab66259/",
     fPortfolio: "https://fleuriane-s-portfolio.vercel.app/",
+    appInstagram: "https://www.instagram.com/secrets_valentines?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
   };
 
   const translations = {
@@ -29,11 +30,12 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
         "Designed the UI1 visual style and helped implement the frontend interactions, animations, and overall polish.",
       links: "Links",
       linkedIn: "LinkedIn",
+      instagram: "Instagram",
       portfolio: "Portfolio",
       techTitle: "Tech Stack",
       tech: "Vite · React · Netlify Functions · Firebase · Web Push",
       thanksTitle: "Thanks",
-      thanks: "To everyone who tested the app and gave feedback.",
+      thanks: "To everyone who tested the app. If you have any feedback to give us, here is our Instagram.",
       back: "Back",
       footer: "made by D&F with",
     },
@@ -51,11 +53,12 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
         "A conçu l’identité UI1 et a participé au frontend : interactions, animations, et finitions visuelles.",
       links: "Liens",
       linkedIn: "LinkedIn",
+      instagram: "Instagram",
       portfolio: "Portfolio",
       techTitle: "Tech",
       tech: "Vite · React · Netlify Functions · Firebase · Web Push",
       thanksTitle: "Merci",
-      thanks: "À tous ceux qui ont testé l’app et donné des retours.",
+      thanks: "À tous ceux qui ont testé l’app. Si vous avez des retours à nous faire, notre Instagram est ci-dessous.",
       back: "Retour",
       footer: "créé par D&F avec",
     },
@@ -227,7 +230,11 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
             </div>
             <div className="mt-1 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
               {t.thanks}
+              links={[
+                { label: t.Instagram, href: LINKS.appInstagram },
+              ]}
             </div>
+            
           </div>
         </div>
 

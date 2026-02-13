@@ -312,10 +312,8 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
         {/* Footer */}
         <button
           onClick={() => onNavigate?.("credits")}
-          className="mt-7 w-full flex items-center justify-center gap-2 text-[12px] italic text-[color:var(--text-light)] opacity-80"
-        >
-          <span className="font-['Cormorant_Garamond',serif]">{t.footer}</span>
-          <MdiHeart className="size-[18px]" />
+          className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition">
+          {t.footer} ♥
         </button>
 
         {/* Detail modal */}

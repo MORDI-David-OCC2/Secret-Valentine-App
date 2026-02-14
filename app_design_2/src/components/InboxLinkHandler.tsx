@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import { useInboxLink } from "../hooks/useInboxLink";
-import { useSession } from "../contexts/SessionContext"; // ✅ FIX PATH
+import { useSession } from "../contexts/SessionContext";
 import { importLinkToInbox } from "../services/api";
 import AppFrame from "./ui/AppFrame";
 
@@ -101,19 +101,20 @@ export default function InboxLinkHandler({
     [language]
   );
 
-  // ✅ session utilisable (pas locked, pas en mode création pin)
-  const hasUsableSession = !!(session.inboxId && session.sessionToken && !session.isLocked && !session.mustCreatePin);
-  const sameInboxAsCurrent = !!(hasUsableSession && inboxId && session.inboxId === inboxId);
+  // ✅ "connected session" = we can identify the inbox and we have a session token
+  // (even if PIN setup is pending, that's fine for import)
+  const hasConnectedSession = !!(session.inboxId && session.sessionToken);
+  const sameInboxAsCurrent = !!(hasConnectedSession && inboxId && session.inboxId === inboxId);
 
   // HUB rules:
   // - share/instagram => HUB always
-  // - email => HUB only if user has a usable session AND link inbox is different
+  // - email => HUB only if user has a connected session AND link inbox is different
   const shouldShowHub =
     !loading &&
     !!inboxId &&
-    (deliveryMode !== "email" || (hasUsableSession && !sameInboxAsCurrent));
+    (deliveryMode !== "email" || (hasConnectedSession && !sameInboxAsCurrent));
 
-  const canImport = !!(hasUsableSession && inboxId && session.inboxId && session.inboxId !== inboxId);
+  const canImport = !!(hasConnectedSession && inboxId && session.inboxId && session.inboxId !== inboxId);
 
   const applyLinkedInboxToSession = useCallback(() => {
     if (!inboxId) return;
@@ -148,7 +149,7 @@ export default function InboxLinkHandler({
     setIsLocked,
   ]);
 
-  // ✅ AUTO-OPEN only when no hub is needed
+  // AUTO-OPEN only when no hub is needed
   useEffect(() => {
     if (!inboxId) return;
     if (loading || error) return;
@@ -171,9 +172,10 @@ export default function InboxLinkHandler({
 
   const handleImport = useCallback(async () => {
     if (!canImport) {
-      toast.error(hasUsableSession ? t.importFailed : t.noActiveSession);
+      toast.error(hasConnectedSession ? t.importFailed : t.noActiveSession);
       return;
     }
+
     setIsImporting(true);
     try {
       await importLinkToInbox({
@@ -191,7 +193,7 @@ export default function InboxLinkHandler({
     }
   }, [
     canImport,
-    hasUsableSession,
+    hasConnectedSession,
     session.inboxId,
     session.sessionToken,
     token,
@@ -290,7 +292,7 @@ export default function InboxLinkHandler({
               <div className="mt-1 text-[13px] italic text-white/80">{t.importHint}</div>
               {!canImport && (
                 <div className="mt-2 text-[12px] italic text-white/70">
-                  {hasUsableSession ? "" : t.noActiveSession}
+                  {hasConnectedSession ? "" : t.noActiveSession}
                 </div>
               )}
             </button>

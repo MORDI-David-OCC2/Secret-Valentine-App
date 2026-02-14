@@ -1,6 +1,7 @@
 // netlify/functions/importLinkToInbox.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const { open } = require("./wrap");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -35,6 +36,40 @@ async function requireValidSession(db, inboxId, sessionToken) {
   const d = snap.data() || {};
   if (!d.expiresAt || !d.expiresAt.toDate) return false;
   return d.expiresAt.toDate() > new Date();
+}
+
+// --- crypto helpers (same as listInbox) ---
+function recoveryKey() {
+  const b64 = process.env.RECOVERY_KEY_B64;
+  if (!b64) throw new Error("Missing RECOVERY_KEY_B64 env var");
+  const k = Buffer.from(b64, "base64");
+  if (k.length !== 32) throw new Error("RECOVERY_KEY_B64 must be 32 bytes (base64)");
+  return k;
+}
+
+async function getInboxKeyViaRecovery(db, inboxId) {
+  const inboxRef = db.collection("inboxes").doc(inboxId);
+  const snap = await inboxRef.get();
+  if (!snap.exists) throw new Error("Inbox not found");
+  const d = snap.data() || {};
+  if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
+  return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
+}
+
+function decryptBodyMaybe(inboxKeyBuf, doc) {
+  if (doc?.bodyEnc && doc?.dekWrapped) {
+    const dek = open(inboxKeyBuf, doc.dekWrapped);
+    return open(dek, doc.bodyEnc).toString("utf8");
+  }
+  return String(doc?.body || "");
+}
+
+function decryptPreviewMaybe(inboxKeyBuf, doc) {
+  if (doc?.lastPreviewEnc && doc?.lastPreviewDekWrapped) {
+    const dek = open(inboxKeyBuf, doc.lastPreviewDekWrapped);
+    return open(dek, doc.lastPreviewEnc).toString("utf8");
+  }
+  return decryptBodyMaybe(inboxKeyBuf, doc);
 }
 
 exports.handler = async (event) => {
@@ -89,10 +124,8 @@ exports.handler = async (event) => {
     const sourceMessagesRef = db.collection("inboxes").doc(sourceInboxId).collection("messages");
     const destMessagesRef = db.collection("inboxes").doc(destInboxId).collection("messages");
 
-    // ✅ import only the latest message
-    // If you have a Timestamp field, orderBy works; otherwise this still returns something but you may need to adapt field name.
+    // Import ONLY the latest message
     let latestSnap = await sourceMessagesRef.orderBy("createdAt", "desc").limit(1).get().catch(async () => {
-      // fallback if createdAt isn't orderable: just get first doc
       const all = await sourceMessagesRef.limit(1).get();
       return all;
     });
@@ -102,13 +135,30 @@ exports.handler = async (event) => {
     const doc = latestSnap.docs[0];
     const data = doc.data() || {};
 
+    // ✅ decrypt using SOURCE inbox key, then store PLAINTEXT in DEST
+    const sourceInboxKey = await getInboxKeyViaRecovery(db, sourceInboxId);
+    const plainBody = decryptBodyMaybe(sourceInboxKey, data);
+    const plainPreview = decryptPreviewMaybe(sourceInboxKey, data);
+
     const importedMessageId = `imp_${sourceInboxId}_${doc.id}`.slice(0, 150);
 
+    const clean = { ...data };
+
+    // remove encrypted fields so DEST will use plaintext fallback safely
+    delete clean.bodyEnc;
+    delete clean.dekWrapped;
+    delete clean.lastPreviewEnc;
+    delete clean.lastPreviewDekWrapped;
+    delete clean.body; // we will set fresh plaintext
+
     await destMessagesRef.doc(importedMessageId).set({
-      ...data,
+      ...clean,
+      body: plainBody,
+      lastPreview: plainPreview,
       importedFromInboxId: sourceInboxId,
       importedAt: admin.firestore.FieldValue.serverTimestamp(),
       unread: true,
+      lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     await tokenRef.set(

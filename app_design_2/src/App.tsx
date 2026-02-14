@@ -322,7 +322,13 @@ function AppContent() {
                 setPage("first-pin");
               }}
               language={language}
-              onNavigate={(page) => setPage(page as Page)}
+              onNavigate={(page) => 
+                if (page === "letters" && pendingLinkToken) {
+                  setLinkToken(pendingLinkToken);
+                  setPage("inbox-link");
+                  return;
+                }
+                setPage(page as Page)}}
             />
           </motion.div>
         )}

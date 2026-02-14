@@ -3,7 +3,12 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import AppFrame from "./ui/AppFrame";
-import { requestLoginLink, requestPinReset, unlockInboxWithPin, createInboxAccount } from "../services/api";
+import {
+  requestLoginLink,
+  requestPinReset,
+  unlockInboxWithPin,
+  createInboxAccount,
+} from "../services/api";
 import { useSession } from "../contexts/SessionContext";
 
 interface ClaimInboxPageProps {
@@ -11,17 +16,20 @@ interface ClaimInboxPageProps {
   onBack: () => void;
   language: "en" | "fr";
   onNavigate?: (page: "home" | "letters" | "compose" | "settings" | "credits" | "claim") => void;
-
-  // NEW: when account created -> go to FirstPinSetup
-  onCreated?: (inboxId: string, sessionToken: string) => void;
 }
 
-export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onCreated }: ClaimInboxPageProps) {
+export default function ClaimInboxPage({
+  mode,
+  onBack,
+  language,
+  onNavigate,
+}: ClaimInboxPageProps) {
   const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); // create mode
-  const [pin, setPin] = useState("");
+  const [pin, setPin] = useState(""); // login mode PIN step
+
   const [step, setStep] = useState<"email" | "pin" | "sent">("email");
   const [inboxId, setLocalInboxId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,7 +45,7 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
       emailLabel: "Email",
       emailPlaceholder: "your.email@example.com",
       passwordLabel: "Password",
-      passwordPlaceholder: "4 digits",
+      passwordPlaceholder: "At least 6 characters",
 
       continueButton: mode === "create" ? "Create account" : "Continue",
       sending: "Sending…",
@@ -45,7 +53,7 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
       successTitle: "Email Sent!",
       successMessage: "Check your inbox for the access link.",
       invalidEmail: "Please enter a valid email address",
-      weakPassword: "Password must be at least 6 chars",
+      weakPassword: "Password must be at least 6 characters",
 
       pinTitle: "Enter your PIN",
       pinLabel: "PIN (4 digits)",
@@ -97,25 +105,29 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
       return;
     }
 
-    // CREATE mode -> create account -> go to first pin setup
+    // ✅ CREATE MODE: create account then go to letters (NOT FirstPinSetup)
     if (mode === "create") {
       if (password.trim().length < 6) {
         toast.error(t.weakPassword);
         return;
       }
+
       setIsSubmitting(true);
       try {
         const res = await createInboxAccount(email.trim().toLowerCase(), password.trim());
         if (!res?.inboxId || !res?.sessionToken) throw new Error("Create failed");
-        toast.success(language === "fr" ? "Compte créé ✅" : "Account created ✅");
 
-        // store base session (inboxId + sessionToken) so FirstPinSetup can work smoothly
+        // ✅ Store session (so InboxLinkHandler can enable "Add to my inbox")
         setInboxId(res.inboxId);
         setSessionToken(res.sessionToken);
         setIsPinRequired(false);
         setIsLocked(false);
 
-        onCreated?.(res.inboxId, res.sessionToken);
+        toast.success(language === "fr" ? "Compte créé ✅" : "Account created ✅");
+
+        // ✅ Go to letters (App.tsx may redirect to inbox-link hub if pendingLinkToken exists)
+        onNavigate?.("letters");
+        if (!onNavigate) onBack();
       } catch (e: any) {
         toast.error(e?.message || "Failed");
       } finally {
@@ -124,7 +136,7 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
       return;
     }
 
-    // LOGIN mode -> existing behavior
+    // ✅ LOGIN MODE (unchanged)
     setIsSubmitting(true);
     try {
       const res = await requestLoginLink(email.trim().toLowerCase());
@@ -201,12 +213,20 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
     return (
       <AppFrame>
         <div className="text-center py-10">
-          <motion.div className="text-7xl" animate={{ y: [0, -8, 0], rotate: [0, -6, 6, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}>
+          <motion.div
+            className="text-7xl"
+            animate={{ y: [0, -8, 0], rotate: [0, -6, 6, 0] }}
+            transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+          >
             💌
           </motion.div>
 
-          <h1 className="mt-6 font-['Playfair_Display',serif] italic font-bold text-[28px] text-[color:var(--rose-deep)]">{t.successTitle}</h1>
-          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">{t.successMessage}</p>
+          <h1 className="mt-6 font-['Playfair_Display',serif] italic font-bold text-[28px] text-[color:var(--rose-deep)]">
+            {t.successTitle}
+          </h1>
+          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
+            {t.successMessage}
+          </p>
 
           <button
             onClick={onBack}
@@ -214,10 +234,16 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
                        bg-gradient-to-br from-[#e8a0b4] to-[#d4789c] transition active:scale-[0.99]"
           >
             <div className="flex items-center gap-5">
-              <div className="size-16 rounded-[22px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">←</div>
+              <div className="size-16 rounded-[22px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">
+                ←
+              </div>
               <div className="flex-1 min-w-0">
-                <div className="font-['Playfair_Display',serif] text-[22px] font-bold text-white leading-tight">{t.back}</div>
-                <div className="text-[16px] italic text-white/80 truncate mt-0.5">{language === "fr" ? "Revenir" : "Back"}</div>
+                <div className="font-['Playfair_Display',serif] text-[22px] font-bold text-white leading-tight">
+                  {t.back}
+                </div>
+                <div className="text-[16px] italic text-white/80 truncate mt-0.5">
+                  {language === "fr" ? "Revenir" : "Back"}
+                </div>
               </div>
               <div className="text-white/70 text-2xl">→</div>
             </div>
@@ -246,7 +272,11 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
         </motion.button>
 
         <div className="mt-4 text-center">
-          <motion.div className="text-6xl" animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}>
+          <motion.div
+            className="text-6xl"
+            animate={{ scale: [1, 1.06, 1] }}
+            transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+          >
             📬
           </motion.div>
 
@@ -261,7 +291,9 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
 
         <div className="mt-6 space-y-4">
           <div>
-            <p className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.emailLabel}</p>
+            <p className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">
+              {t.emailLabel}
+            </p>
             <input
               type="email"
               value={email}
@@ -276,7 +308,9 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
 
           {mode === "create" && step === "email" && (
             <div>
-              <p className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.passwordLabel}</p>
+              <p className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">
+                {t.passwordLabel}
+              </p>
               <input
                 type="password"
                 value={password}
@@ -313,9 +347,13 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
 
           {mode === "login" && step === "pin" && (
             <div className="rounded-[18px] bg-white/55 border border-white/60 shadow-[0_10px_30px_rgba(180,90,130,.12)] px-5 py-4">
-              <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">{t.pinTitle}</div>
+              <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
+                {t.pinTitle}
+              </div>
 
-              <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">{t.pinLabel}</p>
+              <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">
+                {t.pinLabel}
+              </p>
 
               <input
                 type="password"
@@ -343,10 +381,18 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
               </button>
 
               <div className="mt-3 flex items-center justify-between gap-4">
-                <button type="button" onClick={handleForgotPin} className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--text-light)]">
+                <button
+                  type="button"
+                  onClick={handleForgotPin}
+                  className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--text-light)]"
+                >
                   {t.forgot}
                 </button>
-                <button type="button" onClick={handleLoginByLink} className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]">
+                <button
+                  type="button"
+                  onClick={handleLoginByLink}
+                  className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]"
+                >
                   {t.loginByLink}
                 </button>
               </div>

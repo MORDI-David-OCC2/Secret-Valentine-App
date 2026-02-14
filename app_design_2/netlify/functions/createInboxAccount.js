@@ -110,7 +110,7 @@ exports.handler = async (event) => {
     }
 
     const email = normalizeEmail(payload.email);
-    const password = String(payload.pin || "").trim();
+    const password = String(payload.password || "").trim();
 
     if (!isValidEmail(email)) return jsonResponse(400, { ok: false, error: "Invalid email" });
     if (password.length < 6) return jsonResponse(400, { ok: false, error: "Password must be at least 6 characters" });

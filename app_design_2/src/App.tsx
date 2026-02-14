@@ -1,3 +1,4 @@
+// src/App.tsx
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster } from "sonner@2.0.3";
@@ -44,11 +45,18 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("home");
   const [language, setLanguage] = useState<"en" | "fr">("en");
 
-  // Ton ancien lock local (tu peux le garder si tu veux, mais attention à la logique)
+  // Ton ancien lock local (tu peux le garder)
   const [pinCode, setPinCode] = useState<string | null>(null);
   const [isPinVerified, setIsPinVerified] = useState(false);
 
+  // token provenant d’un lien /#/inbox?t=...
   const [linkToken, setLinkToken] = useState<string | null>(null);
+
+  // ✅ NOUVEAU : on garde le token si l’utilisateur choisit "login" ou "create"
+  // pour revenir au hub ensuite et importer dans la boîte nouvellement créée / connectée.
+  const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
+
+  // temp for first pin setup (flow existing)
   const [tempInboxId, setTempInboxId] = useState<string | null>(null);
   const [tempSessionToken, setTempSessionToken] = useState<string | null>(null);
   const [tempNeedsEmailAssociation, setTempNeedsEmailAssociation] = useState(false);
@@ -119,6 +127,7 @@ function AppContent() {
         const token = params.get("t");
         if (token) {
           setLinkToken(token);
+          setPendingLinkToken(null); // nouveau lien => reset pending
           setPage("inbox-link");
           window.history.replaceState({}, "", window.location.pathname);
         }
@@ -161,6 +170,11 @@ function AppContent() {
     setTempInboxId(null);
     setTempSessionToken(null);
     setTempNeedsEmailAssociation(false);
+
+    // si tu veux: clear pending link aussi
+    setPendingLinkToken(null);
+    setLinkToken(null);
+
     setPage("home");
   };
 
@@ -176,13 +190,14 @@ function AppContent() {
     }),
   };
 
-  // Inbox link special flow
+  // ✅ Inbox link special flow
   if (currentPage === "inbox-link" && linkToken) {
     return (
       <InboxLinkHandler
         token={linkToken}
         onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
           setLinkToken(null);
+          setPendingLinkToken(null);
 
           if (pinMustBeCreated && sessionToken) {
             setTempInboxId(inboxId);
@@ -195,9 +210,25 @@ function AppContent() {
             setPage("letters");
           }
         }}
+        // ✅ Back/Cancel depuis le hub du lien
         onError={() => {
           setLinkToken(null);
+          // si tu avais un pending (rare), on le garde pas
+          setPendingLinkToken(null);
           setPage("home");
+        }}
+        // ✅ NOUVEAU : login direct (pas Home)
+        onGoToLogin={() => {
+          // on garde le token, puis on va sur la page claim/login
+          setPendingLinkToken(linkToken);
+          setLinkToken(null);
+          setPage("claim");
+        }}
+        // ✅ NOUVEAU : create direct (pas Home)
+        onGoToCreate={() => {
+          setPendingLinkToken(linkToken);
+          setLinkToken(null);
+          setPage("claim");
         }}
         language={language}
       />
@@ -271,7 +302,28 @@ function AppContent() {
             transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
             style={{ height: "100%" }}
           >
-            <ClaimInboxPage onBack={() => setPage("home")} language={language} onNavigate={(page) => setPage(page as Page)} />
+            <ClaimInboxPage
+              // ✅ si on vient d’un lien, back retourne au hub au lieu de home
+              onBack={() => {
+                if (pendingLinkToken) {
+                  setLinkToken(pendingLinkToken);
+                  setPage("inbox-link");
+                } else {
+                  setPage("home");
+                }
+              }}
+              language={language}
+              onNavigate={(page) => {
+                // ✅ si claim/login/create a réussi et veut aller "letters",
+                // on renvoie d’abord sur le hub du lien pour permettre l’import.
+                if (page === "letters" && pendingLinkToken) {
+                  setLinkToken(pendingLinkToken);
+                  setPage("inbox-link");
+                  return;
+                }
+                setPage(page as Page);
+              }}
+            />
           </motion.div>
         )}
 

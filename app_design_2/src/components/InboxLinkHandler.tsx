@@ -23,8 +23,8 @@ interface InboxLinkHandlerProps {
   onError: () => void;
 
   // ✅ NEW: navigation directe
-  onGoToLogin?: () => void;
-  onGoToCreate?: () => void;
+  onGoToLogin: () => void;
+  onGoToCreate: () => void;
 
   language: "en" | "fr";
 }

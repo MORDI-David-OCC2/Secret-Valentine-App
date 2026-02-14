@@ -30,9 +30,9 @@ function getClientIp(event) {
   return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
-function pbkdf2Hash(pin, saltHex, iterations = 120000) {
+function pbkdf2Hash(password, saltHex, iterations = 150000) {
   const salt = Buffer.from(String(saltHex || ""), "hex");
-  const dk = crypto.pbkdf2Sync(String(pin), salt, iterations, 32, "sha256");
+  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
   return dk.toString("hex");
 }
 
@@ -105,11 +105,11 @@ exports.handler = async (event) => {
       String(payload.inboxId || payload.inbox_id || payload?.session?.inboxId || "").trim();
 
     const token = String(payload.token || "").trim(); // ✅ NEW: allow passing link token
-    const pin = String(payload.pin || "").trim();
+    const password = String(payload.password || "").trim();
     const mode = String(payload.mode || "verify").trim();
 
     if (mode !== "verify") return jsonResponse(400, { ok: false, error: "Invalid mode" });
-    if (!/^\d{4,8}$/.test(pin)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
+    if (!/^\d{4,8}$/.test(password)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
 
     // ✅ if inboxId missing, try resolving from token
     if (!inboxId && token) {
@@ -133,7 +133,7 @@ exports.handler = async (event) => {
     const d = snap.data() || {};
 
     // If no PIN configured => treat as already unlocked (rare, but safe)
-    if (!d.pinHash || !d.pinSalt || !d.pinIter) {
+    if (!d.passHash || !d.passSalt || !d.passIter) {
       // Create a session anyway so the client can proceed normally
       const sessionToken = randomTokenBase64Url(32);
       const sessionHash = sha256Hex(sessionToken);
@@ -153,8 +153,8 @@ exports.handler = async (event) => {
       return jsonResponse(200, { ok: true, verified: true, pinRequired: false, inboxId, sessionToken });
     }
 
-    const computed = pbkdf2Hash(pin, d.pinSalt, d.pinIter);
-    const ok = timingSafeEqualHex(computed, d.pinHash);
+    const computed = pbkdf2Hash(password, d.passSalt, d.passIter);
+    const ok = timingSafeEqualHex(computed, d.passHash);
     if (!ok) return jsonResponse(401, { ok: false, error: "Incorrect PIN", pinRequired: true });
 
     // Create unlock session token

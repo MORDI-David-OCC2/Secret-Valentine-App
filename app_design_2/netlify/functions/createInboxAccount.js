@@ -142,11 +142,6 @@ exports.handler = async (event) => {
       passIter,
       passSetAt: admin.firestore.FieldValue.serverTimestamp(),
 
-      pinHash: null,
-      pinSalt: null,
-      pinIter: null,
-      pinSetAt: null,
-
       standalone: false,
     });
 

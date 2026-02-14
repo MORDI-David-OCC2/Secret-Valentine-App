@@ -1,5 +1,5 @@
 // src/components/PinEntryScreen.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import { useSession } from "../contexts/SessionContext";
@@ -24,8 +24,12 @@ interface PinEntryScreenProps {
   language: "en" | "fr";
 }
 
+function isValidInboxId(id: unknown): id is string {
+  return typeof id === "string" && id.startsWith("inbox_") && id.length > 10;
+}
+
 export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntryScreenProps) {
-  const { session, setSessionToken, setIsLocked, setIsPinRequired, setInboxId } = useSession();
+  const { session, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
 
   const [pin, setPin] = useState("");
   const [wrongPin, setWrongPin] = useState(false);
@@ -39,6 +43,8 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
           subtitle: "Enter your 4-digit PIN to access your letters",
           incorrectPin: "Incorrect PIN. Try again.",
           missingInbox: "Missing inbox id. Open a link or login first.",
+          invalidInbox: "Invalid inbox id. Reopen the access link.",
+          sessionExpired: "Session expired, reopen the link.",
           back: "Back",
         },
         fr: {
@@ -46,21 +52,16 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
           subtitle: "Entrez votre code PIN à 4 chiffres pour accéder à vos lettres",
           incorrectPin: "PIN incorrect. Réessayez.",
           missingInbox: "Inbox manquant. Ouvre un lien ou connecte-toi d’abord.",
+          invalidInbox: "Inbox invalide. Rouvre le lien d’accès.",
+          sessionExpired: "Session expirée, rouvre le lien.",
           back: "Retour",
         },
       }[language]),
     [language]
   );
 
-  const hasInbox = !!session.inboxId;
-
-  // Affiche le message “missing inbox” mais ne bloque pas le clavier
-  useEffect(() => {
-    if (!hasInbox) {
-      // pas de toast spam, juste une fois si tu veux :
-      // toast.error(t.missingInbox);
-    }
-  }, [hasInbox, t.missingInbox]);
+  const inboxId = session.inboxId;
+  const hasValidInbox = isValidInboxId(inboxId);
 
   const handlePinChange = (value: string) => {
     if (busy) return;
@@ -80,49 +81,91 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
     setWrongPin(false);
   };
 
-  const submitPin = async (pin4: string) => {
-    if (!session.inboxId) {
-      toast.error(t.missingInbox);
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const res = await verifyPin(session.inboxId, pin4);
-      if (!res?.sessionToken) {
-        throw new Error("No session token");
-      }
-
-      // ✅ update session context
-      setInboxId(session.inboxId);
-      setSessionToken(res.sessionToken);
-      setIsPinRequired(true);
-      setIsLocked(false);
-
-      onSuccess();
-    } catch (e: any) {
-      const msg = String(e?.message || "");
-      setWrongPin(true);
-
-      // reset after a short delay (but keep keypad usable)
-      setTimeout(() => {
-        setPin("");
-        setWrongPin(false);
-      }, 650);
-
-      if (msg.toLowerCase().includes("locked") || msg.includes("401")) {
-        toast.error(language === "en" ? "Session expired, reopen the link." : "Session expirée, rouvre le lien.");
-      }
-    } finally {
-      setBusy(false);
-    }
+  const resetAfterWrongPin = () => {
+    setWrongPin(true);
+    setTimeout(() => {
+      setPin("");
+      setWrongPin(false);
+    }, 650);
   };
 
-  // auto-submit when 4 digits entered
+  const submitPin = useCallback(
+    async (pin4: string) => {
+      // ✅ hard guard
+      if (!hasValidInbox) {
+        toast.error(isValidInboxId(inboxId) ? t.missingInbox : t.invalidInbox);
+        setPin("");
+        return;
+      }
+
+      setBusy(true);
+      try {
+        const res = await verifyPin(inboxId, pin4);
+
+        if (!res?.sessionToken) {
+          throw new Error("No session token");
+        }
+
+        setSessionToken(res.sessionToken);
+        setIsPinRequired(true);
+        setIsLocked(false);
+
+        onSuccess();
+      } catch (e: any) {
+        const msg = String(e?.message || "").toLowerCase();
+
+        // ✅ wrong pin
+        if (msg.includes("incorrect") || msg.includes("pin") || msg.includes("401")) {
+          toast.error(t.incorrectPin);
+          resetAfterWrongPin();
+          return;
+        }
+
+        // ✅ invalid inbox id / bad request
+        if (msg.includes("invalid inboxid") || msg.includes("invalid inbox") || msg.includes("400")) {
+          toast.error(t.invalidInbox);
+          setPin("");
+          return;
+        }
+
+        // ✅ expired session
+        if (msg.includes("expired") || msg.includes("locked")) {
+          toast.error(t.sessionExpired);
+          setPin("");
+          return;
+        }
+
+        toast.error(language === "fr" ? "Erreur. Réessaie." : "Error. Please try again.");
+        setPin("");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [
+      inboxId,
+      hasValidInbox,
+      language,
+      onSuccess,
+      setIsLocked,
+      setIsPinRequired,
+      setSessionToken,
+      t.incorrectPin,
+      t.invalidInbox,
+      t.missingInbox,
+      t.sessionExpired,
+    ]
+  );
+
+  // ✅ Auto-submit only if we have a valid inboxId
   useEffect(() => {
-    if (pin.length === 4) submitPin(pin);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pin]);
+    if (pin.length !== 4) return;
+    if (!hasValidInbox) {
+      toast.error(t.missingInbox);
+      setPin("");
+      return;
+    }
+    submitPin(pin);
+  }, [pin, hasValidInbox, submitPin, t.missingInbox]);
 
   return (
     <div className="bg-[rgba(246,193,208,0.71)] relative min-h-screen w-full flex flex-col items-center justify-center px-5">
@@ -167,8 +210,8 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         {t.subtitle}
       </motion.p>
 
-      {/* Missing inbox message (non-bloquant) */}
-      {!hasInbox && (
+      {/* Missing/invalid inbox message (non-bloquant UI mais empêche submit) */}
+      {!hasValidInbox && (
         <p className="font-['Inter',sans-serif] text-[13px] text-[#a31e46] mb-4 text-center">
           {t.missingInbox}
         </p>
@@ -180,7 +223,11 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
           <motion.div
             key={index}
             className={`size-[60px] rounded-[15px] border-3 flex items-center justify-center font-['Inter',sans-serif] font-bold text-[32px] ${
-              wrongPin ? "bg-red-100 border-red-400 text-red-600" : pin.length > index ? "bg-[#a31e46] border-[#a31e46] text-white" : "bg-white/80 border-[#db8c8f] text-transparent"
+              wrongPin
+                ? "bg-red-100 border-red-400 text-red-600"
+                : pin.length > index
+                ? "bg-[#a31e46] border-[#a31e46] text-white"
+                : "bg-white/80 border-[#db8c8f] text-transparent"
             }`}
             animate={wrongPin ? { x: [-8, 8, -8, 8, 0] } : {}}
             transition={{ duration: 0.35 }}

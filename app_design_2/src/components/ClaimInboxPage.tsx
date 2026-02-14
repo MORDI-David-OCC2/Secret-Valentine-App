@@ -18,11 +18,9 @@ interface ClaimInboxPageProps {
   language: "en" | "fr";
   onNavigate?: (page: "home" | "letters" | "compose" | "settings" | "credits" | "claim") => void;
 
-  // ✅ NEW: token du lien à importer automatiquement après création (si présent)
-  pendingLinkToken?: string | null;
-
-  // ✅ NEW: permet à App de clear le pending token après import auto
-  onClearPendingLinkToken?: () => void;
+  // ✅ NEW: if user came from an inbox link flow, import after creation
+  pendingImportToken?: string | null;
+  onConsumedPendingImportToken?: () => void;
 }
 
 export default function ClaimInboxPage({
@@ -30,20 +28,14 @@ export default function ClaimInboxPage({
   onBack,
   language,
   onNavigate,
-  pendingLinkToken,
-  onClearPendingLinkToken,
+  pendingImportToken,
+  onConsumedPendingImportToken,
 }: ClaimInboxPageProps) {
-  const {
-    setInboxId,
-    setSessionToken,
-    setIsLocked,
-    setIsPinRequired,
-    setMustCreatePin,
-  } = useSession();
+  const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired, setMustCreatePin } = useSession();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); // create mode
-  const [pin, setPin] = useState(""); // login mode PIN step
+  const [pin, setPin] = useState(""); // login mode pin
 
   const [step, setStep] = useState<"email" | "pin" | "sent">("email");
   const [inboxId, setLocalInboxId] = useState<string | null>(null);
@@ -69,9 +61,6 @@ export default function ClaimInboxPage({
       successMessage: "Check your inbox for the access link.",
       invalidEmail: "Please enter a valid email address",
       weakPassword: "Password must be at least 6 characters",
-
-      importing: "Importing your letter…",
-      importDone: "Letter added to your inbox ✅",
 
       pinTitle: "Enter your PIN",
       pinLabel: "PIN (4 digits)",
@@ -103,9 +92,6 @@ export default function ClaimInboxPage({
       invalidEmail: "Veuillez entrer une adresse email valide",
       weakPassword: "Le mot de passe doit faire au moins 6 caractères",
 
-      importing: "Import du message…",
-      importDone: "Message ajouté à ta boîte ✅",
-
       pinTitle: "Entre ton PIN",
       pinLabel: "PIN (4 chiffres)",
       pinPlaceholder: "••••",
@@ -126,7 +112,7 @@ export default function ClaimInboxPage({
       return;
     }
 
-    // ✅ CREATE MODE: create account -> (optional auto-import) -> letters
+    // ✅ CREATE MODE: create account -> (optional) import pending link -> open inbox (letters)
     if (mode === "create") {
       if (password.trim().length < 6) {
         toast.error(t.weakPassword);
@@ -138,28 +124,29 @@ export default function ClaimInboxPage({
         const res = await createInboxAccount(email.trim().toLowerCase(), password.trim());
         if (!res?.inboxId || !res?.sessionToken) throw new Error("Create failed");
 
-        // ✅ Store session in context (must be a usable session)
+        // ✅ store usable session
         setInboxId(res.inboxId);
         setSessionToken(res.sessionToken);
-        setIsLocked(false);
         setIsPinRequired(false);
         setMustCreatePin(false);
+        setIsLocked(false);
+
+        // ✅ if user came from an inbox-link flow, import immediately into the new inbox
+        if (pendingImportToken) {
+          try {
+            await importLinkToInbox({
+              token: pendingImportToken,
+              destInboxId: res.inboxId,
+              destSessionToken: res.sessionToken,
+            });
+            onConsumedPendingImportToken?.(); // clear it in App
+          } catch (e: any) {
+            // we still allow opening inbox even if import fails
+            toast.error(e?.message || (language === "fr" ? "Import impossible" : "Import failed"));
+          }
+        }
 
         toast.success(language === "fr" ? "Compte créé ✅" : "Account created ✅");
-
-        // ✅ If we came from a shared link, auto-import the letter into the newly created inbox
-        if (pendingLinkToken) {
-          toast.message(t.importing);
-          await importLinkToInbox({
-            token: pendingLinkToken,
-            destInboxId: res.inboxId,
-            destSessionToken: res.sessionToken,
-          });
-          toast.success(t.importDone);
-
-          // ✅ clear pending token to avoid loops
-          onClearPendingLinkToken?.();
-        }
 
         onNavigate?.("letters");
         if (!onNavigate) onBack();
@@ -171,7 +158,7 @@ export default function ClaimInboxPage({
       return;
     }
 
-    // ✅ LOGIN MODE (unchanged)
+    // ✅ LOGIN MODE
     setIsSubmitting(true);
     try {
       const res = await requestLoginLink(email.trim().toLowerCase());
@@ -208,13 +195,13 @@ export default function ClaimInboxPage({
 
     setIsSubmitting(true);
     try {
-      const res = await unlockInboxWithPin(inboxId, pin);
+      const res = await unlockInboxWithPin({ inboxId, pin });
 
       setInboxId(inboxId);
       setSessionToken(res.sessionToken);
       setIsPinRequired(true);
-      setIsLocked(false);
       setMustCreatePin(false);
+      setIsLocked(false);
 
       toast.success(language === "fr" ? "Connecté ✅" : "Logged in ✅");
       onNavigate?.("letters") ?? onBack();

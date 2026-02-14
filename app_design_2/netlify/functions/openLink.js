@@ -44,7 +44,7 @@ async function createSession(inboxRef, inboxId, { days, purpose }) {
     inboxId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     expiresAt,
-    purpose, // "open" | "open_setup" | "pin_reset"
+    purpose, // "open" | "pin_reset"
   });
 
   return sessionToken;
@@ -64,8 +64,9 @@ exports.handler = async (event) => {
       };
     }
 
-    if (event.httpMethod !== "POST")
+    if (event.httpMethod !== "POST") {
       return jsonResponse(405, { ok: false, error: "Use POST" });
+    }
 
     initAdmin();
     const db = admin.firestore();
@@ -89,10 +90,8 @@ exports.handler = async (event) => {
 
     const tokenData = tokenSnap.data() || {};
 
-    // deliveryMode used by frontend hub logic
     const deliveryMode = String(tokenData.deliveryMode || "email"); // "email" | "share" | "instagram"
-
-    const purpose = String(tokenData.purpose || "open"); // "open" | "pin_reset" | ...
+    const purpose = String(tokenData.purpose || "open"); // "open" | "pin_reset"
     const isPinReset = purpose === "pin_reset";
 
     const expiresAt = tokenData.expiresAt;
@@ -113,33 +112,29 @@ exports.handler = async (event) => {
 
     const inbox = inboxSnap.data() || {};
 
-    // PIN exists?
     const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
 
-    // pin reset forces pin creation flow
-    const pinMustBeCreated = !pinRequired || isPinReset;
+    // ✅ IMPORTANT: Only force pin creation for pin_reset
+    const pinMustBeCreated = !!isPinReset;
 
-    // email association (for share/instagram flows)
     const hasPrimaryEmail = isValidEmail(inbox.primaryEmail);
     const needsEmailAssociation = !hasPrimaryEmail;
 
-    // ✅ CRITICAL: always provide a sessionToken when link can open inbox without PIN
-    // - if pin must be created => session for setup
-    // - else if pinRequired => no session (user must verify PIN)
-    // - else (no PIN) => create "open" session
     let sessionToken = null;
 
     if (pinMustBeCreated) {
       sessionToken = await createSession(inboxRef, inboxId, {
-        days: isPinReset ? 1 : 7,
-        purpose: isPinReset ? "pin_reset" : "open_setup",
+        days: 1,
+        purpose: "pin_reset",
       });
     } else if (!pinRequired) {
+      // ✅ If no PIN, create a normal open session so it auto-opens
       sessionToken = await createSession(inboxRef, inboxId, {
         days: 7,
         purpose: "open",
       });
     }
+    // If pinRequired: no sessionToken (must verify pin)
 
     await inboxRef.set(
       { activatedAt: admin.firestore.FieldValue.serverTimestamp() },

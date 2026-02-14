@@ -151,7 +151,6 @@ function AppContent() {
     if (newPin === null) setIsPinVerified(false);
   };
 
-  // If user just created first PIN from an openLink flow
   const handleFirstPinCreated = (pin: string) => {
     setPinCode(pin);
     setIsPinVerified(true);
@@ -159,16 +158,6 @@ function AppContent() {
     setTempInboxId(null);
     setTempSessionToken(null);
     setTempNeedsEmailAssociation(false);
-
-    // if a link was pending, go back to the link handler
-    // (it will show hub OR auto-open depending on delivery mode & session state)
-    if (pendingLinkToken) {
-      const tok = pendingLinkToken;
-      setPendingLinkToken(null);
-      setLinkToken(tok);
-      setPage("inbox-link");
-      return;
-    }
 
     setPage("letters");
   };
@@ -277,11 +266,7 @@ function AppContent() {
             transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
             style={{ height: "100%" }}
           >
-            <LettersPage
-              onBack={() => setPage("home")}
-              language={language}
-              onNavigate={(page) => setPage(page as Page)}
-            />
+            <LettersPage onBack={() => setPage("home")} language={language} onNavigate={(page) => setPage(page as Page)} />
           </motion.div>
         )}
 
@@ -296,11 +281,7 @@ function AppContent() {
             transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
             style={{ height: "100%" }}
           >
-            <ComposePage
-              onBack={() => setPage("home")}
-              language={language}
-              onNavigate={(page) => setPage(page as Page)}
-            />
+            <ComposePage onBack={() => setPage("home")} language={language} onNavigate={(page) => setPage(page as Page)} />
           </motion.div>
         )}
 
@@ -317,10 +298,11 @@ function AppContent() {
           >
             <ClaimInboxPage
               mode={claimMode}
-              pendingLinkToken={pendingLinkToken}
-              onClearPendingLinkToken={() => setPendingLinkToken(null)}
+              pendingImportToken={pendingLinkToken}
+              onConsumedPendingImportToken={() => setPendingLinkToken(null)}
               onBack={() => {
                 if (pendingLinkToken) {
+                  // user cancels claim, go back to hub
                   setLinkToken(pendingLinkToken);
                   setPage("inbox-link");
                 } else {
@@ -328,15 +310,7 @@ function AppContent() {
                 }
               }}
               language={language}
-              onNavigate={(page) => {
-                // if you logged in and you STILL want to go back to hub to import manually, keep this behavior:
-                if (page === "letters" && pendingLinkToken) {
-                  setLinkToken(pendingLinkToken);
-                  setPage("inbox-link");
-                  return;
-                }
-                setPage(page as Page);
-              }}
+              onNavigate={(page) => setPage(page as Page)}
             />
           </motion.div>
         )}

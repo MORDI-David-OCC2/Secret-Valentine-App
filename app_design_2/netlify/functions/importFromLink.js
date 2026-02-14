@@ -83,45 +83,44 @@ exports.handler = async (event) => {
     if (!sourceInboxId.startsWith("inbox_")) return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
 
     if (sourceInboxId === destInboxId) {
-      return jsonResponse(200, { ok: true, imported: 0 });
+      return jsonResponse(200, { ok: true, imported: 0, importedMessageId: null });
     }
 
     const sourceMessagesRef = db.collection("inboxes").doc(sourceInboxId).collection("messages");
     const destMessagesRef = db.collection("inboxes").doc(destInboxId).collection("messages");
 
-    const snap = await sourceMessagesRef.get();
-    if (snap.empty) return jsonResponse(200, { ok: true, imported: 0 });
-
-    const batch = db.batch();
-    let imported = 0;
-
-    snap.docs.forEach((doc) => {
-      const data = doc.data() || {};
-
-      // New ID to avoid collisions
-      const newId = `imp_${sourceInboxId}_${doc.id}`.slice(0, 150);
-
-      batch.set(destMessagesRef.doc(newId), {
-        ...data,
-        importedFromInboxId: sourceInboxId,
-        importedAt: admin.firestore.FieldValue.serverTimestamp(),
-        unread: true,
-      });
-      imported += 1;
+    // ✅ import only the latest message
+    // If you have a Timestamp field, orderBy works; otherwise this still returns something but you may need to adapt field name.
+    let latestSnap = await sourceMessagesRef.orderBy("createdAt", "desc").limit(1).get().catch(async () => {
+      // fallback if createdAt isn't orderable: just get first doc
+      const all = await sourceMessagesRef.limit(1).get();
+      return all;
     });
 
-    await batch.commit();
+    if (latestSnap.empty) return jsonResponse(200, { ok: true, imported: 0, importedMessageId: null });
 
-    // Optionnel: marquer token comme "imported"
+    const doc = latestSnap.docs[0];
+    const data = doc.data() || {};
+
+    const importedMessageId = `imp_${sourceInboxId}_${doc.id}`.slice(0, 150);
+
+    await destMessagesRef.doc(importedMessageId).set({
+      ...data,
+      importedFromInboxId: sourceInboxId,
+      importedAt: admin.firestore.FieldValue.serverTimestamp(),
+      unread: true,
+    });
+
     await tokenRef.set(
       {
         importedTo: destInboxId,
+        importedMessageId,
         importedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
 
-    return jsonResponse(200, { ok: true, imported });
+    return jsonResponse(200, { ok: true, imported: 1, importedMessageId });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

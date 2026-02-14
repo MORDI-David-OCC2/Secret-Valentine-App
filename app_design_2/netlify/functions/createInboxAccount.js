@@ -2,7 +2,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { ensureInboxCrypto } = require("./cryptageInbox");
+const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -45,13 +45,14 @@ function isValidEmail(e) {
 }
 
 function pbkdf2Hash(password, saltHex, iterations = 150000) {
-  const salt = Buffer.from(saltHex, "hex");
+  const salt = Buffer.from(String(saltHex || ""), "hex");
   const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
   return dk.toString("hex");
 }
 
-async function createSession(db, inboxId, days = 7, purpose = "open_setup") {
+async function createSession(db, inboxId, days = 7, purpose = "open") {
   const inboxRef = db.collection("inboxes").doc(inboxId);
+
   const sessionToken = randomTokenBase64Url(32);
   const sessionHash = sha256Hex(sessionToken);
 
@@ -63,7 +64,7 @@ async function createSession(db, inboxId, days = 7, purpose = "open_setup") {
     inboxId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     expiresAt,
-    purpose,
+    purpose, // "open"
   });
 
   return sessionToken;
@@ -83,8 +84,9 @@ exports.handler = async (event) => {
       };
     }
 
-    if (event.httpMethod !== "POST")
+    if (event.httpMethod !== "POST") {
       return jsonResponse(405, { ok: false, error: "Use POST" });
+    }
 
     initAdmin();
     const db = admin.firestore();
@@ -106,13 +108,12 @@ exports.handler = async (event) => {
     const password = String(payload.password || "").trim();
 
     if (!isValidEmail(email)) return jsonResponse(400, { ok: false, error: "Invalid email" });
-    if (password.length < 4) return jsonResponse(400, { ok: false, error: "Password must be 4 digits" });
+    if (password.length < 6) return jsonResponse(400, { ok: false, error: "Password must be at least 6 characters" });
 
     const emailHash = sha256Hex(email);
     const emailIndexRef = db.collection("emailIndex").doc(emailHash);
     const emailIndexSnap = await emailIndexRef.get();
 
-    // prevent duplicate accounts on same email
     if (emailIndexSnap.exists) {
       return jsonResponse(409, { ok: false, error: "Email already has an inbox" });
     }
@@ -131,16 +132,14 @@ exports.handler = async (event) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       activatedAt: admin.firestore.FieldValue.serverTimestamp(),
 
-      // attach email
       primaryEmail: email,
 
-      // login password
       passHash,
       passSalt,
       passIter,
       passSetAt: admin.firestore.FieldValue.serverTimestamp(),
 
-      // pin not set yet
+      // ✅ PIN optional: not set by default
       pinHash: null,
       pinSalt: null,
       pinIter: null,
@@ -159,14 +158,18 @@ exports.handler = async (event) => {
     // crypto init
     await ensureInboxCrypto(db, inboxId);
 
-    // session for setup -> first pin setup page
-    const sessionToken = await createSession(db, inboxId, 7, "open_setup");
+    // ✅ create a usable session immediately (so user can import & open inbox)
+    const sessionToken = await createSession(db, inboxId, 7, "open");
+
+    // ✅ attach inboxKeyEnc to session (important if you rely on it later)
+    const inboxKey = await getInboxKeyViaRecovery(db, inboxId);
+    await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
 
     return jsonResponse(200, {
       ok: true,
       inboxId,
       sessionToken,
-      pinMustBeCreated: true,
+      pinMustBeCreated: false,
       needsEmailAssociation: false,
     });
   } catch (err) {

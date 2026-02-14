@@ -45,14 +45,13 @@ function isValidEmail(e) {
 }
 
 function pbkdf2Hash(password, saltHex, iterations = 150000) {
-  const salt = Buffer.from(String(saltHex || ""), "hex");
+  const salt = Buffer.from(saltHex, "hex");
   const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
   return dk.toString("hex");
 }
 
 async function createSession(db, inboxId, days = 7, purpose = "open") {
   const inboxRef = db.collection("inboxes").doc(inboxId);
-
   const sessionToken = randomTokenBase64Url(32);
   const sessionHash = sha256Hex(sessionToken);
 
@@ -64,10 +63,16 @@ async function createSession(db, inboxId, days = 7, purpose = "open") {
     inboxId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     expiresAt,
-    purpose, // "open"
+    purpose,
   });
 
   return sessionToken;
+}
+
+async function attachInboxKeyToSession(db, inboxId, sessionToken) {
+  await ensureInboxCrypto(db, inboxId);
+  const inboxKey = await getInboxKeyViaRecovery(db, inboxId);
+  await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
 }
 
 exports.handler = async (event) => {
@@ -121,7 +126,6 @@ exports.handler = async (event) => {
     const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
     const inboxRef = db.collection("inboxes").doc(inboxId);
 
-    // password storage (pbkdf2)
     const passSalt = crypto.randomBytes(16).toString("hex");
     const passIter = 150000;
     const passHash = pbkdf2Hash(password, passSalt, passIter);
@@ -131,7 +135,6 @@ exports.handler = async (event) => {
     batch.set(inboxRef, {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       activatedAt: admin.firestore.FieldValue.serverTimestamp(),
-
       primaryEmail: email,
 
       passHash,
@@ -139,7 +142,6 @@ exports.handler = async (event) => {
       passIter,
       passSetAt: admin.firestore.FieldValue.serverTimestamp(),
 
-      // ✅ PIN optional: not set by default
       pinHash: null,
       pinSalt: null,
       pinIter: null,
@@ -155,21 +157,15 @@ exports.handler = async (event) => {
 
     await batch.commit();
 
-    // crypto init
-    await ensureInboxCrypto(db, inboxId);
-
-    // ✅ create a usable session immediately (so user can import & open inbox)
+    // ✅ crypto init + create session + attach key
     const sessionToken = await createSession(db, inboxId, 7, "open");
-
-    // ✅ attach inboxKeyEnc to session (important if you rely on it later)
-    const inboxKey = await getInboxKeyViaRecovery(db, inboxId);
-    await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
+    await attachInboxKeyToSession(db, inboxId, sessionToken);
 
     return jsonResponse(200, {
       ok: true,
       inboxId,
       sessionToken,
-      pinMustBeCreated: false,
+      pinMustBeCreated: false, // you said: don’t force FirstPinSetup after create
       needsEmailAssociation: false,
     });
   } catch (err) {

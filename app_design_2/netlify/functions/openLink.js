@@ -1,6 +1,7 @@
 // netlify/functions/openLink.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -44,10 +45,17 @@ async function createSession(inboxRef, inboxId, { days, purpose }) {
     inboxId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     expiresAt,
-    purpose, // "open" | "pin_reset"
+    purpose, // "open" | "open_setup" | "pin_reset"
   });
 
   return sessionToken;
+}
+
+async function attachInboxKeyToSession(db, inboxId, sessionToken) {
+  // 🔑 Make sure crypto exists and session can decrypt later (listInbox/getMessage/etc.)
+  await ensureInboxCrypto(db, inboxId);
+  const inboxKey = await getInboxKeyViaRecovery(db, inboxId);
+  await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
 }
 
 exports.handler = async (event) => {
@@ -89,9 +97,8 @@ exports.handler = async (event) => {
     }
 
     const tokenData = tokenSnap.data() || {};
-
     const deliveryMode = String(tokenData.deliveryMode || "email"); // "email" | "share" | "instagram"
-    const purpose = String(tokenData.purpose || "open"); // "open" | "pin_reset"
+    const purpose = String(tokenData.purpose || "open");
     const isPinReset = purpose === "pin_reset";
 
     const expiresAt = tokenData.expiresAt;
@@ -99,23 +106,17 @@ exports.handler = async (event) => {
       return jsonResponse(401, { ok: false, error: "Link expired" });
     }
 
-    const inboxId = tokenData.inboxId;
-    if (!inboxId) {
-      return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
-    }
+    const inboxId = String(tokenData.inboxId || "").trim();
+    if (!inboxId) return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
 
     const inboxRef = db.collection("inboxes").doc(inboxId);
     const inboxSnap = await inboxRef.get();
-    if (!inboxSnap.exists) {
-      return jsonResponse(404, { ok: false, error: "Inbox not found" });
-    }
+    if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
     const inbox = inboxSnap.data() || {};
 
     const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
-
-    // ✅ IMPORTANT: Only force pin creation for pin_reset
-    const pinMustBeCreated = !!isPinReset;
+    const pinMustBeCreated = !pinRequired || isPinReset;
 
     const hasPrimaryEmail = isValidEmail(inbox.primaryEmail);
     const needsEmailAssociation = !hasPrimaryEmail;
@@ -124,17 +125,17 @@ exports.handler = async (event) => {
 
     if (pinMustBeCreated) {
       sessionToken = await createSession(inboxRef, inboxId, {
-        days: 1,
-        purpose: "pin_reset",
+        days: isPinReset ? 1 : 7,
+        purpose: isPinReset ? "pin_reset" : "open_setup",
       });
+      // ✅ attach key for setup sessions too
+      await attachInboxKeyToSession(db, inboxId, sessionToken);
     } else if (!pinRequired) {
-      // ✅ If no PIN, create a normal open session so it auto-opens
-      sessionToken = await createSession(inboxRef, inboxId, {
-        days: 7,
-        purpose: "open",
-      });
+      sessionToken = await createSession(inboxRef, inboxId, { days: 7, purpose: "open" });
+      // ✅ critical for listInbox (no-PIN flow)
+      await attachInboxKeyToSession(db, inboxId, sessionToken);
     }
-    // If pinRequired: no sessionToken (must verify pin)
+    // If pinRequired => sessionToken remains null (user must verify PIN)
 
     await inboxRef.set(
       { activatedAt: admin.firestore.FieldValue.serverTimestamp() },

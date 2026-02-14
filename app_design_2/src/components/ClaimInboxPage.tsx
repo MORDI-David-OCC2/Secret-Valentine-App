@@ -137,7 +137,7 @@ export default function ClaimInboxPage({
 
     // CREATE MODE: create account -> optional import -> go letters
     if (mode === "create") {
-      if (password.trim().length < 6) {
+      if (pin.trim().length < 6) {
         toast.error(t.weakPassword);
         return;
       }
@@ -197,7 +197,7 @@ export default function ClaimInboxPage({
       return;
     }
     if (!/^\d{6}$/.test(pin)) {
-      toast.error(language === "fr" ? "Le PIN doit faire 4 chiffres" : "PIN must be 4 digits");
+      toast.error(language === "fr" ? "Le PIN doit faire 6 chiffres" : "PIN must be 6 digits");
       return;
     }
 

@@ -203,6 +203,7 @@ function AppContent() {
           if (pinMustBeCreated && sessionToken) {
             setTempInboxId(inboxId);
             setTempSessionToken(sessionToken);
+            setTempNeedsEmailAssociation(!!needsEmailAssociation);
             setPage("first-pin");
           } else if (needsPin) {
             setPage("pin");

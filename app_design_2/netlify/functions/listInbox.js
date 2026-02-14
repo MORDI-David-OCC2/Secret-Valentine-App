@@ -1,6 +1,8 @@
+// netlify/functions/listInbox.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { open } = require("./wrap");
+const { sessionKey, recoveryKey } = require("./keys"); // ✅ IMPORTANT: use same derivation as cryptageInbox.js
 
 function jsonResponse(statusCode, body) {
   return {
@@ -37,29 +39,21 @@ async function isValidSession(db, inboxId, sessionToken) {
   return d.expiresAt.toDate() > new Date();
 }
 
-/** --------- encryption helpers --------- **/
-
-function sessionKey(sessionToken) {
-  return crypto.createHash("sha256").update(String(sessionToken || "")).digest(); // 32 bytes
-}
-
-function recoveryKey() {
-  const b64 = process.env.RECOVERY_KEY_B64;
-  if (!b64) throw new Error("Missing RECOVERY_KEY_B64 env var");
-  const k = Buffer.from(b64, "base64");
-  if (k.length !== 32) throw new Error("RECOVERY_KEY_B64 must be 32 bytes (base64)");
-  return k;
-}
-
 async function getInboxKeyFromSession(db, inboxId, sessionToken) {
   if (!sessionToken) return null;
+
   const sessionHash = sha256Hex(sessionToken);
   const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
   const snap = await sessionRef.get();
   if (!snap.exists) return null;
+
   const s = snap.data() || {};
   if (!s.inboxKeyEnc) return null;
+
+  // ✅ same derivation as cryptageInbox.storeInboxKeyInSession()
   const sk = sessionKey(sessionToken);
+
+  // open() may throw if key mismatch -> catch at caller if needed
   return open(sk, s.inboxKeyEnc);
 }
 
@@ -67,28 +61,38 @@ async function getInboxKeyViaRecovery(db, inboxId) {
   const inboxRef = db.collection("inboxes").doc(inboxId);
   const snap = await inboxRef.get();
   if (!snap.exists) throw new Error("Inbox not found");
+
   const d = snap.data() || {};
   if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
+
+  // ✅ same recoveryKey() as cryptageInbox
   return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
 }
 
 function decryptBodyMaybe(inboxKeyBuf, doc) {
-  // If encrypted:
-  if (doc?.bodyEnc && doc?.dekWrapped) {
-    const dek = open(inboxKeyBuf, doc.dekWrapped);
-    return open(dek, doc.bodyEnc).toString("utf8");
+  try {
+    // If encrypted:
+    if (doc?.bodyEnc && doc?.dekWrapped) {
+      const dek = open(inboxKeyBuf, doc.dekWrapped);
+      return open(dek, doc.bodyEnc).toString("utf8");
+    }
+  } catch (e) {
+    // If decrypt fails, we fall back to plaintext (prevents 500)
   }
+
   // Legacy plaintext:
   return String(doc?.body || "");
 }
 
 function decryptPreviewMaybe(inboxKeyBuf, msgDoc) {
-  // Prefer lastPreview fields if present
-  if (msgDoc?.lastPreviewEnc && msgDoc?.lastPreviewDekWrapped) {
-    const dek = open(inboxKeyBuf, msgDoc.lastPreviewDekWrapped);
-    return open(dek, msgDoc.lastPreviewEnc).toString("utf8");
+  try {
+    if (msgDoc?.lastPreviewEnc && msgDoc?.lastPreviewDekWrapped) {
+      const dek = open(inboxKeyBuf, msgDoc.lastPreviewDekWrapped);
+      return open(dek, msgDoc.lastPreviewEnc).toString("utf8");
+    }
+  } catch (e) {
+    // fallback below
   }
-  // Otherwise fall back to message body
   return decryptBodyMaybe(inboxKeyBuf, msgDoc);
 }
 
@@ -123,8 +127,11 @@ exports.handler = async (event) => {
     const db = admin.firestore();
 
     let payload;
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return jsonResponse(400, { ok: false, error: "Invalid JSON body" }); }
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
+    }
 
     const inboxId = String(payload.inboxId || "").trim();
     const sessionToken = String(payload.sessionToken || "").trim() || null;
@@ -143,29 +150,33 @@ exports.handler = async (event) => {
       return jsonResponse(401, { ok: false, error: "Locked. Verify PIN to unlock.", pinRequired: true });
     }
 
-    // Load inbox key
-    let inboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);
-    if (!inboxKey) inboxKey = await getInboxKeyViaRecovery(db, inboxId);
+    // Load inbox key (session first, then recovery)
+    let inboxKey = null;
+    try {
+      inboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);
+    } catch (e) {
+      // If session decryption fails -> try recovery
+      inboxKey = null;
+    }
+    if (!inboxKey) {
+      inboxKey = await getInboxKeyViaRecovery(db, inboxId);
+    }
 
     const messagesCol = inboxRef.collection("messages");
 
-    // Unread first, most recent first
     const unreadSnap = await messagesCol
       .where("unread", "==", true)
       .orderBy("lastActiveAt", "desc")
       .limit(50)
       .get();
 
-    // Then read, most recent first
     const readSnap = await messagesCol
       .where("unread", "==", false)
       .orderBy("lastActiveAt", "desc")
       .limit(50)
       .get();
 
-    // Count unread (within reasonable limit)
     const unreadCount = unreadSnap.size;
-
     const docs = [...unreadSnap.docs, ...readSnap.docs];
 
     const messages = docs.map((doc) => {

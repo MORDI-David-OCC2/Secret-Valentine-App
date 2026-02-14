@@ -1,18 +1,22 @@
 // src/components/FirstPinSetup.tsx
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
-import { setPin, claimEmail } from "../services/api";
+import { claimEmail, setPin, verifyPin } from "../services/api";
 
 interface FirstPinSetupProps {
   inboxId: string;
-  sessionToken: string;
-  onPinCreated: (pin: string) => void;
+  sessionToken: string; // session temporaire obtenue via openLink
+  onPinCreated: (args: { pin: string; sessionToken: string }) => void; // ✅ CHANGÉ
   onBack: () => void;
   language: "en" | "fr";
-  needsEmailAssociation: false;
-    // NEW:
-  requireEmail: false;            // true for share/instagram
+
+  // Indique si l'inbox n'a pas d'email associé (ex: share/instagram)
+  needsEmailAssociation?: boolean;
+
+  // Force l'email (si tu veux l’imposer dans certains flows)
+  requireEmail?: boolean;
+
   onEmailLinked?: (email: string) => void;
 }
 
@@ -22,13 +26,19 @@ export default function FirstPinSetup({
   onPinCreated,
   onBack,
   language,
-  requireEmail = false,
+  needsEmailAssociation = false,
+  requireEmail,
   onEmailLinked,
 }: FirstPinSetupProps) {
-  const [newPin, setNewPin] = useState("");
+  const [newPin, setNewPinState] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [email, setEmail] = useState(""); // NEW
+  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ✅ Si requireEmail n’est pas fourni, on le déduit de needsEmailAssociation
+  const mustAskEmail = useMemo(() => {
+    return typeof requireEmail === "boolean" ? requireEmail : needsEmailAssociation;
+  }, [requireEmail, needsEmailAssociation]);
 
   const translations = {
     en: {
@@ -69,10 +79,12 @@ export default function FirstPinSetup({
       back: "Retour",
       securityNote: "🔒 Votre PIN est crypté et sécurisé",
     },
-  };
+  } as const;
 
   const t = translations[language];
+
   const validateEmail = (v: string) => v.includes("@") && v.includes(".");
+  const setNewPin = (v: string) => setNewPinState(v.replace(/\D/g, ""));
 
   const handleCreatePin = async () => {
     if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
@@ -83,27 +95,41 @@ export default function FirstPinSetup({
       toast.error(t.pinMismatch);
       return;
     }
-    if (requireEmail && !validateEmail(email)) {
+    if (mustAskEmail && !validateEmail(email.trim())) {
       toast.error(t.emailInvalid);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // NEW: attach email first (share/instagram only)
-      if (requireEmail) {
+      // 1) Associer l’email si nécessaire
+      if (mustAskEmail) {
         const normalized = email.trim().toLowerCase();
         await claimEmail({ inboxId, sessionToken, email: normalized });
         onEmailLinked?.(normalized);
       }
 
-      // Then set PIN
+      // 2) Créer le PIN (⚠️ ton backend révoque toutes les sessions)
       await setPin(inboxId, newPin, sessionToken);
+
+      // 3) IMPORTANT: re-déverrouiller pour obtenir un NOUVEAU sessionToken valide
+      const verify = await verifyPin(inboxId, newPin);
+
+      if (!verify?.sessionToken) {
+        throw new Error(
+          language === "fr"
+            ? "Impossible d’obtenir une session après création du PIN."
+            : "Could not obtain a session after setting PIN."
+        );
+      }
+
       toast.success(t.pinCreated);
-      onPinCreated(newPin);
+
+      // 4) Remonter au parent (il doit stocker inboxId + sessionToken + état unlock)
+      onPinCreated({ pin: newPin, sessionToken: verify.sessionToken });
     } catch (error: any) {
       console.error("Error creating PIN:", error);
-      toast.error(error.message || t.errorCreating);
+      toast.error(error?.message || t.errorCreating);
     } finally {
       setIsSubmitting(false);
     }
@@ -150,9 +176,15 @@ export default function FirstPinSetup({
           🔐
         </motion.div>
 
-        <h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black text-center mb-4">{t.title}</h1>
-        <p className="font-['Inter',sans-serif] font-bold text-[18px] text-[#a31e46] text-center mb-3">{t.subtitle}</p>
-        <p className="font-['Inter',sans-serif] font-light text-[15px] text-[#2d1b1b] text-center">{t.description}</p>
+        <h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black text-center mb-4">
+          {t.title}
+        </h1>
+        <p className="font-['Inter',sans-serif] font-bold text-[18px] text-[#a31e46] text-center mb-3">
+          {t.subtitle}
+        </p>
+        <p className="font-['Inter',sans-serif] font-light text-[15px] text-[#2d1b1b] text-center">
+          {t.description}
+        </p>
       </motion.div>
 
       <motion.div className="w-full h-[1px] bg-black mb-8" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} />
@@ -162,28 +194,26 @@ export default function FirstPinSetup({
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        {/* NEW: Email field (share/instagram only) */}
-        {requireEmail && (
-  <div>
-    <label className="font-['Inter',sans-serif] font-medium text-[14px] text-[#2d1b1b] mb-2 block">
-      {t.emailLabel}
-    </label>
-    <input
-      type="email"
-      value={email}
-      onChange={(e) => setEmail(e.target.value)}
-      placeholder="you@email.com"
-      className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[16px] text-[#2d1b1b]
-                 focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
-      disabled={isSubmitting}
-    />
-    <p className="mt-2 text-[12px] text-[#2d1b1b]/70 italic">
-      {t.emailHint}
-    </p>
-  </div>
-)}
-
-
+        {/* ✅ EMAIL (si inbox non associée) */}
+        {mustAskEmail && (
+          <div>
+            <label className="font-['Inter',sans-serif] font-medium text-[14px] text-[#2d1b1b] mb-2 block">
+              {t.emailLabel}
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[16px] text-[#2d1b1b]
+                         focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
+              disabled={isSubmitting}
+            />
+            <p className="mt-2 text-[12px] text-[#2d1b1b]/70 italic">
+              {t.emailHint}
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="font-['Inter',sans-serif] font-medium text-[14px] text-[#2d1b1b] mb-2 block">
@@ -194,7 +224,7 @@ export default function FirstPinSetup({
             inputMode="numeric"
             maxLength={4}
             value={newPin}
-            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => setNewPin(e.target.value)}
             className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[18px] text-[#2d1b1b]
                        text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
             placeholder="••••"
@@ -223,12 +253,19 @@ export default function FirstPinSetup({
         </div>
 
         <div className="bg-[rgba(163,30,70,0.1)] border-2 border-[#db8c8f] rounded-[10px] p-4">
-          <p className="font-['Inter',sans-serif] font-light text-[13px] text-[#2d1b1b] text-center">{t.securityNote}</p>
+          <p className="font-['Inter',sans-serif] font-light text-[13px] text-[#2d1b1b] text-center">
+            {t.securityNote}
+          </p>
         </div>
 
         <motion.button
           onClick={handleCreatePin}
-          disabled={isSubmitting || newPin.length !== 4 || confirmPin.length !== 4 || (requireEmail && !validateEmail(email))}
+          disabled={
+            isSubmitting ||
+            newPin.length !== 4 ||
+            confirmPin.length !== 4 ||
+            (mustAskEmail && !validateEmail(email.trim()))
+          }
           className="w-full bg-[#a31e46] hover:bg-[#8b1838] text-white font-['Inter',sans-serif] font-bold text-[18px] rounded-[10px] h-[54px]
                      shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           whileTap={!isSubmitting ? { scale: 0.97 } : {}}

@@ -34,19 +34,19 @@ function isValidEmail(e) {
   return typeof e === "string" && e.includes("@") && e.includes(".");
 }
 
-async function createSessionTokenForInbox(db, inboxRef, inboxId) {
+async function createSessionTokenForInbox(db, inboxRef, inboxId, { expiresDays = 7, purpose = "open_setup" } = {}) {
   const sessionToken = randomTokenBase64Url(32);
   const sessionHash = sha256Hex(sessionToken);
 
-  const expiresDays = 7;
-  const expiresAtSession = admin.firestore.Timestamp.fromDate(
+  const expiresAt = admin.firestore.Timestamp.fromDate(
     new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
   );
 
   await inboxRef.collection("sessions").doc(sessionHash).set({
     inboxId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    expiresAt: expiresAtSession,
+    expiresAt,
+    purpose, // "open_setup" | "pin_reset"
   });
 
   return sessionToken;
@@ -88,44 +88,65 @@ exports.handler = async (event) => {
     if (!tokenSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
 
     const tokenData = tokenSnap.data() || {};
-    // dans openLink.js
-const purpose = tokenData.purpose || "open";
-const isPinReset = purpose === "pin_reset";
 
-const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
+    // token purpose
+    const purpose = tokenData.purpose || "open"; // "open" | "pin_reset" (etc)
+    const isPinReset = purpose === "pin_reset";
+    if (tokenData.purpose && !["open", "pin_reset"].includes(tokenData.purpose)) {
+      return jsonResponse(403, { ok: false, error: "Invalid token purpose" });
+    }
 
-// 👉 important : si pin_reset => on force l'accès au flow "FirstPinSetup"
-const pinMustBeCreated = !pinRequired || isPinReset;
+    // expiry
+    const expiresAt = tokenData.expiresAt;
+    if (expiresAt && expiresAt.toDate && expiresAt.toDate() < new Date()) {
+      return jsonResponse(401, { ok: false, error: "Link expired" });
+    }
 
-// sessionToken si pinMustBeCreated (donc aussi en pin_reset)
-let sessionToken = null;
-if (pinMustBeCreated) {
-  sessionToken = randomTokenBase64Url(32);
-  const sessionHash = sha256Hex(sessionToken);
+    const inboxId = tokenData.inboxId;
+    if (!inboxId) return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
 
-  const expiresDays = isPinReset ? 1 : 7;
-  const expiresAtSession = admin.firestore.Timestamp.fromDate(
-    new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
-  );
+    const inboxRef = db.collection("inboxes").doc(inboxId);
+    const inboxSnap = await inboxRef.get();
+    if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
-  await inboxRef.collection("sessions").doc(sessionHash).set({
-    inboxId,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    expiresAt: expiresAtSession,
-    purpose: isPinReset ? "pin_reset" : "open_setup",
-  });
-}
+    const inbox = inboxSnap.data() || {};
 
-return jsonResponse(200, {
-  ok: true,
-  inboxId,
-  pinRequired,
-  pinMustBeCreated,
-  sessionToken,
-  isPinReset, // 👈 renvoie ça au front
-  needsEmailAssociation,
-});
+    const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
 
+    // ✅ si pin_reset => on force le flow FirstPinSetup
+    const pinMustBeCreated = !pinRequired || isPinReset;
+
+    // email association (pour share/instagram)
+    const hasPrimaryEmail = isValidEmail(inbox.primaryEmail);
+    const needsEmailAssociation = !hasPrimaryEmail;
+
+    // (si tu avais un ancien champ "email", garde-le si besoin)
+    const emailLinked = hasPrimaryEmail || isValidEmail(inbox.email);
+
+    // session token uniquement si on doit créer/réinitialiser le PIN
+    let sessionToken = null;
+    if (pinMustBeCreated) {
+      sessionToken = await createSessionTokenForInbox(db, inboxRef, inboxId, {
+        expiresDays: isPinReset ? 1 : 7,
+        purpose: isPinReset ? "pin_reset" : "open_setup",
+      });
+    }
+
+    await inboxRef.set(
+      { activatedAt: admin.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    return jsonResponse(200, {
+      ok: true,
+      inboxId,
+      pinRequired,
+      pinMustBeCreated,
+      sessionToken,
+      isPinReset,
+      needsEmailAssociation,
+      emailLinked,
+    });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

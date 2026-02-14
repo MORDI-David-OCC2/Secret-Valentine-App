@@ -19,11 +19,25 @@ interface InboxLinkHandlerProps {
   language: "en" | "fr";
 }
 
-export default function InboxLinkHandler({ token, onSuccess, onError, language }: InboxLinkHandlerProps) {
-  const { loading, error, needsPin, inboxId, sessionToken, pinMustBeCreated, needsEmailAssociation } =
-    useInboxLink(token);
+export default function InboxLinkHandler({
+  token,
+  onSuccess,
+  onError,
+  language,
+}: InboxLinkHandlerProps) {
+  const {
+    loading,
+    error,
+    needsPin,
+    inboxId,
+    sessionToken,
+    pinMustBeCreated,
+    needsEmailAssociation,
+  } = useInboxLink(token);
 
+  // ✅ IMPORTANT: useSession() -> { session, setInboxId, ... }
   const { session } = useSession();
+
   const [isImporting, setIsImporting] = useState(false);
 
   const t = useMemo(
@@ -36,6 +50,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
           importTitle: "You’re already logged in",
           importSubtitle: "Do you want to add this letter to your existing inbox?",
           importBtn: "Add to my inbox",
+          importing: "Adding…",
           openSeparateBtn: "Open this inbox separately",
           imported: "Added to your inbox ✅",
           importFailed: "Import failed",
@@ -47,6 +62,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
           importTitle: "Tu es déjà connecté(e)",
           importSubtitle: "Veux-tu ajouter ce message à ta boîte actuelle ?",
           importBtn: "Ajouter à ma boîte",
+          importing: "Ajout…",
           openSeparateBtn: "Ouvrir cette boîte séparément",
           imported: "Ajouté à ta boîte ✅",
           importFailed: "Échec de l’import",
@@ -55,21 +71,29 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
     [language]
   );
 
-  // ✅ “logged in” = on a une session utilisable (inboxId + sessionToken)
-  const canImport = !!(session.inboxId && session.sessionToken);
-  const shouldOfferImport = !!(canImport && inboxId && session.inboxId !== inboxId);
+  // ✅ VRAIE condition "logged in"
+  const isLoggedIn = !!(session.inboxId && session.sessionToken && !session.isLocked);
 
-  // ✅ Important: NE PAS auto-naviguer si on doit afficher l’écran d’import
+  // ✅ On propose l'import si:
+  // - user est loggé
+  // - le lien ouvre une autre inbox
+  const shouldOfferImport = !!(isLoggedIn && inboxId && session.inboxId !== inboxId);
+
+  // ✅ Flow normal: si on NE propose pas import -> on continue
   useEffect(() => {
     if (!inboxId) return;
     if (shouldOfferImport) return;
 
     onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
-  }, [inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation, onSuccess, shouldOfferImport]);
-
-  useEffect(() => {
-    if (error) onError();
-  }, [error, onError]);
+  }, [
+    inboxId,
+    shouldOfferImport,
+    needsPin,
+    sessionToken,
+    pinMustBeCreated,
+    needsEmailAssociation,
+    onSuccess,
+  ]);
 
   const handleImport = async () => {
     if (!session.inboxId || !session.sessionToken) return;
@@ -84,7 +108,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
 
       toast.success(t.imported);
 
-      // ✅ On reste sur la boîte courante
+      // ✅ Après import => rester sur la boîte courante (celle du user loggé)
       onSuccess(session.inboxId, false, session.sessionToken, false, false);
     } catch (e: any) {
       toast.error(e?.message || t.importFailed);
@@ -93,13 +117,18 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
     }
   };
 
+  // ✅ Erreur: on affiche l'écran d'erreur (on NE redirige pas tout seul)
   if (error) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8">
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center">
           <div className="text-6xl mb-6">💔</div>
-          <h1 className="font-['Kaushan_Script',sans-serif] text-[32px] text-[#a31e46] mb-4">{t.error}</h1>
-          <p className="font-['Inter',sans-serif] text-[16px] text-[#2d1b1b] mb-8">{error}</p>
+          <h1 className="font-['Kaushan_Script',sans-serif] text-[32px] text-[#a31e46] mb-4">
+            {t.error}
+          </h1>
+          <p className="font-['Inter',sans-serif] text-[16px] text-[#2d1b1b] mb-8">
+            {error}
+          </p>
           <motion.button
             onClick={onError}
             className="bg-[#a31e46] text-white px-8 py-3 rounded-full font-['Inter',sans-serif] font-medium"
@@ -113,7 +142,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
     );
   }
 
-  // ✅ Import choice screen (prioritaire)
+  // ✅ Écran de choix import (uniquement si loggé + inbox différente)
   if (!loading && shouldOfferImport && inboxId) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8 text-center">
@@ -136,7 +165,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
                        disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
           >
             <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-white leading-tight">
-              {isImporting ? "…" : t.importBtn}
+              {isImporting ? t.importing : t.importBtn}
             </div>
           </button>
 
@@ -151,7 +180,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
     );
   }
 
-  // Default loading screen
+  // ✅ Loading screen
   return (
     <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center">
       <motion.div
@@ -161,7 +190,11 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
       >
         💌
       </motion.div>
-      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]">
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]"
+      >
         {t.loading}
       </motion.p>
       <motion.div className="flex gap-2 mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>

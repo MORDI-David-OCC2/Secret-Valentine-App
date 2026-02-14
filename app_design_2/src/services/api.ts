@@ -181,3 +181,19 @@ export function requestLoginLink(email: string) {
 export function requestPinReset(email: string) {
   return postJSON<{ ok: true }>("requestPinReset", { email });
 }
+
+export async function importFromLink(args: {
+  token: string;
+  targetInboxId: string;
+  targetSessionToken: string;
+}): Promise<{ ok: true; imported: number; alreadyImported?: boolean }> {
+  return postJSON("importFromLink", args);
+}
+
+export async function mergeInboxFromToken(args: {
+  token: string;
+  targetInboxId: string;
+  targetSessionToken: string;
+}): Promise<{ ok: true; imported: number }> {
+  return postJSON("mergeInboxFromToken", args);
+}

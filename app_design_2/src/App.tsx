@@ -14,6 +14,7 @@ import ClaimInboxPage from "./components/ClaimInboxPage";
 import FirstPinSetup from "./components/FirstPinSetup";
 
 import Petals from "./components/ui/Petals";
+import { LogOut } from "lucide-react";
 
 export type Letter = {
   id: string;
@@ -171,6 +172,7 @@ function AppContent() {
   };
 
   const handleLogout = () => {
+    LogOut(),
     setPinCode(null);
     setIsPinVerified(false);
     setTempInboxId(null);

@@ -1,328 +1,438 @@
-// src/components/InboxLinkHandler.tsx
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
-import { useInboxLink } from "../hooks/useInboxLink";
-import { useSession } from "../contexts/SessionContext";
-import { importLinkToInbox } from "../services/api";
-import AppFrame from "./ui/AppFrame";
+// src/App.tsx
+import { useState, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Toaster } from "sonner@2.0.3";
+import { SessionProvider } from "./contexts/SessionContext";
 
-interface InboxLinkHandlerProps {
-  token: string;
-  onSuccess: (
-    inboxId: string,
-    needsPin: boolean,
-    sessionToken: string | null,
-    pinMustBeCreated: boolean,
-    needsEmailAssociation: boolean
-  ) => void;
-  onError: () => void;
-  onGoToLogin: () => void;
-  onGoToCreate: () => void;
-  language: "en" | "fr";
+import HomePage from "./components/HomePage";
+import LettersPage from "./components/LettersPage";
+import ComposePage from "./components/ComposePage";
+import SettingsPage from "./components/SettingsPage";
+import PinEntryScreen from "./components/PinEntryScreen";
+import CreditsPage from "./components/CreditsPage";
+import InboxLinkHandler from "./components/InboxLinkHandler";
+import ClaimInboxPage from "./components/ClaimInboxPage";
+import FirstPinSetup from "./components/FirstPinSetup";
+
+import Petals from "./components/ui/Petals";
+
+type Page =
+  | "home"
+  | "letters"
+  | "compose"
+  | "settings"
+  | "pin"
+  | "credits"
+  | "claim"
+  | "inbox-link"
+  | "first-pin";
+
+type NavDir = "forward" | "back";
+
+const PAGE_DEPTH: Record<Page, number> = {
+  home: 0,
+  letters: 1,
+  compose: 1,
+  claim: 1,
+  settings: 1,
+  credits: 1,
+  pin: 2,
+  "first-pin": 2,
+  "inbox-link": 3,
+};
+
+function AppContent() {
+  const [currentPage, setCurrentPage] = useState<Page>("home");
+  const [language, setLanguage] = useState<"en" | "fr">("en");
+
+  const [pinCode, setPinCode] = useState<string | null>(null);
+  const [isPinVerified, setIsPinVerified] = useState(false);
+
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
+
+  const [claimMode, setClaimMode] = useState<"login" | "create">("login");
+
+  // ✅ NEW: after auth we want to auto-import
+  const [autoImportAfterAuth, setAutoImportAfterAuth] = useState(false);
+
+  const [tempInboxId, setTempInboxId] = useState<string | null>(null);
+  const [tempSessionToken, setTempSessionToken] = useState<string | null>(null);
+  const [tempNeedsEmailAssociation, setTempNeedsEmailAssociation] = useState(false);
+
+  const [navDir, setNavDir] = useState<NavDir>("forward");
+  const prevDepthRef = useMemo(() => ({ depth: PAGE_DEPTH[currentPage] }), []);
+
+  const setPage = (next: Page) => {
+    const prevDepth = prevDepthRef.depth;
+    const nextDepth = PAGE_DEPTH[next] ?? 0;
+    setNavDir(nextDepth < prevDepth ? "back" : "forward");
+    prevDepthRef.depth = nextDepth;
+    setCurrentPage(next);
+  };
+
+  useEffect(() => {
+    const preventGesture = (e: Event) => e.preventDefault();
+    document.addEventListener("gesturestart", preventGesture as any, { passive: false } as any);
+    document.addEventListener("gesturechange", preventGesture as any, { passive: false } as any);
+    document.addEventListener("gestureend", preventGesture as any, { passive: false } as any);
+
+    let lastTouchEnd = 0;
+    const onTouchEnd = (e: TouchEvent) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    };
+    document.addEventListener("touchend", onTouchEnd, { passive: false });
+
+    return () => {
+      document.removeEventListener("gesturestart", preventGesture as any);
+      document.removeEventListener("gesturechange", preventGesture as any);
+      document.removeEventListener("gestureend", preventGesture as any);
+      document.removeEventListener("touchend", onTouchEnd as any);
+    };
+  }, []);
+
+  useEffect(() => {
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevBodyTouchAction = (document.body.style as any).touchAction;
+
+    if (currentPage === "home") {
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      (document.body.style as any).touchAction = "none";
+    } else {
+      document.documentElement.style.overflow = prevHtmlOverflow || "";
+      document.body.style.overflow = prevBodyOverflow || "";
+      (document.body.style as any).touchAction = prevBodyTouchAction || "";
+    }
+
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow || "";
+      document.body.style.overflow = prevBodyOverflow || "";
+      (document.body.style as any).touchAction = prevBodyTouchAction || "";
+    };
+  }, [currentPage]);
+
+  useEffect(() => {
+    const detectToken = () => {
+      const hash = window.location.hash;
+      if (hash.includes("?t=")) {
+        const params = new URLSearchParams(hash.split("?")[1]);
+        const token = params.get("t");
+        if (token) {
+          setLinkToken(token);
+          setPendingLinkToken(null);
+          setAutoImportAfterAuth(false);
+          setPage("inbox-link");
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      }
+    };
+
+    detectToken();
+    window.addEventListener("hashchange", detectToken);
+    return () => window.removeEventListener("hashchange", detectToken);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleNavigateToLetters = () => {
+    if (pinCode && !isPinVerified) setPage("pin");
+    else setPage("letters");
+  };
+
+  const handlePinSuccess = () => {
+    setIsPinVerified(true);
+    setPage("letters");
+  };
+
+  const handlePinChange = (newPin: string | null) => {
+    setPinCode(newPin);
+    if (newPin === null) setIsPinVerified(false);
+  };
+
+  const handleFirstPinCreated = (pin: string) => {
+    setPinCode(pin);
+    setIsPinVerified(true);
+
+    setTempInboxId(null);
+    setTempSessionToken(null);
+    setTempNeedsEmailAssociation(false);
+
+    // ✅ if user came from a link: go back to link hub and auto-import
+    if (pendingLinkToken) {
+      setLinkToken(pendingLinkToken);
+      setPendingLinkToken(null);
+      setAutoImportAfterAuth(true);
+      setPage("inbox-link");
+      return;
+    }
+
+    setPage("letters");
+  };
+
+  const handleLogout = () => {
+    setPinCode(null);
+    setIsPinVerified(false);
+
+    setTempInboxId(null);
+    setTempSessionToken(null);
+    setTempNeedsEmailAssociation(false);
+
+    setPendingLinkToken(null);
+    setLinkToken(null);
+    setAutoImportAfterAuth(false);
+
+    setPage("home");
+  };
+
+  const pageVariants = {
+    initial: (direction: NavDir) => ({
+      opacity: 0,
+      x: direction === "forward" ? 80 : -80,
+    }),
+    animate: { opacity: 1, x: 0 },
+    exit: (direction: NavDir) => ({
+      opacity: 0,
+      x: direction === "forward" ? -80 : 80,
+    }),
+  };
+
+  if (currentPage === "inbox-link" && linkToken) {
+    return (
+      <InboxLinkHandler
+        token={linkToken}
+        autoImport={autoImportAfterAuth}
+        onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
+          setLinkToken(null);
+          setAutoImportAfterAuth(false);
+
+          if (pinMustBeCreated && sessionToken) {
+            setTempInboxId(inboxId);
+            setTempSessionToken(sessionToken);
+            setTempNeedsEmailAssociation(!!needsEmailAssociation);
+            setPage("first-pin");
+          } else if (needsPin) {
+            setPage("pin");
+          } else {
+            setPage("letters");
+          }
+        }}
+        onError={() => {
+          setLinkToken(null);
+          setPendingLinkToken(null);
+          setAutoImportAfterAuth(false);
+          setPage("home");
+        }}
+        onGoToLogin={() => {
+          setClaimMode("login");
+          setPendingLinkToken(linkToken);
+          setLinkToken(null);
+          setAutoImportAfterAuth(true);
+          setPage("claim");
+        }}
+        onGoToCreate={() => {
+          setClaimMode("create");
+          setPendingLinkToken(linkToken);
+          setLinkToken(null);
+          setAutoImportAfterAuth(true);
+          setPage("claim");
+        }}
+        language={language}
+      />
+    );
+  }
+
+  return (
+    <div className="app">
+      <Petals />
+
+      <AnimatePresence mode="wait" custom={navDir}>
+        {currentPage === "home" && (
+          <motion.div
+            key="home"
+            variants={pageVariants}
+            custom={navDir}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
+          >
+            <HomePage
+              onNavigate={(page) => {
+                if (page === "letters") handleNavigateToLetters();
+                else if (page === "claim") {
+                  setClaimMode("login");
+                  setPage("claim");
+                } else {
+                  setPage(page as Page);
+                }
+              }}
+              language={language}
+            />
+          </motion.div>
+        )}
+
+        {currentPage === "letters" && (
+          <motion.div
+            key="letters"
+            variants={pageVariants}
+            custom={navDir}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
+          >
+            <LettersPage onBack={() => setPage("home")} language={language} onNavigate={(page) => setPage(page as Page)} />
+          </motion.div>
+        )}
+
+        {currentPage === "compose" && (
+          <motion.div
+            key="compose"
+            variants={pageVariants}
+            custom={navDir}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
+          >
+            <ComposePage onBack={() => setPage("home")} language={language} onNavigate={(page) => setPage(page as Page)} />
+          </motion.div>
+        )}
+
+        {currentPage === "claim" && (
+          <motion.div
+            key="claim"
+            variants={pageVariants}
+            custom={navDir}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
+          >
+            <ClaimInboxPage
+              mode={claimMode}
+              onBack={() => {
+                if (pendingLinkToken) {
+                  setLinkToken(pendingLinkToken);
+                  setPendingLinkToken(null);
+                  setPage("inbox-link");
+                } else {
+                  setPage("home");
+                }
+              }}
+              onCreated={(inboxId, sessionToken, needsEmailAssociation) => {
+                setTempInboxId(inboxId);
+                setTempSessionToken(sessionToken);
+                setTempNeedsEmailAssociation(!!needsEmailAssociation);
+                setPage("first-pin");
+              }}
+              language={language}
+              onNavigate={(page) => {
+                // ✅ if login succeeded and we came from a link, go back to link hub for import
+                if (page === "letters" && pendingLinkToken) {
+                  setLinkToken(pendingLinkToken);
+                  setPendingLinkToken(null);
+                  setAutoImportAfterAuth(true);
+                  setPage("inbox-link");
+                  return;
+                }
+                setPage(page as Page);
+              }}
+            />
+          </motion.div>
+        )}
+
+        {currentPage === "settings" && (
+          <motion.div
+            key="settings"
+            variants={pageVariants}
+            custom={navDir}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
+          >
+            <SettingsPage
+              language={language}
+              onLanguageChange={setLanguage}
+              pinCode={pinCode}
+              onPinCodeChange={handlePinChange}
+              onBack={() => setPage("home")}
+              onLogout={handleLogout}
+              onNavigate={(page) => setPage(page as Page)}
+            />
+          </motion.div>
+        )}
+
+        {currentPage === "first-pin" && tempInboxId && tempSessionToken && (
+          <motion.div
+            key="first-pin"
+            variants={pageVariants}
+            custom={navDir}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
+          >
+            <FirstPinSetup
+              inboxId={tempInboxId}
+              sessionToken={tempSessionToken}
+              needsEmailAssociation={tempNeedsEmailAssociation}
+              onPinCreated={handleFirstPinCreated}
+              onBack={() => setPage("home")}
+              language={language}
+            />
+          </motion.div>
+        )}
+
+        {currentPage === "pin" && (
+          <motion.div
+            key="pin"
+            variants={pageVariants}
+            custom={navDir}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
+          >
+            <PinEntryScreen onSuccess={handlePinSuccess} onBack={() => setPage("home")} language={language} />
+          </motion.div>
+        )}
+
+        {currentPage === "credits" && (
+          <motion.div
+            key="credits"
+            variants={pageVariants}
+            custom={navDir}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
+            style={{ height: "100%" }}
+          >
+            <CreditsPage onBack={() => setPage("home")} language={language} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
-export default function InboxLinkHandler({
-  token,
-  onSuccess,
-  onError,
-  onGoToLogin,
-  onGoToCreate,
-  language,
-}: InboxLinkHandlerProps) {
-  const {
-    loading,
-    error,
-    inboxId,
-    needsPin,
-    sessionToken,
-    pinMustBeCreated,
-    needsEmailAssociation,
-    deliveryMode,
-  } = useInboxLink(token);
-
-  const {
-    session,
-    isAuthenticated,
-    setInboxId,
-    setSessionToken,
-    setIsLocked,
-    setIsPinRequired,
-    setMustCreatePin,
-  } = useSession();
-
-  const [isImporting, setIsImporting] = useState(false);
-
-  const t = useMemo(
-    () =>
-      ({
-        en: {
-          loading: "Opening…",
-          errorTitle: "Invalid or expired link",
-          back: "Back",
-
-          title: "What do you want to do?",
-          subtitle: "Choose how you'd like to open this letter.",
-
-          importToMine: "Add to my current inbox",
-          importHint: "Keep everything in one place (recommended).",
-          importing: "Adding…",
-          importDone: "Added to your inbox ✅",
-          importFailed: "Import failed",
-          noActiveSession: "No active inbox on this device.",
-
-          login: "Log in to my inbox",
-          loginHint: "Use my email / PIN to access my inbox.",
-
-          create: "Create my inbox",
-          createHint: "Create an inbox with email + password.",
-        },
-        fr: {
-          loading: "Ouverture…",
-          errorTitle: "Lien invalide ou expiré",
-          back: "Retour",
-
-          title: "Que veux-tu faire ?",
-          subtitle: "Choisis comment tu veux ouvrir ce message.",
-
-          importToMine: "Ajouter à ma boîte actuelle",
-          importHint: "Tout garder au même endroit (recommandé).",
-          importing: "Ajout…",
-          importDone: "Ajouté à ta boîte ✅",
-          importFailed: "Échec de l’import",
-          noActiveSession: "Aucune boîte active sur cet appareil.",
-
-          login: "Me connecter à ma boîte",
-          loginHint: "Accéder via email / PIN.",
-
-          create: "Créer ma boîte",
-          createHint: "Créer une boîte avec email + mot de passe.",
-        },
-      }[language]),
-    [language]
+export default function App() {
+  return (
+    <SessionProvider>
+      <Toaster position="top-center" richColors toastOptions={{ style: { fontFamily: "Inter, sans-serif" } }} />
+      <AppContent />
+    </SessionProvider>
   );
-
-  const hasActiveSession = !!(session.inboxId && session.sessionToken && isAuthenticated);
-  const sameInboxAsCurrent = !!(hasActiveSession && inboxId && session.inboxId === inboxId);
-
-  // HUB rules:
-  // - share/instagram => HUB always
-  // - email => HUB only if user is authenticated AND link inbox is different
-  const shouldShowHub =
-    !loading &&
-    !!inboxId &&
-    (deliveryMode !== "email" || (hasActiveSession && !sameInboxAsCurrent));
-
-  const canImport = !!(hasActiveSession && inboxId && session.inboxId && session.inboxId !== inboxId);
-
-  const applyLinkedInboxToSession = useCallback(() => {
-    if (!inboxId) return;
-
-    setInboxId(inboxId);
-    setIsPinRequired(!!needsPin);
-    setMustCreatePin(!!pinMustBeCreated);
-
-    if (pinMustBeCreated) {
-      setSessionToken(sessionToken || null);
-      setIsLocked(false);
-      return;
-    }
-
-    if (needsPin) {
-      setSessionToken(null);
-      setIsLocked(true);
-      return;
-    }
-
-    setSessionToken(sessionToken || null);
-    setIsLocked(false);
-  }, [
-    inboxId,
-    needsPin,
-    pinMustBeCreated,
-    sessionToken,
-    setInboxId,
-    setIsPinRequired,
-    setMustCreatePin,
-    setSessionToken,
-    setIsLocked,
-  ]);
-
-  // ✅ AUTO-OPEN only when no hub is needed
-  useEffect(() => {
-    if (!inboxId) return;
-    if (loading || error) return;
-    if (shouldShowHub) return;
-
-    applyLinkedInboxToSession();
-    onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
-  }, [
-    inboxId,
-    loading,
-    error,
-    shouldShowHub,
-    applyLinkedInboxToSession,
-    onSuccess,
-    needsPin,
-    sessionToken,
-    pinMustBeCreated,
-    needsEmailAssociation,
-  ]);
-
-  const handleImport = useCallback(async () => {
-    if (!canImport) {
-      toast.error(hasActiveSession ? t.importFailed : t.noActiveSession);
-      return;
-    }
-    setIsImporting(true);
-    try {
-      await importLinkToInbox({
-        token,
-        destInboxId: session.inboxId!,
-        destSessionToken: session.sessionToken!,
-      });
-
-      toast.success(t.importDone);
-      onSuccess(session.inboxId!, false, session.sessionToken!, false, false);
-    } catch (e: any) {
-      toast.error(e?.message || t.importFailed);
-    } finally {
-      setIsImporting(false);
-    }
-  }, [
-    canImport,
-    hasActiveSession,
-    session.inboxId,
-    session.sessionToken,
-    token,
-    onSuccess,
-    t.importDone,
-    t.importFailed,
-    t.noActiveSession,
-  ]);
-
-  if (error) {
-    return (
-      <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex items-center justify-center px-6">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[420px] text-center">
-          <div className="text-6xl mb-5">💔</div>
-          <h1 className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)]">
-            {t.errorTitle}
-          </h1>
-          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
-            {String(error)}
-          </p>
-          <button
-            onClick={onError}
-            className="mt-7 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
-                       bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] transition active:scale-[0.99] text-white"
-          >
-            <div className="font-['Playfair_Display',serif] text-[18px] font-bold leading-tight">{t.back}</div>
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (loading || !inboxId) {
-    return (
-      <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center">
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="text-8xl mb-8"
-        >
-          💌
-        </motion.div>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]">
-          {t.loading}
-        </motion.p>
-      </div>
-    );
-  }
-
-  // HUB
-  if (shouldShowHub) {
-    return (
-      <AppFrame>
-        <div className="relative">
-          <motion.button
-            onClick={onError}
-            className="inline-flex items-center gap-3 text-[24px] italic text-[color:var(--text-light)]
-                      font-['Cormorant_Garamond',serif] px-3 py-2 rounded-[14px] bg-white/35 backdrop-blur
-                      border border-white/50 shadow-[0_10px_30px_rgba(180,90,130,.10)] hover:bg-white/45
-                      active:scale-[0.99] transition"
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            whileHover={{ x: -3 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <span className="text-[30px] leading-none">←</span>
-            <span className="leading-none">{language === "fr" ? "Retour" : "Back"}</span>
-          </motion.button>
-
-          <div className="mt-4 flex flex-col items-center text-center">
-            <div className="text-6xl mb-3">💌</div>
-            <h1 className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)]">
-              {t.title}
-            </h1>
-            <p className="mt-2 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
-              {t.subtitle}
-            </p>
-
-            <div className="mt-5 mb-2 flex items-center gap-3 w-full">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
-              <div className="text-[13px] text-[color:var(--rose-deep)]">♥️</div>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            <button
-              onClick={handleImport}
-              disabled={!canImport || isImporting}
-              className="w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
-                        bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] text-white transition
-                        disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
-            >
-              <div className="font-['Playfair_Display',serif] text-[18px] font-bold leading-tight">
-                {isImporting ? t.importing : t.importToMine}
-              </div>
-              <div className="mt-1 text-[13px] italic text-white/80">{t.importHint}</div>
-              {!canImport && (
-                <div className="mt-2 text-[12px] italic text-white/70">
-                  {hasActiveSession ? "" : t.noActiveSession}
-                </div>
-              )}
-            </button>
-
-            <button
-              onClick={onGoToLogin}
-              className="w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
-                        bg-white/60 backdrop-blur border border-white/70 transition active:scale-[0.99]"
-            >
-              <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-[color:var(--rose-deep)] leading-tight">
-                {t.login}
-              </div>
-              <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.loginHint}</div>
-            </button>
-
-            <button
-              onClick={onGoToCreate}
-              className="w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
-                        bg-white/60 backdrop-blur border border-white/70 transition active:scale-[0.99]"
-            >
-              <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-[color:var(--rose-deep)] leading-tight">
-                {t.create}
-              </div>
-              <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.createHint}</div>
-            </button>
-          </div>
-        </div>
-      </AppFrame>
-    );
-  }
-
-  // sinon auto-open already happened
-  return null;
 }

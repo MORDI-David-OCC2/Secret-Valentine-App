@@ -37,7 +37,7 @@ export default function ClaimInboxPage({ mode, onBack, language, onNavigate, onC
       emailLabel: "Email",
       emailPlaceholder: "your.email@example.com",
       passwordLabel: "Password",
-      passwordPlaceholder: "At least 6 characters",
+      passwordPlaceholder: "4 digits",
 
       continueButton: mode === "create" ? "Create account" : "Continue",
       sending: "Sending…",

@@ -313,3 +313,14 @@ export async function savePushSub(params: {
   }
   return response.json();
 }
+
+export async function claimEmail(args: { inboxId: string; sessionToken: string; email: string }) {
+  const res = await fetch("/.netlify/functions/claimEmail", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "claimEmail failed");
+  return data;
+}

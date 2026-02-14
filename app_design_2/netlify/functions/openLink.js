@@ -1,3 +1,4 @@
+// netlify/functions/openLink.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 
@@ -83,15 +84,15 @@ exports.handler = async (event) => {
 
     const inbox = inboxSnap.data() || {};
     const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
-
-    // ✅ If no PIN yet => user MUST create it
     const pinMustBeCreated = !pinRequired;
 
-    // If no PIN yet, create a session token so listInbox works immediately.
-    // If PIN exists, do NOT create session + do NOT return messages.
+    // NEW: used for share/instagram flows
+    const emailLinked = !!(inbox.email && String(inbox.email).includes("@"));
+
+    // If no PIN yet, create a session token so the user can set PIN immediately
     let sessionToken = null;
 
-    if (!pinRequired) {
+    if (pinMustBeCreated) {
       sessionToken = randomTokenBase64Url(32);
       const sessionHash = sha256Hex(sessionToken);
 
@@ -100,14 +101,15 @@ exports.handler = async (event) => {
         new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
       );
 
-      await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).set({
+      await inboxRef.collection("sessions").doc(sessionHash).set({
         inboxId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         expiresAt: expiresAtSession,
       });
     }
 
-    await db.collection("inboxes").doc(inboxId).set(
+    // mark activated
+    await inboxRef.set(
       { activatedAt: admin.firestore.FieldValue.serverTimestamp() },
       { merge: true }
     );
@@ -116,7 +118,8 @@ exports.handler = async (event) => {
       ok: true,
       inboxId,
       pinRequired,
-      pinMustBeCreated, // ✅ IMPORTANT FOR FRONT
+      pinMustBeCreated, // 👈 frontend uses this to redirect to FirstPinSetup
+      emailLinked,      // 👈 frontend uses this to decide if it must ask for email
       sessionToken,
     });
   } catch (err) {

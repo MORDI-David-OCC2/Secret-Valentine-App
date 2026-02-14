@@ -563,6 +563,7 @@ exports.handler = async (event) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt,
       purpose: "open",
+      deliveryMode: payload.deliveryMode || "email",
     });
 
     const baseUrl = buildBaseUrl(event);

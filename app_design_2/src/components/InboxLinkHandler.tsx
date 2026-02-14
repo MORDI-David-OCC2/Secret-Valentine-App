@@ -19,12 +19,7 @@ interface InboxLinkHandlerProps {
   language: "en" | "fr";
 }
 
-export default function InboxLinkHandler({
-  token,
-  onSuccess,
-  onError,
-  language,
-}: InboxLinkHandlerProps) {
+export default function InboxLinkHandler({ token, onSuccess, onError, language }: InboxLinkHandlerProps) {
   const { loading, error, needsPin, inboxId, sessionToken, pinMustBeCreated, needsEmailAssociation } =
     useInboxLink(token);
 
@@ -36,7 +31,7 @@ export default function InboxLinkHandler({
       ({
         en: {
           loading: "Opening your inbox...",
-          errorTitle: "Invalid or expired link",
+          error: "Invalid or expired link",
           tryAgain: "Return to home",
           importTitle: "You’re already logged in",
           importSubtitle: "Do you want to add this letter to your existing inbox?",
@@ -47,7 +42,7 @@ export default function InboxLinkHandler({
         },
         fr: {
           loading: "Ouverture de votre boîte...",
-          errorTitle: "Lien invalide ou expiré",
+          error: "Lien invalide ou expiré",
           tryAgain: "Retour à l'accueil",
           importTitle: "Tu es déjà connecté(e)",
           importSubtitle: "Veux-tu ajouter ce message à ta boîte actuelle ?",
@@ -60,26 +55,17 @@ export default function InboxLinkHandler({
     [language]
   );
 
-  const isLoggedIn = !!(session.inboxId && session.sessionToken && !session.isLocked);
+  // ✅ “logged in” = on a une session utilisable (inboxId + sessionToken)
+  const canImport = !!(session.inboxId && session.sessionToken);
+  const shouldOfferImport = !!(canImport && inboxId && session.inboxId !== inboxId);
 
-  // Offer import if the link targets a different inbox than the one currently logged in
-  const shouldOfferImport = !!(isLoggedIn && inboxId && session.inboxId !== inboxId);
-
-  // Normal flow: if not offering import, proceed automatically
+  // ✅ Important: NE PAS auto-naviguer si on doit afficher l’écran d’import
   useEffect(() => {
     if (!inboxId) return;
     if (shouldOfferImport) return;
 
     onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
-  }, [
-    inboxId,
-    needsPin,
-    sessionToken,
-    pinMustBeCreated,
-    needsEmailAssociation,
-    onSuccess,
-    shouldOfferImport,
-  ]);
+  }, [inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation, onSuccess, shouldOfferImport]);
 
   useEffect(() => {
     if (error) onError();
@@ -98,7 +84,7 @@ export default function InboxLinkHandler({
 
       toast.success(t.imported);
 
-      // After import, keep user in their current inbox (the logged in one)
+      // ✅ On reste sur la boîte courante
       onSuccess(session.inboxId, false, session.sessionToken, false, false);
     } catch (e: any) {
       toast.error(e?.message || t.importFailed);
@@ -107,22 +93,18 @@ export default function InboxLinkHandler({
     }
   };
 
-  // Error screen
   if (error) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center w-full max-w-[420px]">
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center">
           <div className="text-6xl mb-6">💔</div>
-          <h1 className="font-['Kaushan_Script',sans-serif] text-[32px] text-[#a31e46] mb-4">
-            {t.errorTitle}
-          </h1>
+          <h1 className="font-['Kaushan_Script',sans-serif] text-[32px] text-[#a31e46] mb-4">{t.error}</h1>
           <p className="font-['Inter',sans-serif] text-[16px] text-[#2d1b1b] mb-8">{error}</p>
-
           <motion.button
             onClick={onError}
-            className="bg-[#a31e46] text-white px-8 py-3 rounded-full font-['Inter',sans-serif] font-medium w-full"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            className="bg-[#a31e46] text-white px-8 py-3 rounded-full font-['Inter',sans-serif] font-medium"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             {t.tryAgain}
           </motion.button>
@@ -131,15 +113,11 @@ export default function InboxLinkHandler({
     );
   }
 
-  // Import choice screen
+  // ✅ Import choice screen (prioritaire)
   if (!loading && shouldOfferImport && inboxId) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-[420px]"
-        >
+        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[420px]">
           <div className="text-6xl mb-5">📥</div>
 
           <h1 className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)]">
@@ -183,11 +161,7 @@ export default function InboxLinkHandler({
       >
         💌
       </motion.div>
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]"
-      >
+      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]">
         {t.loading}
       </motion.p>
       <motion.div className="flex gap-2 mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>

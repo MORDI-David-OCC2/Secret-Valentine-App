@@ -25,21 +25,19 @@ function initAdmin() {
 function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
-
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
-
 function isValidEmail(e) {
   return typeof e === "string" && e.includes("@") && e.includes(".");
 }
 
-async function createSessionTokenForInbox(db, inboxRef, inboxId, { expiresDays = 7, purpose = "open_setup" } = {}) {
+async function createSession(db, inboxRef, inboxId, { days, purpose }) {
   const sessionToken = randomTokenBase64Url(32);
   const sessionHash = sha256Hex(sessionToken);
 
   const expiresAt = admin.firestore.Timestamp.fromDate(
-    new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
+    new Date(Date.now() + days * 24 * 60 * 60 * 1000)
   );
 
   await inboxRef.collection("sessions").doc(sessionHash).set({
@@ -84,19 +82,12 @@ exports.handler = async (event) => {
     const tokenHash = sha256Hex(token);
     const tokenRef = db.collection("tokens").doc(tokenHash);
     const tokenSnap = await tokenRef.get();
-
     if (!tokenSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
 
     const tokenData = tokenSnap.data() || {};
-
-    // token purpose
     const purpose = tokenData.purpose || "open"; // "open" | "pin_reset" (etc)
     const isPinReset = purpose === "pin_reset";
-    if (tokenData.purpose && !["open", "pin_reset"].includes(tokenData.purpose)) {
-      return jsonResponse(403, { ok: false, error: "Invalid token purpose" });
-    }
 
-    // expiry
     const expiresAt = tokenData.expiresAt;
     if (expiresAt && expiresAt.toDate && expiresAt.toDate() < new Date()) {
       return jsonResponse(401, { ok: false, error: "Link expired" });
@@ -105,29 +96,27 @@ exports.handler = async (event) => {
     const inboxId = tokenData.inboxId;
     if (!inboxId) return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
 
+    // ✅ FETCH INBOX (this is what was missing)
     const inboxRef = db.collection("inboxes").doc(inboxId);
     const inboxSnap = await inboxRef.get();
     if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
     const inbox = inboxSnap.data() || {};
 
+    // PIN exists?
     const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
 
-    // ✅ si pin_reset => on force le flow FirstPinSetup
+    // If pin_reset => force the "FirstPinSetup" flow even if PIN exists
     const pinMustBeCreated = !pinRequired || isPinReset;
 
-    // email association (pour share/instagram)
+    // Email association (for share/instagram flows)
     const hasPrimaryEmail = isValidEmail(inbox.primaryEmail);
     const needsEmailAssociation = !hasPrimaryEmail;
 
-    // (si tu avais un ancien champ "email", garde-le si besoin)
-    const emailLinked = hasPrimaryEmail || isValidEmail(inbox.email);
-
-    // session token uniquement si on doit créer/réinitialiser le PIN
     let sessionToken = null;
     if (pinMustBeCreated) {
-      sessionToken = await createSessionTokenForInbox(db, inboxRef, inboxId, {
-        expiresDays: isPinReset ? 1 : 7,
+      sessionToken = await createSession(db, inboxRef, inboxId, {
+        days: isPinReset ? 1 : 7,
         purpose: isPinReset ? "pin_reset" : "open_setup",
       });
     }
@@ -145,7 +134,6 @@ exports.handler = async (event) => {
       sessionToken,
       isPinReset,
       needsEmailAssociation,
-      emailLinked,
     });
   } catch (err) {
     console.error(err);

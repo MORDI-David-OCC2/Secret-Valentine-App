@@ -154,7 +154,7 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
           <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
             {t.successMessage}
           </p>
-
+          
           <button
             onClick={onBack}
             className="mt-10 w-full rounded-[22px] px-7 py-6 text-left shadow-[0_14px_40px_rgba(155,45,90,.28)]

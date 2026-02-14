@@ -1,4 +1,3 @@
-// src/hooks/useInboxLink.ts
 import { useEffect, useState } from "react";
 import { openLink } from "../services/api";
 
@@ -6,25 +5,26 @@ interface UseInboxLinkResult {
   loading: boolean;
   error: string | null;
 
-  // inbox info from the link
+  needsPin: boolean;
   inboxId: string | null;
-
-  // backend state
-  needsPin: boolean;           // pin exists => user must enter pin
-  pinMustBeCreated: boolean;   // first time or pin reset => must create pin now
-  sessionToken: string | null; // provided when backend created one (setup/reset or unlocked)
+  sessionToken: string | null;
+  pinMustBeCreated: boolean;
   needsEmailAssociation: boolean;
+
+  pinRequired: boolean;
 }
 
 export function useInboxLink(token: string | null): UseInboxLinkResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [inboxId, setInboxId] = useState<string | null>(null);
   const [needsPin, setNeedsPin] = useState(false);
   const [pinMustBeCreated, setPinMustBeCreated] = useState(false);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
+
+  const [sessionTokenState, setSessionTokenState] = useState<string | null>(null);
+  const [inboxIdState, setInboxIdState] = useState<string | null>(null);
   const [needsEmailAssociation, setNeedsEmailAssociation] = useState(false);
+  const [pinRequired, setPinRequired] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -35,41 +35,37 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
       setLoading(true);
       setError(null);
 
-      // reset local state
-      setInboxId(null);
       setNeedsPin(false);
       setPinMustBeCreated(false);
-      setSessionToken(null);
+      setSessionTokenState(null);
+      setInboxIdState(null);
       setNeedsEmailAssociation(false);
+      setPinRequired(false);
 
       try {
         const res = await openLink(token);
         if (cancelled) return;
 
-        setInboxId(res.inboxId);
+        setInboxIdState(res.inboxId);
+        setPinRequired(!!res.pinRequired);
         setNeedsEmailAssociation(!!res.needsEmailAssociation);
 
-        // If backend says user must create pin (first time OR pin reset)
         if (res.pinMustBeCreated) {
           setPinMustBeCreated(true);
+          setSessionTokenState(res.sessionToken || null);
           setNeedsPin(false);
-          setSessionToken(res.sessionToken || null);
           return;
         }
 
-        // Otherwise, pin exists => locked until pin entry
         if (res.pinRequired) {
           setNeedsPin(true);
-          setPinMustBeCreated(false);
-          setSessionToken(null); // usually null here
+          setSessionTokenState(null);
           return;
         }
 
-        // No pin required => direct access (should come with sessionToken)
         if (res.sessionToken) {
+          setSessionTokenState(res.sessionToken);
           setNeedsPin(false);
-          setPinMustBeCreated(false);
-          setSessionToken(res.sessionToken);
           return;
         }
 
@@ -92,10 +88,11 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
   return {
     loading,
     error,
-    inboxId,
     needsPin,
+    inboxId: inboxIdState,
+    sessionToken: sessionTokenState,
     pinMustBeCreated,
-    sessionToken,
     needsEmailAssociation,
+    pinRequired,
   };
 }

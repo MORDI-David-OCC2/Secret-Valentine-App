@@ -1,4 +1,3 @@
-// src/App.tsx
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster } from "sonner@2.0.3";
@@ -45,18 +44,16 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("home");
   const [language, setLanguage] = useState<"en" | "fr">("en");
 
-  // Ton ancien lock local (tu peux le garder)
   const [pinCode, setPinCode] = useState<string | null>(null);
   const [isPinVerified, setIsPinVerified] = useState(false);
 
-  // token provenant d’un lien /#/inbox?t=...
   const [linkToken, setLinkToken] = useState<string | null>(null);
-
-  // ✅ NOUVEAU : on garde le token si l’utilisateur choisit "login" ou "create"
-  // pour revenir au hub ensuite et importer dans la boîte nouvellement créée / connectée.
   const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
 
-  // temp for first pin setup (flow existing)
+  // claim mode
+  const [claimMode, setClaimMode] = useState<"login" | "create">("login");
+
+  // FirstPinSetup temps
   const [tempInboxId, setTempInboxId] = useState<string | null>(null);
   const [tempSessionToken, setTempSessionToken] = useState<string | null>(null);
   const [tempNeedsEmailAssociation, setTempNeedsEmailAssociation] = useState(false);
@@ -72,7 +69,7 @@ function AppContent() {
     setCurrentPage(next);
   };
 
-  // ✅ Disable zoom globally (iOS)
+  // Disable zoom (iOS)
   useEffect(() => {
     const preventGesture = (e: Event) => e.preventDefault();
     document.addEventListener("gesturestart", preventGesture as any, { passive: false } as any);
@@ -95,7 +92,7 @@ function AppContent() {
     };
   }, []);
 
-  // ✅ Disable scroll ONLY on HomePage
+  // Disable scroll only on Home
   useEffect(() => {
     const prevHtmlOverflow = document.documentElement.style.overflow;
     const prevBodyOverflow = document.body.style.overflow;
@@ -118,7 +115,7 @@ function AppContent() {
     };
   }, [currentPage]);
 
-  // Detect inbox token in URL: /#/inbox?t=abc123
+  // detect token /#/inbox?t=...
   useEffect(() => {
     const detectToken = () => {
       const hash = window.location.hash;
@@ -127,7 +124,7 @@ function AppContent() {
         const token = params.get("t");
         if (token) {
           setLinkToken(token);
-          setPendingLinkToken(null); // nouveau lien => reset pending
+          setPendingLinkToken(null);
           setPage("inbox-link");
           window.history.replaceState({}, "", window.location.pathname);
         }
@@ -167,11 +164,11 @@ function AppContent() {
   const handleLogout = () => {
     setPinCode(null);
     setIsPinVerified(false);
+
     setTempInboxId(null);
     setTempSessionToken(null);
     setTempNeedsEmailAssociation(false);
 
-    // si tu veux: clear pending link aussi
     setPendingLinkToken(null);
     setLinkToken(null);
 
@@ -190,44 +187,32 @@ function AppContent() {
     }),
   };
 
-  // ✅ Inbox link special flow
+  // Inbox link special flow
   if (currentPage === "inbox-link" && linkToken) {
     return (
       <InboxLinkHandler
         token={linkToken}
-        onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
+        onSuccess={() => {
+          // ✅ Import success or same inbox -> go letters
           setLinkToken(null);
           setPendingLinkToken(null);
-
-          if (pinMustBeCreated && sessionToken) {
-            setTempInboxId(inboxId);
-            setTempSessionToken(sessionToken);
-            setTempNeedsEmailAssociation(!!needsEmailAssociation);
-            setPage("first-pin");
-          } else if (needsPin) {
-            setPage("pin");
-          } else {
-            setPage("letters");
-          }
+          setPage("letters");
         }}
-        // ✅ Back/Cancel depuis le hub du lien
         onError={() => {
           setLinkToken(null);
-          // si tu avais un pending (rare), on le garde pas
           setPendingLinkToken(null);
           setPage("home");
         }}
-        // ✅ NOUVEAU : login direct (pas Home)
         onGoToLogin={() => {
-          // on garde le token, puis on va sur la page claim/login
           setPendingLinkToken(linkToken);
           setLinkToken(null);
+          setClaimMode("login");
           setPage("claim");
         }}
-        // ✅ NOUVEAU : create direct (pas Home)
         onGoToCreate={() => {
           setPendingLinkToken(linkToken);
           setLinkToken(null);
+          setClaimMode("create");
           setPage("claim");
         }}
         language={language}
@@ -303,7 +288,7 @@ function AppContent() {
             style={{ height: "100%" }}
           >
             <ClaimInboxPage
-              // ✅ si on vient d’un lien, back retourne au hub au lieu de home
+              mode={claimMode}
               onBack={() => {
                 if (pendingLinkToken) {
                   setLinkToken(pendingLinkToken);
@@ -312,17 +297,15 @@ function AppContent() {
                   setPage("home");
                 }
               }}
-              language={language}
-              onNavigate={(page) => {
-                // ✅ si claim/login/create a réussi et veut aller "letters",
-                // on renvoie d’abord sur le hub du lien pour permettre l’import.
-                if (page === "letters" && pendingLinkToken) {
-                  setLinkToken(pendingLinkToken);
-                  setPage("inbox-link");
-                  return;
-                }
-                setPage(page as Page);
+              onCreated={(inboxId, sessionToken, needsEmailAssociation) => {
+                // ✅ redirect create -> FirstPinSetup
+                setTempInboxId(inboxId);
+                setTempSessionToken(sessionToken);
+                setTempNeedsEmailAssociation(!!needsEmailAssociation);
+                setPage("first-pin");
               }}
+              language={language}
+              onNavigate={(page) => setPage(page as Page)}
             />
           </motion.div>
         )}

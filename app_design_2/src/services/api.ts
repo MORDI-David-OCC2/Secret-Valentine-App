@@ -206,3 +206,18 @@ export interface ImportLinkToInboxResponse {
 export async function importLinkToInbox(args: ImportLinkToInboxRequest): Promise<ImportLinkToInboxResponse> {
   return postJSON("importLinkToInbox", args);
 }
+
+export async function createInboxAccount(params: { email: string; pin: string }) {
+  const res = await fetch("/.netlify/functions/createInboxAccount", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Create failed");
+
+  // must return:
+  // { inboxId: string, sessionToken: string, needsEmailAssociation?: boolean }
+  return data;
+}

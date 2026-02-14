@@ -1,75 +1,121 @@
-// src/components/ClaimInboxPage.tsx
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import AppFrame from "./ui/AppFrame";
-import { requestLoginLink, requestPinReset, unlockInboxWithPin } from "../services/api";
+import { requestLoginLink, requestPinReset, unlockInboxWithPin, createInboxAccount } from "../services/api";
 import { useSession } from "../contexts/SessionContext";
+
+type Mode = "login" | "create";
 
 interface ClaimInboxPageProps {
   onBack: () => void;
   language: "en" | "fr";
+  mode?: Mode;
+
+  // ✅ when create succeeds, we go to first-pin with these temps
+  onCreated?: (inboxId: string, sessionToken: string, needsEmailAssociation: boolean) => void;
+
   onNavigate?: (page: "home" | "letters" | "compose" | "settings" | "credits" | "claim") => void;
 }
 
-export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimInboxPageProps) {
-  const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
+export default function ClaimInboxPage({
+  onBack,
+  language,
+  onNavigate,
+  mode = "login",
+  onCreated,
+}: ClaimInboxPageProps) {
+  const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired, setMustCreatePin } = useSession();
 
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
+
+  // login flow
   const [step, setStep] = useState<"email" | "pin" | "sent">("email");
   const [inboxId, setLocalInboxId] = useState<string | null>(null);
+
+  // create flow only
+  const [creating, setCreating] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const t = {
-    en: {
-      back: "Back",
-      title: "Access Your Inbox",
-      subtitle: "Enter your email to access your inbox.",
-      emailLabel: "Email",
-      emailPlaceholder: "your.email@example.com",
-      continueButton: "Continue",
-      sending: "Sending…",
-      successTitle: "Email Sent!",
-      successMessage: "Check your inbox for the access link.",
-      invalidEmail: "Please enter a valid email address",
+  const t = useMemo(
+    () =>
+      ({
+        en: {
+          back: "Back",
+          titleLogin: "Access Your Inbox",
+          subtitleLogin: "Enter your email to access your inbox.",
 
-      pinTitle: "Enter your PIN",
-      pinLabel: "PIN (4 digits)",
-      pinPlaceholder: "••••",
-      login: "Log in",
-      forgot: "Forgot PIN?",
-      loginByLink: "Log in by link instead",
-      resetSent: "Reset link sent ✅",
-      wrongPin: "Wrong PIN",
-      footer: "made by D&F with",
-    },
-    fr: {
-      back: "Retour",
-      title: "Accéder à ta boîte",
-      subtitle: "Entre ton email pour accéder à ta boîte.",
-      emailLabel: "Email",
-      emailPlaceholder: "ton.email@exemple.com",
-      continueButton: "Continuer",
-      sending: "Envoi…",
-      successTitle: "Email envoyé !",
-      successMessage: "Regarde ta boîte mail pour le lien d’accès.",
-      invalidEmail: "Veuillez entrer une adresse email valide",
+          titleCreate: "Create Your Inbox",
+          subtitleCreate: "Enter your email and choose a 4-digit PIN.",
 
-      pinTitle: "Entre ton PIN",
-      pinLabel: "PIN (4 chiffres)",
-      pinPlaceholder: "••••",
-      login: "Se connecter",
-      forgot: "Mot de passe oublié ?",
-      loginByLink: "Me connecter par lien à la place",
-      resetSent: "Lien de reset envoyé ✅",
-      wrongPin: "PIN incorrect",
-      footer: "créé par D&F avec",
-    },
-  }[language];
+          emailLabel: "Email",
+          emailPlaceholder: "your.email@example.com",
+
+          continueButton: "Continue",
+          sending: "Sending…",
+          successTitle: "Email Sent!",
+          successMessage: "Check your inbox for the access link.",
+          invalidEmail: "Please enter a valid email address",
+
+          pinTitle: "Enter your PIN",
+          pinLabel: "PIN (4 digits)",
+          pinPlaceholder: "••••",
+          login: "Log in",
+          forgot: "Forgot PIN?",
+          loginByLink: "Log in by link instead",
+          resetSent: "Reset link sent ✅",
+          wrongPin: "Wrong PIN",
+
+          createBtn: "Create inbox",
+          creating: "Creating…",
+          created: "Inbox created ✅",
+          pinFormat: "PIN must be 4 digits",
+
+          footer: "made by D&F with",
+        },
+        fr: {
+          back: "Retour",
+          titleLogin: "Accéder à ta boîte",
+          subtitleLogin: "Entre ton email pour accéder à ta boîte.",
+
+          titleCreate: "Créer ta boîte",
+          subtitleCreate: "Entre ton email et choisis un PIN à 4 chiffres.",
+
+          emailLabel: "Email",
+          emailPlaceholder: "ton.email@exemple.com",
+
+          continueButton: "Continuer",
+          sending: "Envoi…",
+          successTitle: "Email envoyé !",
+          successMessage: "Regarde ta boîte mail pour le lien d’accès.",
+          invalidEmail: "Veuillez entrer une adresse email valide",
+
+          pinTitle: "Entre ton PIN",
+          pinLabel: "PIN (4 chiffres)",
+          pinPlaceholder: "••••",
+          login: "Se connecter",
+          forgot: "Mot de passe oublié ?",
+          loginByLink: "Me connecter par lien à la place",
+          resetSent: "Lien de reset envoyé ✅",
+          wrongPin: "PIN incorrect",
+
+          createBtn: "Créer la boîte",
+          creating: "Création…",
+          created: "Boîte créée ✅",
+          pinFormat: "Le PIN doit faire 4 chiffres",
+
+          footer: "créé par D&F avec",
+        },
+      }[language]),
+    [language]
+  );
 
   const validateEmail = (v: string) => v.includes("@") && v.includes(".");
+  const validatePin = (v: string) => /^\d{4}$/.test(v);
 
+  // -------- LOGIN FLOW (existing) --------
   const handleEmailContinue = async () => {
     if (!validateEmail(email)) {
       toast.error(t.invalidEmail);
@@ -105,8 +151,8 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
       toast.error(language === "fr" ? "Inbox introuvable. Réessaie." : "Inbox not found. Try again.");
       return;
     }
-    if (!/^\d{4}$/.test(pin)) {
-      toast.error(language === "fr" ? "Le PIN doit faire 4 chiffres" : "PIN must be 4 digits");
+    if (!validatePin(pin)) {
+      toast.error(t.pinFormat);
       return;
     }
 
@@ -114,10 +160,10 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
     try {
       const res = await unlockInboxWithPin({ inboxId, pin });
 
-      // ✅ Store session
       setInboxId(inboxId);
       setSessionToken(res.sessionToken);
       setIsPinRequired(true);
+      setMustCreatePin(false);
       setIsLocked(false);
 
       toast.success(language === "fr" ? "Connecté ✅" : "Logged in ✅");
@@ -149,7 +195,46 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
     await handleForgotPin();
   };
 
-  if (step === "sent") {
+  // -------- CREATE FLOW (new) --------
+  const handleCreate = async () => {
+    if (!validateEmail(email)) {
+      toast.error(t.invalidEmail);
+      return;
+    }
+    if (!validatePin(pin)) {
+      toast.error(t.pinFormat);
+      return;
+    }
+
+    setCreating(true);
+    try {
+      // ✅ must return { inboxId, sessionToken, needsEmailAssociation? }
+      const res = await createInboxAccount({
+        email: email.trim().toLowerCase(),
+        pin,
+      });
+
+      // Store minimal session — but MUST create PIN still => FirstPinSetup flow
+      // We route to FirstPinSetup with inboxId+sessionToken (backend should create session)
+      toast.success(t.created);
+
+      // we set session so FirstPinSetup can work smoothly if it relies on context
+      setInboxId(res.inboxId);
+      setSessionToken(res.sessionToken);
+      setIsPinRequired(false);
+      setMustCreatePin(true);
+      setIsLocked(false);
+
+      onCreated?.(res.inboxId, res.sessionToken, !!res.needsEmailAssociation);
+    } catch (e: any) {
+      toast.error(e?.message || "Create failed");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // SENT screen (login mode only)
+  if (mode === "login" && step === "sent") {
     return (
       <AppFrame>
         <div className="text-center py-10">
@@ -186,6 +271,9 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
     );
   }
 
+  const title = mode === "create" ? t.titleCreate : t.titleLogin;
+  const subtitle = mode === "create" ? t.subtitleCreate : t.subtitleLogin;
+
   return (
     <AppFrame>
       <div className="relative">
@@ -209,9 +297,10 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
             📬
           </motion.div>
           <h1 className="mt-3 font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)] drop-shadow-[0_2px_12px_rgba(200,90,130,.18)]">
-            {t.title}
+            {title}
           </h1>
-          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">{t.subtitle}</p>
+          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">{subtitle}</p>
+
           <div className="mt-5 mb-4 flex items-center gap-3 w-full">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
             <div className="text-[13px] text-[color:var(--rose-deep)]">♥️</div>
@@ -230,11 +319,47 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
               className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
                          font-['Cormorant_Garamond',serif] italic text-[18px] text-[#5a2d42]
                          placeholder:text-[#9e6b80] outline-none focus:ring-2 focus:ring-[#e8a0b4]"
-              onKeyDown={(e) => e.key === "Enter" && step === "email" && handleEmailContinue()}
             />
           </div>
 
-          {step === "email" && (
+          {/* CREATE MODE: ask pin directly */}
+          {mode === "create" && (
+            <div className="rounded-[18px] bg-white/55 border border-white/60 shadow-[0_10px_30px_rgba(180,90,130,.12)] px-5 py-4">
+              <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
+                {language === "fr" ? "Choisis ton PIN" : "Choose your PIN"}
+              </div>
+
+              <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">{t.pinLabel}</p>
+
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                placeholder={t.pinPlaceholder}
+                className="mt-2 w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow
+                           font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
+                           outline-none focus:ring-2 focus:ring-[#e8a0b4]"
+                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              />
+
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="mt-4 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
+                           bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] transition
+                           disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
+              >
+                <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-white leading-tight">
+                  {creating ? t.creating : t.createBtn}
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* LOGIN MODE: existing steps */}
+          {mode === "login" && step === "email" && (
             <button
               onClick={handleEmailContinue}
               disabled={isSubmitting}
@@ -243,18 +368,26 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
                          disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
             >
               <div className="flex items-center gap-4">
-                <div className="size-12 rounded-[18px] bg-white/20 backdrop-blur flex items-center justify-center text-[24px]">{isSubmitting ? "…" : "→"}</div>
+                <div className="size-12 rounded-[18px] bg-white/20 backdrop-blur flex items-center justify-center text-[24px]">
+                  {isSubmitting ? "…" : "→"}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-white leading-tight">{isSubmitting ? t.sending : t.continueButton}</div>
-                  <div className="text-[14px] italic text-white/80 truncate">{language === "fr" ? "On vérifie si un PIN existe" : "We check if a PIN exists"}</div>
+                  <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-white leading-tight">
+                    {isSubmitting ? t.sending : t.continueButton}
+                  </div>
+                  <div className="text-[14px] italic text-white/80 truncate">
+                    {language === "fr" ? "On vérifie si un PIN existe" : "We check if a PIN exists"}
+                  </div>
                 </div>
               </div>
             </button>
           )}
 
-          {step === "pin" && (
+          {mode === "login" && step === "pin" && (
             <div className="rounded-[18px] bg-white/55 border border-white/60 shadow-[0_10px_30px_rgba(180,90,130,.12)] px-5 py-4">
-              <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">{t.pinTitle}</div>
+              <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
+                {t.pinTitle}
+              </div>
 
               <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">{t.pinLabel}</p>
 
@@ -278,14 +411,24 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
                            bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] transition
                            disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
               >
-                <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-white leading-tight">{isSubmitting ? t.sending : t.login}</div>
+                <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-white leading-tight">
+                  {isSubmitting ? t.sending : t.login}
+                </div>
               </button>
 
               <div className="mt-3 flex items-center justify-between gap-4">
-                <button type="button" onClick={handleForgotPin} className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--text-light)]">
+                <button
+                  type="button"
+                  onClick={handleForgotPin}
+                  className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--text-light)]"
+                >
                   {t.forgot}
                 </button>
-                <button type="button" onClick={handleLoginByLink} className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]">
+                <button
+                  type="button"
+                  onClick={handleLoginByLink}
+                  className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]"
+                >
                   {t.loginByLink}
                 </button>
               </div>

@@ -156,7 +156,6 @@ function AppContent() {
   };
 
   const handleLogout = () => {
-    // ✅ vrai logout: reset states
     setPinCode(null);
     setIsPinVerified(false);
     setTempInboxId(null);

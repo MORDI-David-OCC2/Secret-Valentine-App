@@ -64,32 +64,11 @@ async function sendWithResend({ to, subject, html }) {
   return data;
 }
 
-async function getOrCreateInboxIdForEmail(db, email) {
+async function getInboxIdByEmail(db, email) {
   const emailHash = sha256Hex(email);
-  const emailIndexRef = db.collection("emailIndex").doc(emailHash);
-  const emailIndexSnap = await emailIndexRef.get();
-
-  if (emailIndexSnap.exists) return emailIndexSnap.data().inboxId;
-
-  const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
-  const inboxRef = db.collection("inboxes").doc(inboxId);
-
-  const batch = db.batch();
-  batch.set(inboxRef, {
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    primaryEmail: email, // 👈 association email dès la création
-    pinHash: null,
-    pinSalt: null,
-    pinIter: null,
-    pinSetAt: null,
-  });
-  batch.set(emailIndexRef, {
-    inboxId,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  await batch.commit();
-  return inboxId;
+  const snap = await db.collection("emailIndex").doc(emailHash).get();
+  if (!snap.exists) return null;
+  return snap.data()?.inboxId || null;
 }
 
 exports.handler = async (event) => {
@@ -118,11 +97,29 @@ exports.handler = async (event) => {
     }
 
     const email = normalizeEmail(payload.email);
-    if (!email || !email.includes("@")) return jsonResponse(400, { ok: false, error: "Invalid email" });
+    if (!email || !email.includes("@") || !email.includes(".")) {
+      return jsonResponse(400, { ok: false, error: "Invalid email" });
+    }
 
-    const inboxId = await getOrCreateInboxIdForEmail(db, email);
+    const inboxId = await getInboxIdByEmail(db, email);
+    if (!inboxId) return jsonResponse(404, { ok: false, error: "No inbox for this email" });
 
-    // token "open"
+    const inboxRef = db.collection("inboxes").doc(inboxId);
+    const inboxSnap = await inboxRef.get();
+    if (!inboxSnap.exists) {
+      // This is exactly the "inbox id not found" symptom: index is stale.
+      return jsonResponse(404, { ok: false, error: "Inbox id not found (stale email index)" });
+    }
+
+    const inbox = inboxSnap.data() || {};
+    const hasPin = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
+
+    // ✅ If PIN exists => do NOT send a link; UI should ask for PIN
+    if (hasPin) {
+      return jsonResponse(200, { ok: true, action: "PIN_REQUIRED", inboxId });
+    }
+
+    // ✅ Otherwise send link (no pin yet)
     const token = randomTokenBase64Url(32);
     const tokenHash = sha256Hex(token);
     const expiresDays = 7;
@@ -145,14 +142,14 @@ exports.handler = async (event) => {
       subject: "💌 Your private inbox link",
       html: `
         <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto;line-height:1.5">
-          <h2>Here’s your private inbox link 💌</h2>
+          <h2>Your inbox link 💌</h2>
           <p>This link is valid for 7 days.</p>
           <p><a href="${link}">Open my inbox</a></p>
         </div>
       `,
     });
 
-    return jsonResponse(200, { ok: true });
+    return jsonResponse(200, { ok: true, action: "LINK_SENT" });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

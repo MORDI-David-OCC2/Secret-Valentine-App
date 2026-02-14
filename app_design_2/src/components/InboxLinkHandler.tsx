@@ -28,12 +28,10 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
     if (error) onError();
   }, [error, onError]);
 
-  const translations = {
+  const t = {
     en: { loading: "Opening your inbox...", error: "Invalid or expired link", tryAgain: "Return to home" },
     fr: { loading: "Ouverture de votre boîte...", error: "Lien invalide ou expiré", tryAgain: "Retour à l'accueil" },
-  };
-
-  const t = translations[language];
+  }[language];
 
   if (error) {
     return (
@@ -64,11 +62,9 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
       >
         💌
       </motion.div>
-
       <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]">
-        {loading ? t.loading : t.loading}
+        {t.loading}
       </motion.p>
-
       <motion.div className="flex gap-2 mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
         {[0, 1, 2].map((i) => (
           <motion.div

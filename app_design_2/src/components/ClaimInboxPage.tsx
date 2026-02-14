@@ -336,7 +336,7 @@ export default function ClaimInboxPage({
               <input
                 type="pin"
                 value={pin}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => setPin(e.target.value)}
                 placeholder={t.passwordPlaceholder}
                 className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
                          font-['Cormorant_Garamond',serif] italic text-[18px] text-[#5a2d42]

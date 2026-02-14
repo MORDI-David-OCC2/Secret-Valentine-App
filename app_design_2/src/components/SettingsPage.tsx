@@ -206,10 +206,14 @@ export default function SettingsPage({
     resetPinForm();
   };
 
-  const handleLogout = () => {
-    onLogout();
-    toast.success(language === "fr" ? "Déconnecté" : "Logged out");
-  };
+  const { logout } = useSession();
+
+const handleLogout = () => {
+  logout(); // ✅ efface localStorage + session state
+  onLogout?.(); // optionnel si tu veux quand même prévenir le parent
+  toast.success(language === "fr" ? "Déconnecté" : "Logged out");
+};
+
 
   const onEnablePush = async () => {
     if (!pushSupported) {

@@ -16,6 +16,17 @@ import FirstPinSetup from "./components/FirstPinSetup";
 
 import Petals from "./components/ui/Petals";
 
+// ✅ IMPORTANT: LettersPage imports this type from "../App"
+export type Letter = {
+  id: string;
+  from: string;
+  to: string;
+  type: "love" | "friend" | "family" | "crush";
+  date: string;
+  message: string;
+  isAnonymous?: boolean;
+};
+
 type Page =
   | "home"
   | "letters"

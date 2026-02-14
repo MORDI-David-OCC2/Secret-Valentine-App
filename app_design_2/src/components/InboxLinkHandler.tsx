@@ -1,5 +1,5 @@
 // src/components/InboxLinkHandler.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import { useInboxLink } from "../hooks/useInboxLink";
@@ -20,10 +20,18 @@ interface InboxLinkHandlerProps {
 }
 
 export default function InboxLinkHandler({ token, onSuccess, onError, language }: InboxLinkHandlerProps) {
-  const { loading, error, needsPin, inboxId, sessionToken, pinMustBeCreated, needsEmailAssociation } = useInboxLink(token);
+  const { loading, error, needsPin, inboxId, sessionToken, pinMustBeCreated, needsEmailAssociation } =
+    useInboxLink(token);
 
-  // ✅ on récupère setters ici (IMPORTANT)
-  const { session, setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
+  const {
+    session,
+    isAuthenticated,
+    setInboxId,
+    setSessionToken,
+    setIsLocked,
+    setIsPinRequired,
+    setMustCreatePin,
+  } = useSession();
 
   const [isImporting, setIsImporting] = useState(false);
 
@@ -58,43 +66,67 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
     [language]
   );
 
-  // ✅ “vraiment loggé” = a une session + pas locké
-  const isLoggedIn = !!(session.inboxId && session.sessionToken && !session.isLocked);
+  // ✅ "Logged in" = vraie session utilisable
+  const isLoggedIn = !!isAuthenticated;
 
-  // ✅ proposer import uniquement si inbox du lien ≠ inbox actuelle
-  const shouldOfferImport = !!(isLoggedIn && inboxId && session.inboxId !== inboxId);
+  // ✅ on propose import si on est loggé ET le lien pointe vers une autre inbox
+  const shouldOfferImport = !!(isLoggedIn && inboxId && session.inboxId && session.inboxId !== inboxId);
 
-  // ✅ commit session helper (switch to link inbox)
-  const commitLinkSession = () => {
+  // ✅ applique l'état du lien dans la session (seulement quand on a décidé d'ouvrir séparément / flow normal)
+  const applyLinkSession = useCallback(() => {
     if (!inboxId) return;
 
     setInboxId(inboxId);
 
-    // si sessionToken fourni par openLink (pas de pin) OU setup/reset
-    if (sessionToken) setSessionToken(sessionToken);
+    // pin state
+    setIsPinRequired(!!needsPin);
+    setMustCreatePin(!!pinMustBeCreated);
 
-    // pinRequired / locked
     if (pinMustBeCreated) {
-      setIsPinRequired(true);
+      // setup/reset: backend provides sessionToken normally
+      setSessionToken(sessionToken || null);
       setIsLocked(false);
-    } else if (needsPin) {
-      setIsPinRequired(true);
-      setIsLocked(true);
-    } else {
-      setIsPinRequired(false);
-      setIsLocked(false);
+      return;
     }
-  };
 
-  // ✅ Flow normal: si pas d’écran import => on commit puis onSuccess
+    if (needsPin) {
+      setSessionToken(null);
+      setIsLocked(true);
+      return;
+    }
+
+    // unlocked directly
+    setSessionToken(sessionToken || null);
+    setIsLocked(false);
+  }, [
+    inboxId,
+    needsPin,
+    pinMustBeCreated,
+    sessionToken,
+    setInboxId,
+    setIsPinRequired,
+    setMustCreatePin,
+    setSessionToken,
+    setIsLocked,
+  ]);
+
+  // ✅ Flow normal: si on ne propose pas import => on applique puis onSuccess
   useEffect(() => {
     if (!inboxId) return;
     if (shouldOfferImport) return;
 
-    commitLinkSession();
+    applyLinkSession();
     onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inboxId, shouldOfferImport]);
+  }, [
+    inboxId,
+    shouldOfferImport,
+    applyLinkSession,
+    onSuccess,
+    needsPin,
+    sessionToken,
+    pinMustBeCreated,
+    needsEmailAssociation,
+  ]);
 
   const handleImport = async () => {
     if (!session.inboxId || !session.sessionToken) return;
@@ -109,7 +141,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
 
       toast.success(t.imported);
 
-      // ✅ on reste sur l’inbox actuelle (pas celle du lien)
+      // ✅ rester sur l’inbox actuelle (celle déjà loggée)
       onSuccess(session.inboxId, false, session.sessionToken, false, false);
     } catch (e: any) {
       toast.error(e?.message || t.importFailed);
@@ -138,7 +170,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
     );
   }
 
-  // ✅ écran import
+  // ✅ Écran import (si loggé + inbox différente)
   if (!loading && shouldOfferImport && inboxId) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8 text-center">
@@ -167,7 +199,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
 
           <button
             onClick={() => {
-              commitLinkSession();
+              applyLinkSession();
               onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
             }}
             className="mt-3 w-full text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]"
@@ -179,7 +211,7 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
     );
   }
 
-  // ✅ Loading
+  // ✅ Loading screen
   return (
     <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center">
       <motion.div

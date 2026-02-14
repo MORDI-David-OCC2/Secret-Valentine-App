@@ -1,134 +1,103 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+// src/hooks/useInboxLink.ts
+import { useEffect, useState } from "react";
+import { openLink } from "../services/api";
 
-/**
- * Context pour gérer la session utilisateur (inbox + sessionToken)
- * Persiste les données dans localStorage
- */
+interface UseInboxLinkResult {
+  loading: boolean;
+  error: string | null;
 
-interface SessionData {
+  needsPin: boolean;
   inboxId: string | null;
   sessionToken: string | null;
-  isLocked: boolean;       // true si PIN requis mais pas encore vérifié
-  isPinRequired: boolean;  // backend dit "PIN existe"
-  mustCreatePin: boolean;  // ✅ NEW: backend dit "PIN n'existe pas encore, il faut en créer un"
+  pinMustBeCreated: boolean;
+  needsEmailAssociation: boolean;
+
+  // NEW (optionnel): pour aider au debug/UX
+  pinRequired: boolean;
 }
 
-interface SessionContextType {
-  session: SessionData;
-  setInboxId: (inboxId: string) => void;
-  setSessionToken: (token: string | null) => void;
-  setIsLocked: (locked: boolean) => void;
-  setIsPinRequired: (required: boolean) => void;
-  setMustCreatePin: (v: boolean) => void; // ✅ NEW
-  unlock: (sessionToken: string) => void;
-  logout: () => void;
-  isAuthenticated: boolean;
-}
+export function useInboxLink(token: string | null): UseInboxLinkResult {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-const SessionContext = createContext<SessionContextType | undefined>(undefined);
+  const [needsPin, setNeedsPin] = useState(false);
+  const [pinMustBeCreated, setPinMustBeCreated] = useState(false);
 
-const STORAGE_KEY = "valentine_session";
-
-const DEFAULT_SESSION: SessionData = {
-  inboxId: null,
-  sessionToken: null,
-  isLocked: false,
-  isPinRequired: false,
-  mustCreatePin: false,
-};
-
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<SessionData>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-
-        // ✅ forward-compatible: si l'ancien storage n'a pas mustCreatePin
-        return {
-          ...DEFAULT_SESSION,
-          ...parsed,
-          mustCreatePin: !!parsed.mustCreatePin,
-        };
-      }
-    } catch (error) {
-      console.error("Error loading session:", error);
-    }
-    return DEFAULT_SESSION;
-  });
+  const [sessionTokenState, setSessionTokenState] = useState<string | null>(null);
+  const [inboxIdState, setInboxIdState] = useState<string | null>(null);
+  const [needsEmailAssociation, setNeedsEmailAssociation] = useState(false);
+  const [pinRequired, setPinRequired] = useState(false);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    } catch (error) {
-      console.error("Error saving session:", error);
-    }
-  }, [session]);
+    if (!token) return;
 
-  const setInboxId = (inboxId: string) => {
-    setSession((prev) => ({ ...prev, inboxId }));
+    let cancelled = false;
+
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+
+      setNeedsPin(false);
+      setPinMustBeCreated(false);
+      setSessionTokenState(null);
+      setInboxIdState(null);
+      setNeedsEmailAssociation(false);
+      setPinRequired(false);
+
+      try {
+        const res = await openLink(token);
+        if (cancelled) return;
+
+        setInboxIdState(res.inboxId);
+        setPinRequired(!!res.pinRequired);
+        setNeedsEmailAssociation(!!res.needsEmailAssociation);
+
+        // 1) doit créer un PIN (first time ou pin reset)
+        if (res.pinMustBeCreated) {
+          setPinMustBeCreated(true);
+          setSessionTokenState(res.sessionToken || null);
+          setNeedsPin(false);
+          return;
+        }
+
+        // 2) PIN existe => user doit le rentrer
+        if (res.pinRequired) {
+          setNeedsPin(true);
+          setSessionTokenState(null);
+          return;
+        }
+
+        // 3) pas de PIN => accès direct (sessionToken fourni)
+        if (res.sessionToken) {
+          setSessionTokenState(res.sessionToken);
+          setNeedsPin(false);
+          return;
+        }
+
+        throw new Error("Unexpected link state");
+      } catch (e: any) {
+        if (cancelled) return;
+        console.error("openLink error:", e);
+        setError(e?.message || "Lien invalide ou expiré");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  return {
+    loading,
+    error,
+    needsPin,
+    inboxId: inboxIdState,
+    sessionToken: sessionTokenState,
+    pinMustBeCreated,
+    needsEmailAssociation,
+    pinRequired,
   };
-
-  const setSessionToken = (token: string | null) => {
-    setSession((prev) => ({ ...prev, sessionToken: token }));
-  };
-
-  const setIsLocked = (locked: boolean) => {
-    setSession((prev) => ({ ...prev, isLocked: locked }));
-  };
-
-  const setIsPinRequired = (required: boolean) => {
-    setSession((prev) => ({ ...prev, isPinRequired: required }));
-  };
-
-  const setMustCreatePin = (v: boolean) => {
-    setSession((prev) => ({ ...prev, mustCreatePin: v }));
-  };
-
-  const unlock = (sessionToken: string) => {
-    setSession((prev) => ({
-      ...prev,
-      sessionToken,
-      isLocked: false,
-      mustCreatePin: false, // ✅ une fois "unlock", on n'est plus en mode "création requise"
-    }));
-  };
-
-  const logout = () => {
-    setSession(DEFAULT_SESSION);
-    localStorage.removeItem(STORAGE_KEY);
-  };
-
-  const isAuthenticated = !!(
-    session.inboxId &&
-    session.sessionToken &&
-    !session.isLocked &&
-    !session.mustCreatePin // ✅ si on doit créer un PIN, on ne considère pas authentifié "normalement"
-  );
-
-  return (
-    <SessionContext.Provider
-      value={{
-        session,
-        setInboxId,
-        setSessionToken,
-        setIsLocked,
-        setIsPinRequired,
-        setMustCreatePin,
-        unlock,
-        logout,
-        isAuthenticated,
-      }}
-    >
-      {children}
-    </SessionContext.Provider>
-  );
-}
-
-export function useSession() {
-  const context = useContext(SessionContext);
-  if (!context) {
-    throw new Error("useSession must be used within SessionProvider");
-  }
-  return context;
 }

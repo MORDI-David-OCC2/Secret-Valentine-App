@@ -19,24 +19,11 @@ interface InboxLinkHandlerProps {
   language: "en" | "fr";
 }
 
-export default function InboxLinkHandler({
-  token,
-  onSuccess,
-  onError,
-  language,
-}: InboxLinkHandlerProps) {
-  const {
-    loading,
-    error,
-    needsPin,
-    inboxId,
-    sessionToken,
-    pinMustBeCreated,
-    needsEmailAssociation,
-  } = useInboxLink(token);
+export default function InboxLinkHandler({ token, onSuccess, onError, language }: InboxLinkHandlerProps) {
+  const { loading, error, needsPin, inboxId, sessionToken, pinMustBeCreated, needsEmailAssociation } = useInboxLink(token);
 
-  // ✅ IMPORTANT: useSession() -> { session, setInboxId, ... }
-  const { session } = useSession();
+  // ✅ on récupère setters ici (IMPORTANT)
+  const { session, setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
 
   const [isImporting, setIsImporting] = useState(false);
 
@@ -71,29 +58,43 @@ export default function InboxLinkHandler({
     [language]
   );
 
-  // ✅ VRAIE condition "logged in"
+  // ✅ “vraiment loggé” = a une session + pas locké
   const isLoggedIn = !!(session.inboxId && session.sessionToken && !session.isLocked);
 
-  // ✅ On propose l'import si:
-  // - user est loggé
-  // - le lien ouvre une autre inbox
+  // ✅ proposer import uniquement si inbox du lien ≠ inbox actuelle
   const shouldOfferImport = !!(isLoggedIn && inboxId && session.inboxId !== inboxId);
 
-  // ✅ Flow normal: si on NE propose pas import -> on continue
+  // ✅ commit session helper (switch to link inbox)
+  const commitLinkSession = () => {
+    if (!inboxId) return;
+
+    setInboxId(inboxId);
+
+    // si sessionToken fourni par openLink (pas de pin) OU setup/reset
+    if (sessionToken) setSessionToken(sessionToken);
+
+    // pinRequired / locked
+    if (pinMustBeCreated) {
+      setIsPinRequired(true);
+      setIsLocked(false);
+    } else if (needsPin) {
+      setIsPinRequired(true);
+      setIsLocked(true);
+    } else {
+      setIsPinRequired(false);
+      setIsLocked(false);
+    }
+  };
+
+  // ✅ Flow normal: si pas d’écran import => on commit puis onSuccess
   useEffect(() => {
     if (!inboxId) return;
     if (shouldOfferImport) return;
 
+    commitLinkSession();
     onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
-  }, [
-    inboxId,
-    shouldOfferImport,
-    needsPin,
-    sessionToken,
-    pinMustBeCreated,
-    needsEmailAssociation,
-    onSuccess,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inboxId, shouldOfferImport]);
 
   const handleImport = async () => {
     if (!session.inboxId || !session.sessionToken) return;
@@ -108,7 +109,7 @@ export default function InboxLinkHandler({
 
       toast.success(t.imported);
 
-      // ✅ Après import => rester sur la boîte courante (celle du user loggé)
+      // ✅ on reste sur l’inbox actuelle (pas celle du lien)
       onSuccess(session.inboxId, false, session.sessionToken, false, false);
     } catch (e: any) {
       toast.error(e?.message || t.importFailed);
@@ -117,18 +118,13 @@ export default function InboxLinkHandler({
     }
   };
 
-  // ✅ Erreur: on affiche l'écran d'erreur (on NE redirige pas tout seul)
   if (error) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8">
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center">
           <div className="text-6xl mb-6">💔</div>
-          <h1 className="font-['Kaushan_Script',sans-serif] text-[32px] text-[#a31e46] mb-4">
-            {t.error}
-          </h1>
-          <p className="font-['Inter',sans-serif] text-[16px] text-[#2d1b1b] mb-8">
-            {error}
-          </p>
+          <h1 className="font-['Kaushan_Script',sans-serif] text-[32px] text-[#a31e46] mb-4">{t.error}</h1>
+          <p className="font-['Inter',sans-serif] text-[16px] text-[#2d1b1b] mb-8">{error}</p>
           <motion.button
             onClick={onError}
             className="bg-[#a31e46] text-white px-8 py-3 rounded-full font-['Inter',sans-serif] font-medium"
@@ -142,7 +138,7 @@ export default function InboxLinkHandler({
     );
   }
 
-  // ✅ Écran de choix import (uniquement si loggé + inbox différente)
+  // ✅ écran import
   if (!loading && shouldOfferImport && inboxId) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8 text-center">
@@ -170,7 +166,10 @@ export default function InboxLinkHandler({
           </button>
 
           <button
-            onClick={() => onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation)}
+            onClick={() => {
+              commitLinkSession();
+              onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
+            }}
             className="mt-3 w-full text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]"
           >
             {t.openSeparateBtn}
@@ -180,7 +179,7 @@ export default function InboxLinkHandler({
     );
   }
 
-  // ✅ Loading screen
+  // ✅ Loading
   return (
     <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center">
       <motion.div
@@ -190,11 +189,7 @@ export default function InboxLinkHandler({
       >
         💌
       </motion.div>
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]"
-      >
+      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]">
         {t.loading}
       </motion.p>
       <motion.div className="flex gap-2 mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>

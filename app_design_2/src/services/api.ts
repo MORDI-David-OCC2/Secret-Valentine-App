@@ -11,7 +11,7 @@ async function postJSON<T>(fnName: string, body: any): Promise<T> {
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+  if (!res.ok) throw new Error((data as any)?.error || `HTTP ${res.status}`);
   return data as T;
 }
 
@@ -47,6 +47,7 @@ export interface VerifyPinResponse {
   sessionToken: string | null;
 }
 export async function verifyPin(inboxId: string, pin: string): Promise<VerifyPinResponse> {
+  // backend expects { mode:"verify" }
   return postJSON("verifyPin", { inboxId, pin, mode: "verify" });
 }
 
@@ -61,8 +62,8 @@ export async function setPin(inboxId: string, pin: string | null, sessionToken: 
 }
 
 // ---------------- CLAIM EMAIL (attach inbox to email) ----------------
-export async function claimEmail(args: { inboxId: string; sessionToken: string; email: string }) {
-  return postJSON<{ ok: true }>("claimEmail", args);
+export async function claimEmail(args: { inboxId: string; sessionToken: string; email: string }): Promise<{ ok: true }> {
+  return postJSON("claimEmail", args);
 }
 
 // ---------------- LIST INBOX ----------------
@@ -112,7 +113,6 @@ export interface GetMessageResponse {
   message: MessageDetail;
   replies: MessageReply[];
 }
-
 export async function getMessage(inboxId: string, messageId: string, sessionToken: string): Promise<GetMessageResponse> {
   return postJSON("getMessage", { inboxId, messageId, sessionToken });
 }
@@ -122,8 +122,13 @@ export type DeliveryMode = "email" | "share" | "instagram";
 
 export interface SendMessageRequest {
   deliveryMode: DeliveryMode;
+
+  // email
   toEmail?: string;
+
+  // instagram (your backend sometimes uses instaHandle or instagramHandle)
   instaHandle?: string;
+  instagramHandle?: string;
 
   fromName: string;
   fromEmail?: string;
@@ -133,8 +138,7 @@ export interface SendMessageRequest {
   stickerId?: string;
   body: string;
 
-  // optional extras you already used elsewhere
-  instagramHandle?: string;
+  // optional extras used in UI
   toNameHint?: string;
 }
 
@@ -152,7 +156,6 @@ export interface SendMessageResponse {
   quarantined?: boolean;
   moderationStatus?: "allow" | "quarantine" | "block";
 }
-
 export async function sendMessage(data: SendMessageRequest): Promise<SendMessageResponse> {
   return postJSON("sendMessage", data);
 }
@@ -172,24 +175,52 @@ export async function savePushSub(params: { inboxId: string; sessionToken: strin
 }
 
 // ---------------- LOGIN BY EMAIL / PIN RESET ----------------
-// Expected shape used by your ClaimInboxPage
+// This is what ClaimInboxPage expects.
 export type RequestLoginLinkResponse =
   | { ok: true; action: "LINK_SENT" }
   | { ok: true; action: "PIN_REQUIRED"; inboxId: string };
 
+// ✅ Robust normalization to avoid "Unexpected response"
 export async function requestLoginLink(email: string): Promise<RequestLoginLinkResponse> {
-  return postJSON("requestLoginLink", { email });
+  const raw = await postJSON<any>("requestLoginLink", { email });
+
+  // If backend already returns the "action" contract:
+  if (raw?.ok === true && raw?.action === "LINK_SENT") return { ok: true, action: "LINK_SENT" };
+  if (raw?.ok === true && raw?.action === "PIN_REQUIRED" && typeof raw?.inboxId === "string") {
+    return { ok: true, action: "PIN_REQUIRED", inboxId: raw.inboxId };
+  }
+
+  // If backend returns pinRequired/inboxId style:
+  if (raw?.ok === true && raw?.pinRequired === true && typeof raw?.inboxId === "string") {
+    return { ok: true, action: "PIN_REQUIRED", inboxId: raw.inboxId };
+  }
+
+  // If backend returns emailed/linkSent booleans:
+  if (raw?.ok === true && (raw?.emailed === true || raw?.linkSent === true)) {
+    return { ok: true, action: "LINK_SENT" };
+  }
+
+  // Last resort: if it didn't throw, still treat as link sent only if nothing indicates PIN required
+  if (raw?.ok === true) return { ok: true, action: "LINK_SENT" };
+
+  throw new Error(raw?.error || "Unexpected response from requestLoginLink");
 }
 
 export async function requestPinReset(email: string): Promise<{ ok: true }> {
   return postJSON("requestPinReset", { email });
 }
 
-// ---------------- UNLOCK (wrapper) ----------------
+// ---------------- UNLOCK (used by ClaimInboxPage) ----------------
 // Your ClaimInboxPage calls unlockInboxWithPin(inboxId, pin)
-// We implement it using verifyPin (same backend behavior).
-export async function unlockInboxWithPin(inboxId: string, pin: string): Promise<{ ok: true; inboxId: string; sessionToken: string }> {
+export async function unlockInboxWithPin(
+  inboxId: string,
+  pin: string
+): Promise<{ ok: true; inboxId: string; sessionToken: string }> {
   const res = await verifyPin(inboxId, pin);
-  if (!res?.sessionToken) throw new Error("No session token");
+
+  if (!res?.ok) throw new Error("Unlock failed");
+  if (!res.verified) throw new Error("Wrong PIN");
+  if (!res.sessionToken) throw new Error("No session token");
+
   return { ok: true, inboxId, sessionToken: res.sessionToken };
 }

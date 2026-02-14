@@ -1,3 +1,4 @@
+// src/hooks/useInboxLink.ts
 import { useEffect, useState } from "react";
 import { openLink } from "../services/api";
 import { useSession } from "../contexts/SessionContext";
@@ -6,19 +7,12 @@ interface UseInboxLinkResult {
   loading: boolean;
   error: string | null;
 
-  // if pin exists => user must enter pin
   needsPin: boolean;
-
-  // inbox info
   inboxId: string | null;
 
-  // session token (only when backend created one for setup/pin reset)
   sessionToken: string | null;
-
-  // true when user MUST create a PIN now (first time or pin reset)
   pinMustBeCreated: boolean;
 
-  // NEW: show email field in FirstPinSetup (share/instagram)
   needsEmailAssociation: boolean;
 }
 
@@ -31,7 +25,6 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
 
   const [sessionTokenState, setSessionTokenState] = useState<string | null>(null);
   const [inboxIdState, setInboxIdState] = useState<string | null>(null);
-
   const [needsEmailAssociation, setNeedsEmailAssociation] = useState(false);
 
   const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
@@ -43,7 +36,6 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
       setLoading(true);
       setError(null);
 
-      // reset
       setNeedsPin(false);
       setPinMustBeCreated(false);
       setSessionTokenState(null);
@@ -56,32 +48,25 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
         setInboxId(res.inboxId);
         setInboxIdState(res.inboxId);
 
-        // pin exists?
-        setIsPinRequired(res.pinRequired);
-
-        // NEW
+        setIsPinRequired(!!res.pinRequired);
         setNeedsEmailAssociation(!!res.needsEmailAssociation);
 
-        // If backend says user must create pin (first time OR pin_reset)
+        // 1) First setup / pin reset => go FirstPinSetup, NOT locked
         if (res.pinMustBeCreated) {
           setPinMustBeCreated(true);
-
-          // backend should always provide a sessionToken for setup/reset
           setSessionTokenState(res.sessionToken || null);
-
-          // allow setup page (not locked)
           setIsLocked(false);
           return;
         }
 
-        // Otherwise, pin exists => locked until pin entry
+        // 2) PIN exists => go PinEntryScreen, locked
         if (res.pinRequired) {
           setNeedsPin(true);
           setIsLocked(true);
           return;
         }
 
-        // No pin required => direct access (should come with sessionToken)
+        // 3) No PIN required => direct session
         if (res.sessionToken) {
           setSessionToken(res.sessionToken);
           setSessionTokenState(res.sessionToken);
@@ -89,7 +74,6 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
           return;
         }
 
-        // fallback
         throw new Error("Unexpected link state");
       } catch (e: any) {
         console.error("openLink error:", e);
@@ -100,7 +84,7 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
     };
 
     run();
-  }, [token]);
+  }, [token, setInboxId, setIsLocked, setIsPinRequired, setSessionToken]);
 
   return {
     loading,

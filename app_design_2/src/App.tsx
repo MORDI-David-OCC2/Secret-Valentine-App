@@ -322,7 +322,7 @@ function AppContent() {
                 setPage("first-pin");
               }}
               language={language}
-              onNavigate={(page) => 
+              onNavigate={(page) =>{
                 if (page === "letters" && pendingLinkToken) {
                   setLinkToken(pendingLinkToken);
                   setPage("inbox-link");

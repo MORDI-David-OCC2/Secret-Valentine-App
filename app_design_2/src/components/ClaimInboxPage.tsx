@@ -137,7 +137,7 @@ export default function ClaimInboxPage({
 
     // CREATE MODE: create account -> optional import -> go letters
     if (mode === "create") {
-      if (pin.trim().length < 6) {
+      if (password.trim().length < 6) {
         toast.error(t.weakPassword);
         return;
       }

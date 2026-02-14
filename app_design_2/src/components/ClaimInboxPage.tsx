@@ -334,7 +334,7 @@ export default function ClaimInboxPage({
             <div>
               <p className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.passwordLabel}</p>
               <input
-                type="password"
+                type="pin"
                 value={pin}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t.passwordPlaceholder}

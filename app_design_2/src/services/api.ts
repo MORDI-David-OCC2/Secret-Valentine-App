@@ -326,30 +326,6 @@ export async function claimEmail(args: { inboxId: string; sessionToken: string; 
   return data;
 }
 
-export async function requestLoginLink(email: string): Promise<{ ok: true; action: "LINK_SENT" } | { ok: true; action: "PIN_REQUIRED"; inboxId: string }> {
-  const res = await fetch("/.netlify/functions/requestLoginLink", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed");
-  return data;
-}
-
-export async function requestPinReset(email: string): Promise<{ ok: true; action: "RESET_SENT" }> {
-  const res = await fetch("/.netlify/functions/requestPinReset", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed");
-  return data;
-}
-
 // src/services/api.ts
 
 const FN_BASE =

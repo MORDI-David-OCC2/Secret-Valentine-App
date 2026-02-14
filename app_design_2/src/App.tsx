@@ -191,32 +191,40 @@ function AppContent() {
   if (currentPage === "inbox-link" && linkToken) {
     return (
       <InboxLinkHandler
-        token={linkToken}
-        onSuccess={() => {
-          // ✅ Import success or same inbox -> go letters
-          setLinkToken(null);
-          setPendingLinkToken(null);
-          setPage("letters");
-        }}
-        onError={() => {
-          setLinkToken(null);
-          setPendingLinkToken(null);
-          setPage("home");
-        }}
-        onGoToLogin={() => {
-          setPendingLinkToken(linkToken);
-          setLinkToken(null);
-          setClaimMode("login");
-          setPage("claim");
-        }}
-        onGoToCreate={() => {
-          setPendingLinkToken(linkToken);
-          setLinkToken(null);
-          setClaimMode("create");
-          setPage("claim");
-        }}
-        language={language}
-      />
+  token={linkToken}
+  onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
+    setLinkToken(null);
+    setPendingLinkToken(null);
+
+    if (pinMustBeCreated && sessionToken) {
+      setTempInboxId(inboxId);
+      setTempSessionToken(sessionToken);
+      setTempNeedsEmailAssociation(!!needsEmailAssociation);
+      setPage("first-pin");
+    } else if (needsPin) {
+      setPage("pin");
+    } else {
+      setPage("letters");
+    }
+  }}
+  onError={() => {
+    setLinkToken(null);
+    setPendingLinkToken(null);
+    setPage("home");
+  }}
+  onGoToLogin={() => {
+    setPendingLinkToken(linkToken);
+    setLinkToken(null);
+    setPage("claim");
+  }}
+  onGoToCreate={() => {
+    setPendingLinkToken(linkToken);
+    setLinkToken(null);
+    setPage("claim");
+  }}
+  language={language}
+/>
+
     );
   }
 

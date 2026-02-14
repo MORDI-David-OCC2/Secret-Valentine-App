@@ -1,4 +1,5 @@
-import { useMemo, useState, useCallback } from "react";
+// src/components/InboxLinkHandler.tsx
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import { useInboxLink } from "../hooks/useInboxLink";
@@ -8,7 +9,6 @@ import AppFrame from "./ui/AppFrame";
 
 interface InboxLinkHandlerProps {
   token: string;
-
   onSuccess: (
     inboxId: string,
     needsPin: boolean,
@@ -16,24 +16,12 @@ interface InboxLinkHandlerProps {
     pinMustBeCreated: boolean,
     needsEmailAssociation: boolean
   ) => void;
-
   onError: () => void;
-
-  // ✅ new: go to login/create directly (not Home)
-  onGoToLogin: () => void;
-  onGoToCreate: () => void;
-
+  onGoToLogin: () => void;   // ✅ NEW
+  onGoToCreate: () => void;  // ✅ NEW
   language: "en" | "fr";
 }
 
-/**
- * HUB du lien:
- * - Toujours affiché après résolution du token
- * - 3 actions:
- *   - Add to my current inbox (si session active)
- *   - Log in
- *   - Create my inbox
- */
 export default function InboxLinkHandler({
   token,
   onSuccess,
@@ -42,74 +30,149 @@ export default function InboxLinkHandler({
   onGoToCreate,
   language,
 }: InboxLinkHandlerProps) {
-  const { loading, error, inboxId } = useInboxLink(token);
+  const {
+    loading,
+    error,
+    inboxId,
+    needsPin,
+    sessionToken,
+    pinMustBeCreated,
+    needsEmailAssociation,
+    deliveryMode,
+  } = useInboxLink(token);
 
-  const { session } = useSession();
+  const {
+    session,
+    isAuthenticated,
+    setInboxId,
+    setSessionToken,
+    setIsLocked,
+    setIsPinRequired,
+    setMustCreatePin,
+  } = useSession();
+
   const [isImporting, setIsImporting] = useState(false);
 
   const t = useMemo(
     () =>
       ({
         en: {
-          loading: "Opening your link…",
+          loading: "Opening…",
           errorTitle: "Invalid or expired link",
-          tryAgain: "Return to home",
+          tryAgain: "Back",
 
-          hubTitle: "What do you want to do?",
-          hubSubtitle: "Choose how you’d like to handle this letter.",
+          title: "What do you want to do?",
+          subtitle: "Choose how you'd like to open this letter.",
 
-          importToMine: "Add this letter to my current inbox",
-          importToMineHint: "Keep everything in one place (recommended).",
+          importToMine: "Add to my current inbox",
+          importHint: "Keep everything in one place (recommended).",
           importing: "Adding…",
           importDone: "Added to your inbox ✅",
-          noActiveSession: "No active inbox found on this device.",
-          sameInbox: "This link already targets your current inbox.",
+          importFailed: "Import failed",
+          noActiveSession: "No active inbox on this device.",
 
           login: "Log in to my inbox",
-          loginHint: "Access your existing inbox (PIN / link).",
+          loginHint: "Use my email / PIN to access my inbox.",
 
           create: "Create my inbox",
-          createHint: "Create an inbox and set up your PIN.",
+          createHint: "Create an inbox with email + password.",
         },
         fr: {
-          loading: "Ouverture du lien…",
+          loading: "Ouverture…",
           errorTitle: "Lien invalide ou expiré",
-          tryAgain: "Retour à l'accueil",
+          tryAgain: "Retour",
 
-          hubTitle: "Que veux-tu faire ?",
-          hubSubtitle: "Choisis comment tu veux gérer ce message.",
+          title: "Que veux-tu faire ?",
+          subtitle: "Choisis comment tu veux ouvrir ce message.",
 
-          importToMine: "Ajouter ce message à ma boîte actuelle",
-          importToMineHint: "Tout garder au même endroit (recommandé).",
+          importToMine: "Ajouter à ma boîte actuelle",
+          importHint: "Tout garder au même endroit (recommandé).",
           importing: "Ajout…",
           importDone: "Ajouté à ta boîte ✅",
-          noActiveSession: "Aucune boîte active trouvée sur cet appareil.",
-          sameInbox: "Ce lien pointe déjà vers ta boîte actuelle.",
+          importFailed: "Échec de l’import",
+          noActiveSession: "Aucune boîte active sur cet appareil.",
 
           login: "Me connecter à ma boîte",
-          loginHint: "Accéder à ta boîte existante (PIN / lien).",
+          loginHint: "Accéder via email / PIN.",
 
           create: "Créer ma boîte",
-          createHint: "Créer une boîte et configurer ton PIN.",
+          createHint: "Créer une boîte avec email + mot de passe.",
         },
       }[language]),
     [language]
   );
 
-  const hasActiveSession = !!(session.inboxId && session.sessionToken);
+  const hasActiveSession = !!(session.inboxId && session.sessionToken && isAuthenticated);
+  const sameInboxAsCurrent = !!(hasActiveSession && inboxId && session.inboxId === inboxId);
+
+  // ✅ Hub conditions:
+  // - share/instagram => hub always
+  // - email => hub only if user is already authenticated AND link inbox is different
+  const shouldShowHub =
+    !loading &&
+    !!inboxId &&
+    (deliveryMode !== "email" || (hasActiveSession && !sameInboxAsCurrent));
+
   const canImport = !!(hasActiveSession && inboxId && session.inboxId && session.inboxId !== inboxId);
 
-  const handleImport = useCallback(async () => {
-    if (!session.inboxId || !session.sessionToken) {
-      toast.error(t.noActiveSession);
-      return;
-    }
+  const applyLinkedInboxToSession = useCallback(() => {
     if (!inboxId) return;
 
-    if (session.inboxId === inboxId) {
-      toast.message(t.sameInbox);
-      // si tu veux: open letters directly
-      onSuccess(session.inboxId, false, session.sessionToken, false, false);
+    setInboxId(inboxId);
+    setIsPinRequired(!!needsPin);
+    setMustCreatePin(!!pinMustBeCreated);
+
+    if (pinMustBeCreated) {
+      setSessionToken(sessionToken || null);
+      setIsLocked(false);
+      return;
+    }
+
+    if (needsPin) {
+      setSessionToken(null);
+      setIsLocked(true);
+      return;
+    }
+
+    setSessionToken(sessionToken || null);
+    setIsLocked(false);
+  }, [
+    inboxId,
+    needsPin,
+    pinMustBeCreated,
+    sessionToken,
+    setInboxId,
+    setIsPinRequired,
+    setMustCreatePin,
+    setSessionToken,
+    setIsLocked,
+  ]);
+
+  // ✅ Auto-open (NO HUB) for email links when user isn't logged in OR same inbox
+  useEffect(() => {
+    if (!inboxId) return;
+    if (loading) return;
+    if (error) return;
+    if (shouldShowHub) return;
+
+    applyLinkedInboxToSession();
+    onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
+  }, [
+    inboxId,
+    loading,
+    error,
+    shouldShowHub,
+    applyLinkedInboxToSession,
+    onSuccess,
+    needsPin,
+    sessionToken,
+    pinMustBeCreated,
+    needsEmailAssociation,
+  ]);
+
+  const handleImport = useCallback(async () => {
+    if (!canImport) {
+      toast.error(hasActiveSession ? t.importFailed : t.noActiveSession);
       return;
     }
 
@@ -117,47 +180,48 @@ export default function InboxLinkHandler({
     try {
       await importLinkToInbox({
         token,
-        destInboxId: session.inboxId,
-        destSessionToken: session.sessionToken,
+        destInboxId: session.inboxId!,
+        destSessionToken: session.sessionToken!,
       });
+
       toast.success(t.importDone);
-      onSuccess(session.inboxId, false, session.sessionToken, false, false);
+      // rester sur la boîte courante
+      onSuccess(session.inboxId!, false, session.sessionToken!, false, false);
     } catch (e: any) {
-      toast.error(e?.message || "Import failed");
+      toast.error(e?.message || t.importFailed);
     } finally {
       setIsImporting(false);
     }
-  }, [session.inboxId, session.sessionToken, inboxId, token, onSuccess, t.noActiveSession, t.importDone, t.sameInbox]);
+  }, [canImport, hasActiveSession, onSuccess, session.inboxId, session.sessionToken, t.importDone, t.importFailed, t.noActiveSession, token]);
 
-  // Error screen
   if (error) {
     return (
-      <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8">
-        <motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center max-w-[420px]">
-          <div className="text-6xl mb-6">💔</div>
-          <h1 className="font-['Playfair_Display',serif] italic font-bold text-[28px] text-[#a31e46] mb-3">
+      <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex items-center justify-center px-6">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[420px] text-center">
+          <div className="text-6xl mb-5">💔</div>
+          <h1 className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)]">
             {t.errorTitle}
           </h1>
-          <p className="font-['Inter',sans-serif] text-[15px] text-[#2d1b1b] mb-8">{String(error)}</p>
-          <motion.button
+          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
+            {String(error)}
+          </p>
+          <button
             onClick={onError}
-            className="bg-[#a31e46] text-white px-8 py-3 rounded-full font-['Inter',sans-serif] font-medium"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className="mt-7 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
+                       bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] transition active:scale-[0.99] text-white"
           >
-            {t.tryAgain}
-          </motion.button>
+            <div className="font-['Playfair_Display',serif] text-[18px] font-bold leading-tight">{t.tryAgain}</div>
+          </button>
         </motion.div>
       </div>
     );
   }
 
-  // Loading
   if (loading || !inboxId) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center">
         <motion.div
-          animate={{ scale: [1, 1.15, 1], rotate: [0, 10, -10, 0] }}
+          animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           className="text-8xl mb-8"
         >
@@ -170,78 +234,91 @@ export default function InboxLinkHandler({
     );
   }
 
-  // HUB (styled like other pages)
-  return (
-    <AppFrame>
-      <div className="flex min-h-[70vh] items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-[420px] text-center"
-        >
-          <div className="text-6xl mb-4">💌</div>
+  // ✅ HUB (only when needed)
+  if (shouldShowHub) {
+    return (
+      <AppFrame>
+        <div className="relative">
+          <motion.button
+            onClick={onError}
+            className="inline-flex items-center gap-3 text-[24px] italic text-[color:var(--text-light)]
+                      font-['Cormorant_Garamond',serif] px-3 py-2 rounded-[14px] bg-white/35 backdrop-blur
+                      border border-white/50 shadow-[0_10px_30px_rgba(180,90,130,.10)] hover:bg-white/45
+                      active:scale-[0.99] transition"
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            whileHover={{ x: -3 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <span className="text-[30px] leading-none">←</span>
+            <span className="leading-none">{language === "fr" ? "Retour" : "Back"}</span>
+          </motion.button>
 
-          <h1 className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)]">
-            {t.hubTitle}
-          </h1>
+          <div className="mt-4 flex flex-col items-center text-center">
+            <div className="text-6xl mb-3">💌</div>
+            <h1 className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)]">
+              {t.title}
+            </h1>
+            <p className="mt-2 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
+              {t.subtitle}
+            </p>
 
-          <p className="mt-2 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
-            {t.hubSubtitle}
-          </p>
-
-          <div className="mt-5 mb-4 flex items-center gap-3 w-full">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
-            <div className="text-[13px] text-[color:var(--rose-deep)]">♥️</div>
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
+            <div className="mt-5 mb-2 flex items-center gap-3 w-full">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
+              <div className="text-[13px] text-[color:var(--rose-deep)]">♥️</div>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
+            </div>
           </div>
 
-          {/* Add to current inbox */}
-          <button
-            onClick={handleImport}
-            disabled={!canImport || isImporting}
-            className="mt-2 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
-                       bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] text-white transition
-                       disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
-          >
-            <div className="font-['Playfair_Display',serif] text-[18px] font-bold leading-tight">
-              {isImporting ? t.importing : t.importToMine}
-            </div>
-            <div className="mt-1 text-[13px] italic text-white/80">{t.importToMineHint}</div>
-            {!hasActiveSession && <div className="mt-2 text-[12px] italic text-white/70">{t.noActiveSession}</div>}
-          </button>
+          <div className="mt-4 space-y-3">
+            {/* Add to my current inbox */}
+            <button
+              onClick={handleImport}
+              disabled={!canImport || isImporting}
+              className="w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
+                        bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] text-white transition
+                        disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
+            >
+              <div className="font-['Playfair_Display',serif] text-[18px] font-bold leading-tight">
+                {isImporting ? t.importing : t.importToMine}
+              </div>
+              <div className="mt-1 text-[13px] italic text-white/80">{t.importHint}</div>
+              {!canImport && (
+                <div className="mt-2 text-[12px] italic text-white/70">
+                  {hasActiveSession ? "" : t.noActiveSession}
+                </div>
+              )}
+            </button>
 
-          {/* Login */}
-          <button
-            onClick={onGoToLogin}
-            className="mt-3 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
-                       bg-white/60 backdrop-blur border border-white/70 transition active:scale-[0.99]"
-          >
-            <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-[color:var(--rose-deep)] leading-tight">
-              {t.login}
-            </div>
-            <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.loginHint}</div>
-          </button>
+            {/* Login */}
+            <button
+              onClick={onGoToLogin}
+              className="w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
+                        bg-white/60 backdrop-blur border border-white/70 transition active:scale-[0.99]"
+            >
+              <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-[color:var(--rose-deep)] leading-tight">
+                {t.login}
+              </div>
+              <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.loginHint}</div>
+            </button>
 
-          {/* Create */}
-          <button
-            onClick={onGoToCreate}
-            className="mt-3 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
-                       bg-white/60 backdrop-blur border border-white/70 transition active:scale-[0.99]"
-          >
-            <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-[color:var(--rose-deep)] leading-tight">
-              {t.create}
-            </div>
-            <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.createHint}</div>
-          </button>
+            {/* Create */}
+            <button
+              onClick={onGoToCreate}
+              className="w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
+                        bg-white/60 backdrop-blur border border-white/70 transition active:scale-[0.99]"
+            >
+              <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-[color:var(--rose-deep)] leading-tight">
+                {t.create}
+              </div>
+              <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.createHint}</div>
+            </button>
+          </div>
+        </div>
+      </AppFrame>
+    );
+  }
 
-          <button
-            onClick={onError}
-            className="mt-5 w-full text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]"
-          >
-            {t.tryAgain}
-          </button>
-        </motion.div>
-      </div>
-    </AppFrame>
-  );
+  // Otherwise: we already auto-opened via useEffect.
+  return null;
 }

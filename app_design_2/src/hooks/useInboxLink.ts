@@ -1,5 +1,8 @@
+// src/hooks/useInboxLink.ts
 import { useEffect, useState } from "react";
 import { openLink } from "../services/api";
+
+type DeliveryMode = "email" | "share" | "instagram";
 
 interface UseInboxLinkResult {
   loading: boolean;
@@ -12,6 +15,7 @@ interface UseInboxLinkResult {
   needsEmailAssociation: boolean;
 
   pinRequired: boolean;
+  deliveryMode: DeliveryMode; // ✅ NEW
 }
 
 export function useInboxLink(token: string | null): UseInboxLinkResult {
@@ -25,6 +29,8 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
   const [inboxIdState, setInboxIdState] = useState<string | null>(null);
   const [needsEmailAssociation, setNeedsEmailAssociation] = useState(false);
   const [pinRequired, setPinRequired] = useState(false);
+
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>("email");
 
   useEffect(() => {
     if (!token) return;
@@ -41,6 +47,7 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
       setInboxIdState(null);
       setNeedsEmailAssociation(false);
       setPinRequired(false);
+      setDeliveryMode("email");
 
       try {
         const res = await openLink(token);
@@ -49,6 +56,7 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
         setInboxIdState(res.inboxId);
         setPinRequired(!!res.pinRequired);
         setNeedsEmailAssociation(!!res.needsEmailAssociation);
+        setDeliveryMode((res.deliveryMode || "email") as DeliveryMode);
 
         if (res.pinMustBeCreated) {
           setPinMustBeCreated(true);
@@ -94,5 +102,6 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
     pinMustBeCreated,
     needsEmailAssociation,
     pinRequired,
+    deliveryMode,
   };
 }

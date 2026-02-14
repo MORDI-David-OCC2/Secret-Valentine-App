@@ -376,7 +376,7 @@ export default function ClaimInboxPage({
               <input
                 type="password"
                 inputMode="numeric"
-                maxLength={4}
+                maxLength={6}
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                 placeholder={t.pinPlaceholder}

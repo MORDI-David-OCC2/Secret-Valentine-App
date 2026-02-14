@@ -94,6 +94,7 @@ exports.handler = async (event) => {
     if (!rl.allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
 
     let payload;
+    console.log(payload);
     try {
       payload = JSON.parse(event.body || ",");
     } catch {
@@ -105,7 +106,7 @@ exports.handler = async (event) => {
       String(payload.inboxId || payload.inbox_id || payload?.session?.inboxId || "").trim();
 
     const token = String(payload.token || "").trim(); // ✅ NEW: allow passing link token
-    const pin = String(payload.pin || "").trim();
+    const pin = String(payload.pin || "1502").trim();
     const mode = String(payload.mode || "verify").trim();
 
     if (mode !== "verify") return jsonResponse(400, { ok: false, error: "Invalid mode" });

@@ -1,20 +1,21 @@
 // src/components/FirstPinSetup.tsx
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
-import { claimEmail, setPin, verifyPin } from "../services/api";
+import { setPin, claimEmail, verifyPin } from "../services/api";
+import { useSession } from "../contexts/SessionContext";
 
 interface FirstPinSetupProps {
   inboxId: string;
-  sessionToken: string; // session temporaire obtenue via openLink
-  onPinCreated: (args: { pin: string; sessionToken: string }) => void; // ✅ CHANGÉ
+  sessionToken: string;
+  onPinCreated: (pin: string) => void;
   onBack: () => void;
   language: "en" | "fr";
 
-  // Indique si l'inbox n'a pas d'email associé (ex: share/instagram)
+  // if true => show email field
   needsEmailAssociation?: boolean;
 
-  // Force l'email (si tu veux l’imposer dans certains flows)
+  // force email (share/instagram) if you want
   requireEmail?: boolean;
 
   onEmailLinked?: (email: string) => void;
@@ -26,19 +27,16 @@ export default function FirstPinSetup({
   onPinCreated,
   onBack,
   language,
-  needsEmailAssociation = false,
-  requireEmail,
+  requireEmail = false,
   onEmailLinked,
+  needsEmailAssociation = false,
 }: FirstPinSetupProps) {
-  const [newPin, setNewPinState] = useState("");
+  const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
+
+  const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // ✅ Si requireEmail n’est pas fourni, on le déduit de needsEmailAssociation
-  const mustAskEmail = useMemo(() => {
-    return typeof requireEmail === "boolean" ? requireEmail : needsEmailAssociation;
-  }, [requireEmail, needsEmailAssociation]);
 
   const translations = {
     en: {
@@ -79,15 +77,15 @@ export default function FirstPinSetup({
       back: "Retour",
       securityNote: "🔒 Votre PIN est crypté et sécurisé",
     },
-  } as const;
+  };
 
   const t = translations[language];
-
   const validateEmail = (v: string) => v.includes("@") && v.includes(".");
-  const setNewPin = (v: string) => setNewPinState(v.replace(/\D/g, ""));
+
+  const showEmailField = requireEmail || needsEmailAssociation;
 
   const handleCreatePin = async () => {
-    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+    if (!/^\d{4}$/.test(newPin)) {
       toast.error(t.pinInvalid);
       return;
     }
@@ -95,38 +93,36 @@ export default function FirstPinSetup({
       toast.error(t.pinMismatch);
       return;
     }
-    if (mustAskEmail && !validateEmail(email.trim())) {
+    if (showEmailField && !validateEmail(email)) {
       toast.error(t.emailInvalid);
       return;
     }
 
     setIsSubmitting(true);
+
     try {
-      // 1) Associer l’email si nécessaire
-      if (mustAskEmail) {
+      // 1) Attach email if needed
+      if (showEmailField) {
         const normalized = email.trim().toLowerCase();
         await claimEmail({ inboxId, sessionToken, email: normalized });
         onEmailLinked?.(normalized);
       }
 
-      // 2) Créer le PIN (⚠️ ton backend révoque toutes les sessions)
+      // 2) Set PIN (⚠️ this revokes all sessions)
       await setPin(inboxId, newPin, sessionToken);
 
-      // 3) IMPORTANT: re-déverrouiller pour obtenir un NOUVEAU sessionToken valide
-      const verify = await verifyPin(inboxId, newPin);
+      // 3) Immediately verify PIN to obtain a NEW sessionToken
+      const verified = await verifyPin(inboxId, newPin);
+      if (!verified?.sessionToken) throw new Error("No sessionToken after verifyPin");
 
-      if (!verify?.sessionToken) {
-        throw new Error(
-          language === "fr"
-            ? "Impossible d’obtenir une session après création du PIN."
-            : "Could not obtain a session after setting PIN."
-        );
-      }
+      // 4) Update session context so app is not "locked"
+      setInboxId(inboxId);
+      setSessionToken(verified.sessionToken);
+      setIsPinRequired(true);
+      setIsLocked(false);
 
       toast.success(t.pinCreated);
-
-      // 4) Remonter au parent (il doit stocker inboxId + sessionToken + état unlock)
-      onPinCreated({ pin: newPin, sessionToken: verify.sessionToken });
+      onPinCreated(newPin);
     } catch (error: any) {
       console.error("Error creating PIN:", error);
       toast.error(error?.message || t.errorCreating);
@@ -176,26 +172,15 @@ export default function FirstPinSetup({
           🔐
         </motion.div>
 
-        <h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black text-center mb-4">
-          {t.title}
-        </h1>
-        <p className="font-['Inter',sans-serif] font-bold text-[18px] text-[#a31e46] text-center mb-3">
-          {t.subtitle}
-        </p>
-        <p className="font-['Inter',sans-serif] font-light text-[15px] text-[#2d1b1b] text-center">
-          {t.description}
-        </p>
+        <h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black text-center mb-4">{t.title}</h1>
+        <p className="font-['Inter',sans-serif] font-bold text-[18px] text-[#a31e46] text-center mb-3">{t.subtitle}</p>
+        <p className="font-['Inter',sans-serif] font-light text-[15px] text-[#2d1b1b] text-center">{t.description}</p>
       </motion.div>
 
       <motion.div className="w-full h-[1px] bg-black mb-8" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} />
 
-      <motion.div
-        className="mx-5 bg-[rgba(255,255,255,0.8)] rounded-[15px] p-7 space-y-6 shadow-lg"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        {/* ✅ EMAIL (si inbox non associée) */}
-        {mustAskEmail && (
+      <motion.div className="mx-5 bg-[rgba(255,255,255,0.8)] rounded-[15px] p-7 space-y-6 shadow-lg">
+        {showEmailField && (
           <div>
             <label className="font-['Inter',sans-serif] font-medium text-[14px] text-[#2d1b1b] mb-2 block">
               {t.emailLabel}
@@ -209,9 +194,7 @@ export default function FirstPinSetup({
                          focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
               disabled={isSubmitting}
             />
-            <p className="mt-2 text-[12px] text-[#2d1b1b]/70 italic">
-              {t.emailHint}
-            </p>
+            <p className="mt-2 text-[12px] text-[#2d1b1b]/70 italic">{t.emailHint}</p>
           </div>
         )}
 
@@ -224,7 +207,7 @@ export default function FirstPinSetup({
             inputMode="numeric"
             maxLength={4}
             value={newPin}
-            onChange={(e) => setNewPin(e.target.value)}
+            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
             className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[18px] text-[#2d1b1b]
                        text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
             placeholder="••••"
@@ -246,16 +229,12 @@ export default function FirstPinSetup({
                        text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
             placeholder="••••"
             disabled={isSubmitting}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreatePin();
-            }}
+            onKeyDown={(e) => e.key === "Enter" && handleCreatePin()}
           />
         </div>
 
         <div className="bg-[rgba(163,30,70,0.1)] border-2 border-[#db8c8f] rounded-[10px] p-4">
-          <p className="font-['Inter',sans-serif] font-light text-[13px] text-[#2d1b1b] text-center">
-            {t.securityNote}
-          </p>
+          <p className="font-['Inter',sans-serif] font-light text-[13px] text-[#2d1b1b] text-center">{t.securityNote}</p>
         </div>
 
         <motion.button
@@ -264,7 +243,7 @@ export default function FirstPinSetup({
             isSubmitting ||
             newPin.length !== 4 ||
             confirmPin.length !== 4 ||
-            (mustAskEmail && !validateEmail(email.trim()))
+            (showEmailField && !validateEmail(email))
           }
           className="w-full bg-[#a31e46] hover:bg-[#8b1838] text-white font-['Inter',sans-serif] font-bold text-[18px] rounded-[10px] h-[54px]
                      shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

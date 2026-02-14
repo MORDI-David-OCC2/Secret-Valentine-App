@@ -59,7 +59,7 @@ function AppContent() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [tempInboxId, setTempInboxId] = useState<string | null>(null);
   const [tempSessionToken, setTempSessionToken] = useState<string | null>(null);
-
+  const [tempNeedsEmailAssociation, setTempNeedsEmailAssociation] = useState(false);
   const [navDir, setNavDir] = useState<NavDir>("forward");
   const prevDepthRef = useMemo(() => ({ depth: PAGE_DEPTH[currentPage] }), []);
 
@@ -197,7 +197,7 @@ function AppContent() {
     return (
       <InboxLinkHandler
         token={linkToken}
-        onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated) => {
+        onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
           setLinkToken(null);
 
           if (pinMustBeCreated && sessionToken) {

@@ -9,7 +9,7 @@ import { useInboxLink } from '../hooks/useInboxLink';
 
 interface InboxLinkHandlerProps {
   token: string;
-  onSuccess: (inboxId: string, needsPin: boolean, sessionToken: string | null, pinMustBeCreated: boolean) => void;
+  onSuccess: (inboxId: string, needsPin: boolean, sessionToken: string | null, pinMustBeCreated: boolean, needsEmailAssociation: boolean) => void;
   onError: () => void;
   language: 'en' | 'fr';
 }

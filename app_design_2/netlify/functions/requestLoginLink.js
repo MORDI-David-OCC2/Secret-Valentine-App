@@ -1,3 +1,4 @@
+// netlify/functions/requestLoginLink.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 
@@ -24,12 +25,11 @@ function initAdmin() {
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
-function isValidEmail(email) {
-  return email.includes("@") && email.includes(".");
-}
+
 function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
+
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
@@ -37,7 +37,6 @@ function randomTokenBase64Url(bytes = 32) {
 function buildBaseUrl(event) {
   const env = process.env.URL_DE_BASE;
   if (env) return String(env).replace(/\/+$/, "");
-
   const proto = event.headers["x-forwarded-proto"] || "https";
   let host = event.headers["x-forwarded-host"] || event.headers.host || "";
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
@@ -47,6 +46,7 @@ function buildBaseUrl(event) {
 async function sendWithResend({ to, subject, html }) {
   const apiKey = process.env.API_EMAIL_KEY;
   const from = process.env.EMAIL_VALENTINE;
+
   if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
   if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
 
@@ -64,17 +64,6 @@ async function sendWithResend({ to, subject, html }) {
   return data;
 }
 
-function simpleLoginEmailHtml(link) {
-  const safe = String(link).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-  return `<!doctype html><html><body style="font-family:Arial;background:#fff5f8;padding:24px;">
-  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:22px;border:1px solid #f0c3d4">
-    <h2 style="margin:0 0 10px;color:#7a1a45;">Your Secret Valentine inbox link 💌</h2>
-    <p style="margin:0 0 16px;color:#5a2d42;">Click the button below to open your inbox.</p>
-    <p><a href="${safe}" style="display:inline-block;background:#7a1a45;color:#fff;text-decoration:none;padding:12px 18px;border-radius:12px;">Open my inbox</a></p>
-    <p style="margin-top:16px;color:#9e6b80;font-size:12px;">Link valid for 7 days.</p>
-  </div></body></html>`;
-}
-
 async function getOrCreateInboxIdForEmail(db, email) {
   const emailHash = sha256Hex(email);
   const emailIndexRef = db.collection("emailIndex").doc(emailHash);
@@ -88,13 +77,11 @@ async function getOrCreateInboxIdForEmail(db, email) {
   const batch = db.batch();
   batch.set(inboxRef, {
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    primaryEmail: email, // 👈 association email dès la création
     pinHash: null,
     pinSalt: null,
     pinIter: null,
     pinSetAt: null,
-    linkedEmailHash: emailHash,
-    linkedEmail: email,
-    linkedEmailAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   batch.set(emailIndexRef, {
     inboxId,
@@ -131,25 +118,17 @@ exports.handler = async (event) => {
     }
 
     const email = normalizeEmail(payload.email);
-    if (!email || !isValidEmail(email)) return jsonResponse(400, { ok: false, error: "Invalid email" });
+    if (!email || !email.includes("@")) return jsonResponse(400, { ok: false, error: "Invalid email" });
 
     const inboxId = await getOrCreateInboxIdForEmail(db, email);
 
-    const inboxSnap = await db.collection("inboxes").doc(inboxId).get();
-    const inbox = inboxSnap.data() || {};
-    const hasPin = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
-
-    // ✅ Si un PIN existe: on NE renvoie PAS de lien ici
-    if (hasPin) {
-      return jsonResponse(200, { ok: true, action: "PIN_REQUIRED", inboxId });
-    }
-
-    // ✅ Si pas de PIN: on envoie un lien d’accès
+    // token "open"
     const token = randomTokenBase64Url(32);
     const tokenHash = sha256Hex(token);
-
     const expiresDays = 7;
-    const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000));
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
+    );
 
     await db.collection("tokens").doc(tokenHash).set({
       inboxId,
@@ -163,11 +142,17 @@ exports.handler = async (event) => {
 
     await sendWithResend({
       to: email,
-      subject: "💌 Your Secret Valentine inbox link",
-      html: simpleLoginEmailHtml(link),
+      subject: "💌 Your private inbox link",
+      html: `
+        <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto;line-height:1.5">
+          <h2>Here’s your private inbox link 💌</h2>
+          <p>This link is valid for 7 days.</p>
+          <p><a href="${link}">Open my inbox</a></p>
+        </div>
+      `,
     });
 
-    return jsonResponse(200, { ok: true, action: "LINK_SENT" });
+    return jsonResponse(200, { ok: true });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

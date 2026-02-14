@@ -9,6 +9,7 @@ interface UseInboxLinkResult {
   inboxId: string | null;
   sessionToken: string | null;
   pinMustBeCreated: boolean;
+  needsEmailAssociation: boolean;
 }
 
 export function useInboxLink(token: string | null): UseInboxLinkResult {
@@ -17,6 +18,7 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
 
   const [needsPin, setNeedsPin] = useState(false);
   const [pinMustBeCreated, setPinMustBeCreated] = useState(false);
+  const [needsEmailAssociation, setNeedsEmailAssociation] = useState(false);
 
   const [sessionTokenState, setSessionTokenState] = useState<string | null>(null);
   const [inboxId, setInboxIdState] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
       try {
         const res = await openLink(token);
 
+        setNeedsEmailAssociation(!!res.needsEmailAssociation);
         setInboxId(res.inboxId);
         setInboxIdState(res.inboxId);
 
@@ -84,5 +87,5 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
     run();
   }, [token]);
 
-  return { loading, error, needsPin, inboxId, sessionToken: sessionTokenState, pinMustBeCreated };
+  return { loading, error, needsPin, inboxId, sessionToken: sessionTokenState, pinMustBeCreated, needsEmailAssociation };
 }

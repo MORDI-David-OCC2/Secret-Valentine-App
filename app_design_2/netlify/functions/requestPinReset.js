@@ -1,3 +1,4 @@
+// netlify/functions/requestPinReset.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 
@@ -24,19 +25,18 @@ function initAdmin() {
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
-function isValidEmail(email) {
-  return email.includes("@") && email.includes(".");
-}
+
 function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
+
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
+
 function buildBaseUrl(event) {
   const env = process.env.URL_DE_BASE;
   if (env) return String(env).replace(/\/+$/, "");
-
   const proto = event.headers["x-forwarded-proto"] || "https";
   let host = event.headers["x-forwarded-host"] || event.headers.host || "";
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
@@ -46,6 +46,7 @@ function buildBaseUrl(event) {
 async function sendWithResend({ to, subject, html }) {
   const apiKey = process.env.API_EMAIL_KEY;
   const from = process.env.EMAIL_VALENTINE;
+
   if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
   if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
 
@@ -63,15 +64,11 @@ async function sendWithResend({ to, subject, html }) {
   return data;
 }
 
-function resetEmailHtml(link) {
-  const safe = String(link).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-  return `<!doctype html><html><body style="font-family:Arial;background:#fff5f8;padding:24px;">
-  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:22px;border:1px solid #f0c3d4">
-    <h2 style="margin:0 0 10px;color:#7a1a45;">Reset your inbox PIN 🔐</h2>
-    <p style="margin:0 0 16px;color:#5a2d42;">Click below to set a new PIN for your inbox.</p>
-    <p><a href="${safe}" style="display:inline-block;background:#7a1a45;color:#fff;text-decoration:none;padding:12px 18px;border-radius:12px;">Reset my PIN</a></p>
-    <p style="margin-top:16px;color:#9e6b80;font-size:12px;">Link valid for 30 minutes.</p>
-  </div></body></html>`;
+async function getInboxIdByEmail(db, email) {
+  const emailHash = sha256Hex(email);
+  const snap = await db.collection("emailIndex").doc(emailHash).get();
+  if (!snap.exists) return null;
+  return snap.data().inboxId;
 }
 
 exports.handler = async (event) => {
@@ -100,20 +97,18 @@ exports.handler = async (event) => {
     }
 
     const email = normalizeEmail(payload.email);
-    if (!email || !isValidEmail(email)) return jsonResponse(400, { ok: false, error: "Invalid email" });
+    if (!email || !email.includes("@")) return jsonResponse(400, { ok: false, error: "Invalid email" });
 
-    const emailHash = sha256Hex(email);
-    const emailIndexSnap = await db.collection("emailIndex").doc(emailHash).get();
-    if (!emailIndexSnap.exists) return jsonResponse(404, { ok: false, error: "No inbox for this email" });
-
-    const inboxId = (emailIndexSnap.data() || {}).inboxId;
+    const inboxId = await getInboxIdByEmail(db, email);
     if (!inboxId) return jsonResponse(404, { ok: false, error: "No inbox for this email" });
 
-    // Token court (30 min) pour reset PIN
+    // token "pin_reset"
     const token = randomTokenBase64Url(32);
     const tokenHash = sha256Hex(token);
-
-    const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 60 * 1000));
+    const expiresDays = 1; // reset plus court = mieux
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
+    );
 
     await db.collection("tokens").doc(tokenHash).set({
       inboxId,
@@ -127,11 +122,17 @@ exports.handler = async (event) => {
 
     await sendWithResend({
       to: email,
-      subject: "🔐 Reset your Secret Valentine PIN",
-      html: resetEmailHtml(link),
+      subject: "🔐 Reset your inbox PIN",
+      html: `
+        <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto;line-height:1.5">
+          <h2>Reset your inbox PIN 🔐</h2>
+          <p>This link is valid for 24 hours.</p>
+          <p><a href="${link}">Reset my PIN</a></p>
+        </div>
+      `,
     });
 
-    return jsonResponse(200, { ok: true, action: "RESET_SENT" });
+    return jsonResponse(200, { ok: true });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

@@ -349,3 +349,40 @@ export async function requestPinReset(email: string): Promise<{ ok: true; action
   if (!res.ok) throw new Error(data?.error || "Failed");
   return data;
 }
+
+// src/services/api.ts
+
+const FN_BASE =
+  (import.meta as any).env?.DEV
+    ? "http://localhost:8888/.netlify/functions"
+    : "/.netlify/functions";
+
+async function postJSON<T>(fnName: string, body: any): Promise<T> {
+  const res = await fetch(`${FN_BASE}/${fnName}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+  return data as T;
+}
+
+/** ✅ 1) Unlock with PIN (needed by ClaimInboxPage import) */
+export async function unlockInboxWithPin(params: {
+  inboxId: string;
+  pin: string;
+}): Promise<{ ok: true; inboxId: string; sessionToken: string }> {
+  return postJSON("unlockInboxWithPin", params);
+}
+
+/** ✅ 2) Request a login link by email */
+export async function requestLoginLink(email: string): Promise<{ ok: true }> {
+  return postJSON("requestLoginLink", { email });
+}
+
+/** ✅ 3) Request a PIN reset link by email */
+export async function requestPinReset(email: string): Promise<{ ok: true }> {
+  return postJSON("requestPinReset", { email });
+}

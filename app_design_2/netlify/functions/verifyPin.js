@@ -30,9 +30,9 @@ function getClientIp(event) {
   return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
-function pbkdf2Hash(password, saltHex, iterations = 150000) {
+function pbkdf2Hash(pin, saltHex, iterations = 150000) {
   const salt = Buffer.from(String(saltHex || ""), "hex");
-  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
+  const dk = crypto.pbkdf2Sync(String(pin), salt, iterations, 32, "sha256");
   return dk.toString("hex");
 }
 
@@ -154,7 +154,7 @@ exports.handler = async (event) => {
       return jsonResponse(200, { ok: true, verified: true, pinRequired: false, inboxId, sessionToken });
     }
 
-    const computed = pbkdf2Hash(password, d.passSalt, d.passIter);
+    const computed = pbkdf2Hash(pin, d.passSalt, d.passIter);
     const ok = timingSafeEqualHex(computed, d.passHash);
     if (!ok) return jsonResponse(401, { ok: false, error: "Incorrect PIN", pinRequired: true });
 

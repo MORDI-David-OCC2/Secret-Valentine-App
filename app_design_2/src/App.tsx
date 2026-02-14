@@ -331,7 +331,7 @@ function AppContent() {
             transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
             style={{ height: "100%" }}
           >
-            <PinEntryScreen correctPin={pinCode!} onSuccess={handlePinSuccess} onBack={() => setPage("home")} language={language} />
+            <PinEntryScreen onSuccess={handlePinSuccess} onBack={() => setPage("home")} language={language} />
           </motion.div>
         )}
 

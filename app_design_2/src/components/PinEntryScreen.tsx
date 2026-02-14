@@ -32,27 +32,47 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const translations = {
-    en: { title: "Enter PIN", subtitle: "Enter your 4-digit PIN to access your letters", incorrectPin: "Incorrect PIN. Try again.", back: "Back" },
-    fr: { title: "Entrez le PIN", subtitle: "Entrez votre code PIN à 4 chiffres pour accéder à vos lettres", incorrectPin: "PIN incorrect. Réessayez.", back: "Retour" },
+    en: {
+      title: "Enter PIN",
+      subtitle: "Enter your 4-digit PIN to access your letters",
+      incorrectPin: "Incorrect PIN. Try again.",
+      missingInbox: "Missing inbox id (open a link or login first).",
+      back: "Back",
+    },
+    fr: {
+      title: "Entrez le PIN",
+      subtitle: "Entrez votre code PIN à 4 chiffres pour accéder à vos lettres",
+      incorrectPin: "PIN incorrect. Réessayez.",
+      missingInbox: "InboxId manquant (ouvre un lien ou connecte-toi d’abord).",
+      back: "Retour",
+    },
   };
+
   const t = translations[language];
 
-  const submitPin = async (value: string) => {
+  const submitPin = async (pinValue: string) => {
     if (!inboxId) {
-      toast.error(language === "fr" ? "Boîte introuvable (inboxId)" : "Missing inboxId");
+      toast.error(t.missingInbox);
       return;
     }
 
     setIsSubmitting(true);
-    try {
-      const res = await verifyPin(inboxId, value);
-      if (!res?.sessionToken) throw new Error("No session token");
+    setError(false);
 
+    try {
+      const res = await verifyPin(inboxId, pinValue);
+
+      if (!res?.sessionToken) {
+        throw new Error("No sessionToken");
+      }
+
+      // ✅ unlock app session
       setSessionToken(res.sessionToken);
       setIsPinRequired(true);
       setIsLocked(false);
 
-      onSuccess();
+      // little success delay for UI
+      setTimeout(() => onSuccess(), 250);
     } catch (e: any) {
       setError(true);
       toast.error(e?.message || t.incorrectPin);
@@ -70,11 +90,13 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
     setPin(newPin);
     setError(false);
 
-    if (newPin.length === 4) submitPin(newPin);
+    if (newPin.length === 4 && !isSubmitting) {
+      submitPin(newPin);
+    }
   };
 
   const handleNumberPad = (num: string) => {
-    if (isSubmitting) return;
+    if (isSubmitting || error) return;
     if (pin.length < 4) handlePinChange(pin + num);
   };
 
@@ -88,10 +110,20 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
     <div className="bg-[rgba(246,193,208,0.71)] relative min-h-screen w-full flex flex-col items-center justify-center px-5">
       <motion.button
         onClick={onBack}
-        className="inline-flex items-center gap-3 text-[24px] italic text-[color:var(--text-light)]
-                   font-['Cormorant_Garamond',serif] px-3 py-2 rounded-[14px] bg-white/35 backdrop-blur
-                   border border-white/50 shadow-[0_10px_30px_rgba(180,90,130,.10)] hover:bg-white/45
-                   active:scale-[0.99] transition"
+        className="
+          inline-flex items-center gap-3
+          text-[24px] italic
+          text-[color:var(--text-light)]
+          font-['Cormorant_Garamond',serif]
+          px-3 py-2
+          rounded-[14px]
+          bg-white/35 backdrop-blur
+          border border-white/50
+          shadow-[0_10px_30px_rgba(180,90,130,.10)]
+          hover:bg-white/45
+          active:scale-[0.99]
+          transition
+        "
         initial={{ opacity: 0, x: -12 }}
         animate={{ opacity: 1, x: 0 }}
         whileHover={{ x: -3 }}
@@ -105,15 +137,25 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         <LockIcon />
       </motion.div>
 
-      <motion.h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black mt-6 mb-2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+      <motion.h1
+        className="font-['Kaushan_Script',sans-serif] text-[35px] text-black mt-6 mb-2"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
         {t.title}
       </motion.h1>
 
-      <motion.p className="font-['Inter',sans-serif] font-light text-[16px] text-[#2d1b1b] text-center mb-12 max-w-[280px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+      <motion.p
+        className="font-['Inter',sans-serif] font-light text-[16px] text-[#2d1b1b] text-center mb-12 max-w-[280px]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
+      >
         {t.subtitle}
       </motion.p>
 
-      <motion.div className="flex gap-4 mb-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+      <motion.div className="flex gap-4 mb-3" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
         {[0, 1, 2, 3].map((index) => (
           <motion.div
             key={index}
@@ -133,8 +175,14 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
       </motion.div>
 
       {isSubmitting && (
-        <motion.p className="font-['Inter',sans-serif] text-[14px] text-[#2d1b1b] mb-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          {language === "fr" ? "Vérification..." : "Checking..."}
+        <motion.p className="font-['Inter',sans-serif] text-[13px] text-[#2d1b1b]/70 mb-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {language === "fr" ? "Vérification…" : "Verifying…"}
+        </motion.p>
+      )}
+
+      {error && (
+        <motion.p className="font-['Inter',sans-serif] font-medium text-[14px] text-red-600 mb-4" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+          {t.incorrectPin}
         </motion.p>
       )}
 
@@ -144,7 +192,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
             key={num}
             onClick={() => handleNumberPad(num)}
             className="bg-white/90 rounded-[15px] h-[70px] flex items-center justify-center font-['Inter',sans-serif] font-bold text-[28px] text-[#2d1b1b] shadow-md border-2 border-[#db8c8f]"
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,1)" }}
             whileTap={{ scale: 0.95 }}
             disabled={error || isSubmitting}
           >
@@ -157,7 +205,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         <motion.button
           onClick={() => handleNumberPad("0")}
           className="bg-white/90 rounded-[15px] h-[70px] flex items-center justify-center font-['Inter',sans-serif] font-bold text-[28px] text-[#2d1b1b] shadow-md border-2 border-[#db8c8f]"
-          whileHover={{ scale: 1.05 }}
+          whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,1)" }}
           whileTap={{ scale: 0.95 }}
           disabled={error || isSubmitting}
         >
@@ -167,7 +215,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         <motion.button
           onClick={handleDelete}
           className="bg-[rgba(219,140,143,0.5)] rounded-[15px] h-[70px] flex items-center justify-center font-['Inter',sans-serif] font-bold text-[20px] text-[#2d1b1b] shadow-md border-2 border-[#db8c8f]"
-          whileHover={{ scale: 1.05 }}
+          whileHover={{ scale: 1.05, backgroundColor: "rgba(219,140,143,0.7)" }}
           whileTap={{ scale: 0.95 }}
           disabled={error || isSubmitting}
         >

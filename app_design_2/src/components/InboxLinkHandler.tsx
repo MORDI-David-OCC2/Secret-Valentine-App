@@ -17,8 +17,8 @@ interface InboxLinkHandlerProps {
     needsEmailAssociation: boolean
   ) => void;
   onError: () => void;
-  onGoToLogin: () => void;   // ✅ NEW
-  onGoToCreate: () => void;  // ✅ NEW
+  onGoToLogin: () => void;
+  onGoToCreate: () => void;
   language: "en" | "fr";
 }
 
@@ -59,7 +59,7 @@ export default function InboxLinkHandler({
         en: {
           loading: "Opening…",
           errorTitle: "Invalid or expired link",
-          tryAgain: "Back",
+          back: "Back",
 
           title: "What do you want to do?",
           subtitle: "Choose how you'd like to open this letter.",
@@ -80,7 +80,7 @@ export default function InboxLinkHandler({
         fr: {
           loading: "Ouverture…",
           errorTitle: "Lien invalide ou expiré",
-          tryAgain: "Retour",
+          back: "Retour",
 
           title: "Que veux-tu faire ?",
           subtitle: "Choisis comment tu veux ouvrir ce message.",
@@ -105,9 +105,9 @@ export default function InboxLinkHandler({
   const hasActiveSession = !!(session.inboxId && session.sessionToken && isAuthenticated);
   const sameInboxAsCurrent = !!(hasActiveSession && inboxId && session.inboxId === inboxId);
 
-  // ✅ Hub conditions:
-  // - share/instagram => hub always
-  // - email => hub only if user is already authenticated AND link inbox is different
+  // HUB rules:
+  // - share/instagram => HUB always
+  // - email => HUB only if user is authenticated AND link inbox is different
   const shouldShowHub =
     !loading &&
     !!inboxId &&
@@ -148,11 +148,10 @@ export default function InboxLinkHandler({
     setIsLocked,
   ]);
 
-  // ✅ Auto-open (NO HUB) for email links when user isn't logged in OR same inbox
+  // ✅ AUTO-OPEN only when no hub is needed
   useEffect(() => {
     if (!inboxId) return;
-    if (loading) return;
-    if (error) return;
+    if (loading || error) return;
     if (shouldShowHub) return;
 
     applyLinkedInboxToSession();
@@ -175,7 +174,6 @@ export default function InboxLinkHandler({
       toast.error(hasActiveSession ? t.importFailed : t.noActiveSession);
       return;
     }
-
     setIsImporting(true);
     try {
       await importLinkToInbox({
@@ -185,14 +183,23 @@ export default function InboxLinkHandler({
       });
 
       toast.success(t.importDone);
-      // rester sur la boîte courante
       onSuccess(session.inboxId!, false, session.sessionToken!, false, false);
     } catch (e: any) {
       toast.error(e?.message || t.importFailed);
     } finally {
       setIsImporting(false);
     }
-  }, [canImport, hasActiveSession, onSuccess, session.inboxId, session.sessionToken, t.importDone, t.importFailed, t.noActiveSession, token]);
+  }, [
+    canImport,
+    hasActiveSession,
+    session.inboxId,
+    session.sessionToken,
+    token,
+    onSuccess,
+    t.importDone,
+    t.importFailed,
+    t.noActiveSession,
+  ]);
 
   if (error) {
     return (
@@ -210,7 +217,7 @@ export default function InboxLinkHandler({
             className="mt-7 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
                        bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] transition active:scale-[0.99] text-white"
           >
-            <div className="font-['Playfair_Display',serif] text-[18px] font-bold leading-tight">{t.tryAgain}</div>
+            <div className="font-['Playfair_Display',serif] text-[18px] font-bold leading-tight">{t.back}</div>
           </button>
         </motion.div>
       </div>
@@ -234,7 +241,7 @@ export default function InboxLinkHandler({
     );
   }
 
-  // ✅ HUB (only when needed)
+  // HUB
   if (shouldShowHub) {
     return (
       <AppFrame>
@@ -271,7 +278,6 @@ export default function InboxLinkHandler({
           </div>
 
           <div className="mt-4 space-y-3">
-            {/* Add to my current inbox */}
             <button
               onClick={handleImport}
               disabled={!canImport || isImporting}
@@ -290,7 +296,6 @@ export default function InboxLinkHandler({
               )}
             </button>
 
-            {/* Login */}
             <button
               onClick={onGoToLogin}
               className="w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
@@ -302,7 +307,6 @@ export default function InboxLinkHandler({
               <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.loginHint}</div>
             </button>
 
-            {/* Create */}
             <button
               onClick={onGoToCreate}
               className="w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
@@ -319,6 +323,6 @@ export default function InboxLinkHandler({
     );
   }
 
-  // Otherwise: we already auto-opened via useEffect.
+  // sinon auto-open already happened
   return null;
 }

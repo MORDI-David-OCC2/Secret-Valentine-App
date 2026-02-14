@@ -2,20 +2,18 @@
 import { useEffect, useState } from "react";
 import { openLink } from "../services/api";
 
-type DeliveryMode = "email" | "share" | "instagram";
-
 interface UseInboxLinkResult {
   loading: boolean;
   error: string | null;
 
-  needsPin: boolean;
   inboxId: string | null;
+  needsPin: boolean;
   sessionToken: string | null;
   pinMustBeCreated: boolean;
   needsEmailAssociation: boolean;
 
-  pinRequired: boolean;
-  deliveryMode: DeliveryMode; // ✅ NEW
+  // NEW
+  deliveryMode: "email" | "share" | "instagram";
 }
 
 export function useInboxLink(token: string | null): UseInboxLinkResult {
@@ -28,13 +26,10 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
   const [sessionTokenState, setSessionTokenState] = useState<string | null>(null);
   const [inboxIdState, setInboxIdState] = useState<string | null>(null);
   const [needsEmailAssociation, setNeedsEmailAssociation] = useState(false);
-  const [pinRequired, setPinRequired] = useState(false);
-
-  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>("email");
+  const [deliveryMode, setDeliveryMode] = useState<"email" | "share" | "instagram">("email");
 
   useEffect(() => {
     if (!token) return;
-
     let cancelled = false;
 
     const run = async () => {
@@ -46,7 +41,6 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
       setSessionTokenState(null);
       setInboxIdState(null);
       setNeedsEmailAssociation(false);
-      setPinRequired(false);
       setDeliveryMode("email");
 
       try {
@@ -54,9 +48,8 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
         if (cancelled) return;
 
         setInboxIdState(res.inboxId);
-        setPinRequired(!!res.pinRequired);
+        setDeliveryMode((res.deliveryMode || "email") as any);
         setNeedsEmailAssociation(!!res.needsEmailAssociation);
-        setDeliveryMode((res.deliveryMode || "email") as DeliveryMode);
 
         if (res.pinMustBeCreated) {
           setPinMustBeCreated(true);
@@ -81,7 +74,7 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
       } catch (e: any) {
         if (cancelled) return;
         console.error("openLink error:", e);
-        setError(e?.message || "Lien invalide ou expiré");
+        setError(e?.message || "Invalid or expired link");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -96,12 +89,11 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
   return {
     loading,
     error,
-    needsPin,
     inboxId: inboxIdState,
+    needsPin,
     sessionToken: sessionTokenState,
     pinMustBeCreated,
     needsEmailAssociation,
-    pinRequired,
     deliveryMode,
   };
 }

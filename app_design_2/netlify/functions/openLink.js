@@ -25,20 +25,14 @@ function initAdmin() {
 function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
-
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
-
 function isValidEmail(e) {
   return typeof e === "string" && e.includes("@") && e.includes(".");
 }
 
-/**
- * Creates a session document under:
- * inboxes/{inboxId}/sessions/{sha256(sessionToken)}
- */
-async function createSession(db, inboxRef, inboxId, { days, purpose }) {
+async function createSession(inboxRef, inboxId, { days, purpose }) {
   const sessionToken = randomTokenBase64Url(32);
   const sessionHash = sha256Hex(sessionToken);
 
@@ -56,12 +50,6 @@ async function createSession(db, inboxRef, inboxId, { days, purpose }) {
   return sessionToken;
 }
 
-/**
- * Token purposes:
- * - "open"      : open inbox (if PIN exists => needs PIN; else => create sessionToken)
- * - "pin_reset" : force FirstPinSetup (create sessionToken even if PIN exists)
- * - "open_setup": (optional) same as open but can be used to force setup flow if you want
- */
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
@@ -76,9 +64,8 @@ exports.handler = async (event) => {
       };
     }
 
-    if (event.httpMethod !== "POST") {
+    if (event.httpMethod !== "POST")
       return jsonResponse(405, { ok: false, error: "Use POST" });
-    }
 
     initAdmin();
     const db = admin.firestore();
@@ -93,96 +80,81 @@ exports.handler = async (event) => {
     const token = String(payload.token || "").trim();
     if (!token) return jsonResponse(400, { ok: false, error: "Missing token" });
 
-    // ---- Token lookup
     const tokenHash = sha256Hex(token);
     const tokenRef = db.collection("tokens").doc(tokenHash);
     const tokenSnap = await tokenRef.get();
-    if (!tokenSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
-
-    const tokenData = tokenSnap.data() || {};
-    const purpose = String(tokenData.purpose || "open"); // "open" | "pin_reset" | "open_setup"
-    const deliveryMode = String(tokenData.deliveryMode || "email"); // "email" | "share" | "instagram" (if you store it)
-
-    // Expiration check
-    const expiresAt = tokenData.expiresAt;
-    if (expiresAt && typeof expiresAt.toDate === "function") {
-      const exp = expiresAt.toDate();
-      if (exp < new Date()) {
-        return jsonResponse(401, { ok: false, error: "Link expired" });
-      }
+    if (!tokenSnap.exists) {
+      return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
     }
 
-    const inboxId = String(tokenData.inboxId || "").trim();
-    if (!inboxId.startsWith("inbox_")) {
+    const tokenData = tokenSnap.data() || {};
+
+    // deliveryMode used by frontend hub logic
+    const deliveryMode = String(tokenData.deliveryMode || "email"); // "email" | "share" | "instagram"
+
+    const purpose = String(tokenData.purpose || "open"); // "open" | "pin_reset" | ...
+    const isPinReset = purpose === "pin_reset";
+
+    const expiresAt = tokenData.expiresAt;
+    if (expiresAt && expiresAt.toDate && expiresAt.toDate() < new Date()) {
+      return jsonResponse(401, { ok: false, error: "Link expired" });
+    }
+
+    const inboxId = tokenData.inboxId;
+    if (!inboxId) {
       return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
     }
 
-    // ---- Inbox fetch
     const inboxRef = db.collection("inboxes").doc(inboxId);
     const inboxSnap = await inboxRef.get();
-    if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
+    if (!inboxSnap.exists) {
+      return jsonResponse(404, { ok: false, error: "Inbox not found" });
+    }
 
     const inbox = inboxSnap.data() || {};
 
     // PIN exists?
     const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
 
-    // When to force FirstPinSetup?
-    // - If no PIN exists => must create
-    // - If purpose is pin_reset => must create even if PIN exists
-    // - If purpose is open_setup => also force setup (optional)
-    const isPinReset = purpose === "pin_reset";
-    const forceSetup = purpose === "open_setup";
-    const pinMustBeCreated = !pinRequired || isPinReset || forceSetup;
+    // pin reset forces pin creation flow
+    const pinMustBeCreated = !pinRequired || isPinReset;
 
-    // Email association (for standalone inboxes created via share/instagram)
+    // email association (for share/instagram flows)
     const hasPrimaryEmail = isValidEmail(inbox.primaryEmail);
     const needsEmailAssociation = !hasPrimaryEmail;
 
-    // Session token logic:
-    // - If pinMustBeCreated => create a session token for setup/reset
-    // - Else if pinRequired => user must enter PIN, no sessionToken here
-    // - Else (no PIN) already handled by pinMustBeCreated = true above
+    // ✅ CRITICAL: always provide a sessionToken when link can open inbox without PIN
+    // - if pin must be created => session for setup
+    // - else if pinRequired => no session (user must verify PIN)
+    // - else (no PIN) => create "open" session
     let sessionToken = null;
+
     if (pinMustBeCreated) {
-      sessionToken = await createSession(db, inboxRef, inboxId, {
-        // pin reset sessions are short-lived; open/setup a bit longer
+      sessionToken = await createSession(inboxRef, inboxId, {
         days: isPinReset ? 1 : 7,
         purpose: isPinReset ? "pin_reset" : "open_setup",
       });
+    } else if (!pinRequired) {
+      sessionToken = await createSession(inboxRef, inboxId, {
+        days: 7,
+        purpose: "open",
+      });
     }
 
-    // Mark activation + basic token usage telemetry (non-blocking / merge)
-    // NOTE: we DO NOT delete the token (so the same link can be reopened until expiry).
     await inboxRef.set(
       { activatedAt: admin.firestore.FieldValue.serverTimestamp() },
-      { merge: true }
-    );
-    await tokenRef.set(
-      {
-        lastOpenedAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastOpenedInboxId: inboxId,
-      },
       { merge: true }
     );
 
     return jsonResponse(200, {
       ok: true,
       inboxId,
-
-      // IMPORTANT flags for client routing
+      deliveryMode,
       pinRequired,
       pinMustBeCreated,
       sessionToken,
-
-      // additional info (helps your UI decide if it should show hub or open directly)
-      purpose,
       isPinReset,
-      deliveryMode,
       needsEmailAssociation,
-
-      // optional: if you store it
-      standalone: !!inbox.standalone,
     });
   } catch (err) {
     console.error(err);

@@ -1,3 +1,4 @@
+// src/App.tsx
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster } from "sonner@2.0.3";
@@ -27,6 +28,7 @@ type Page =
   | "first-pin";
 
 type NavDir = "forward" | "back";
+type ClaimMode = "login" | "create";
 
 const PAGE_DEPTH: Record<Page, number> = {
   home: 0,
@@ -50,10 +52,8 @@ function AppContent() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
 
-  // claim mode
-  const [claimMode, setClaimMode] = useState<"login" | "create">("login");
+  const [claimMode, setClaimMode] = useState<ClaimMode>("login");
 
-  // FirstPinSetup temps
   const [tempInboxId, setTempInboxId] = useState<string | null>(null);
   const [tempSessionToken, setTempSessionToken] = useState<string | null>(null);
   const [tempNeedsEmailAssociation, setTempNeedsEmailAssociation] = useState(false);
@@ -69,7 +69,6 @@ function AppContent() {
     setCurrentPage(next);
   };
 
-  // Disable zoom (iOS)
   useEffect(() => {
     const preventGesture = (e: Event) => e.preventDefault();
     document.addEventListener("gesturestart", preventGesture as any, { passive: false } as any);
@@ -92,7 +91,6 @@ function AppContent() {
     };
   }, []);
 
-  // Disable scroll only on Home
   useEffect(() => {
     const prevHtmlOverflow = document.documentElement.style.overflow;
     const prevBodyOverflow = document.body.style.overflow;
@@ -115,7 +113,6 @@ function AppContent() {
     };
   }, [currentPage]);
 
-  // detect token /#/inbox?t=...
   useEffect(() => {
     const detectToken = () => {
       const hash = window.location.hash;
@@ -164,14 +161,11 @@ function AppContent() {
   const handleLogout = () => {
     setPinCode(null);
     setIsPinVerified(false);
-
     setTempInboxId(null);
     setTempSessionToken(null);
     setTempNeedsEmailAssociation(false);
-
     setPendingLinkToken(null);
     setLinkToken(null);
-
     setPage("home");
   };
 
@@ -187,44 +181,45 @@ function AppContent() {
     }),
   };
 
-  // Inbox link special flow
+  // Inbox link flow
   if (currentPage === "inbox-link" && linkToken) {
     return (
       <InboxLinkHandler
-  token={linkToken}
-  onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
-    setLinkToken(null);
-    setPendingLinkToken(null);
+        token={linkToken}
+        onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
+          setLinkToken(null);
+          setPendingLinkToken(null);
 
-    if (pinMustBeCreated && sessionToken) {
-      setTempInboxId(inboxId);
-      setTempSessionToken(sessionToken);
-      setTempNeedsEmailAssociation(!!needsEmailAssociation);
-      setPage("first-pin");
-    } else if (needsPin) {
-      setPage("pin");
-    } else {
-      setPage("letters");
-    }
-  }}
-  onError={() => {
-    setLinkToken(null);
-    setPendingLinkToken(null);
-    setPage("home");
-  }}
-  onGoToLogin={() => {
-    setPendingLinkToken(linkToken);
-    setLinkToken(null);
-    setPage("claim");
-  }}
-  onGoToCreate={() => {
-    setPendingLinkToken(linkToken);
-    setLinkToken(null);
-    setPage("claim");
-  }}
-  language={language}
-/>
-
+          if (pinMustBeCreated && sessionToken) {
+            setTempInboxId(inboxId);
+            setTempSessionToken(sessionToken);
+            setTempNeedsEmailAssociation(!!needsEmailAssociation);
+            setPage("first-pin");
+          } else if (needsPin) {
+            setPage("pin");
+          } else {
+            setPage("letters");
+          }
+        }}
+        onError={() => {
+          setLinkToken(null);
+          setPendingLinkToken(null);
+          setPage("home");
+        }}
+        onGoToLogin={() => {
+          setClaimMode("login");
+          setPendingLinkToken(linkToken);
+          setLinkToken(null);
+          setPage("claim");
+        }}
+        onGoToCreate={() => {
+          setClaimMode("create");
+          setPendingLinkToken(linkToken);
+          setLinkToken(null);
+          setPage("claim");
+        }}
+        language={language}
+      />
     );
   }
 
@@ -305,15 +300,22 @@ function AppContent() {
                   setPage("home");
                 }
               }}
-              onCreated={(inboxId, sessionToken, needsEmailAssociation) => {
-                // ✅ redirect create -> FirstPinSetup
+              language={language}
+              onNavigate={(page) => {
+                if (page === "letters" && pendingLinkToken) {
+                  setLinkToken(pendingLinkToken);
+                  setPage("inbox-link");
+                  return;
+                }
+                setPage(page as Page);
+              }}
+              // when create succeeds => go to first pin setup directly
+              onCreated={(inboxId, sessionToken) => {
                 setTempInboxId(inboxId);
                 setTempSessionToken(sessionToken);
-                setTempNeedsEmailAssociation(!!needsEmailAssociation);
+                setTempNeedsEmailAssociation(false);
                 setPage("first-pin");
               }}
-              language={language}
-              onNavigate={(page) => setPage(page as Page)}
             />
           </motion.div>
         )}

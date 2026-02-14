@@ -36,8 +36,15 @@ export interface OpenLinkResponse {
   needsEmailAssociation: boolean;
   isPinReset?: boolean;
 }
-export async function openLink(token: string): Promise<OpenLinkResponse> {
-  return postJSON("openLink", { token });
+export async function openLink(token: string) {
+  const res = await fetch("/.netlify/functions/openLink", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || "openLink failed");
+  return data;
 }
 
 // ---------------- VERIFY PIN ----------------
@@ -207,17 +214,13 @@ export async function importLinkToInbox(args: ImportLinkToInboxRequest): Promise
   return postJSON("importLinkToInbox", args);
 }
 
-export async function createInboxAccount(params: { email: string; pin: string }) {
+export async function createInboxAccount(email: string, password: string) {
   const res = await fetch("/.netlify/functions/createInboxAccount", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(params),
+    body: JSON.stringify({ email, password }),
   });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Create failed");
-
-  // must return:
-  // { inboxId: string, sessionToken: string, needsEmailAssociation?: boolean }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || "createInboxAccount failed");
   return data;
 }

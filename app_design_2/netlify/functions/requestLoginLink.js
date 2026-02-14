@@ -112,7 +112,7 @@ exports.handler = async (event) => {
     }
 
     const inbox = inboxSnap.data() || {};
-    const hasPin = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
+    const hasPin = !!(inbox.passHash && inbox.passSalt && inbox.passIter);
 
     // ✅ If PIN exists => do NOT send a link; UI should ask for PIN
     if (hasPin) {

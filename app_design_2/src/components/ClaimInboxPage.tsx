@@ -18,7 +18,7 @@ interface ClaimInboxPageProps {
   language: "en" | "fr";
   onNavigate?: (page: "home" | "letters" | "compose" | "settings" | "credits" | "claim") => void;
 
-  // ✅ if user came from a shared link, we keep it here and import after create/login
+  // if user came from a shared link, we keep it here and import after create/login
   pendingImportToken?: string | null;
   onConsumedPendingImportToken?: () => void;
 }
@@ -135,7 +135,7 @@ export default function ClaimInboxPage({
       return;
     }
 
-    // ✅ CREATE MODE: create account -> (optional import) -> go letters
+    // CREATE MODE: create account -> optional import -> go letters
     if (mode === "create") {
       if (password.trim().length < 6) {
         toast.error(t.weakPassword);
@@ -147,7 +147,6 @@ export default function ClaimInboxPage({
         const res = await createInboxAccount(email.trim().toLowerCase(), password.trim());
         if (!res?.inboxId || !res?.sessionToken) throw new Error("Create failed");
 
-        // store session
         setInboxId(res.inboxId);
         setSessionToken(res.sessionToken);
         setIsPinRequired(false);
@@ -155,7 +154,6 @@ export default function ClaimInboxPage({
 
         toast.success(language === "fr" ? "Compte créé ✅" : "Account created ✅");
 
-        // ✅ import the shared letter into the newly created inbox (if we came from a link)
         await maybeImportAfterAuth(res.inboxId, res.sessionToken);
 
         onNavigate?.("letters");
@@ -168,20 +166,20 @@ export default function ClaimInboxPage({
       return;
     }
 
-    // ✅ LOGIN MODE (unchanged)
+    // LOGIN MODE: prefer PIN if inbox has one
     setIsSubmitting(true);
     try {
-      const res = await requestLoginLink(email.trim().toLowerCase());
-
-      if (res.action === "LINK_SENT") {
-        setStep("sent");
-        toast.success(t.successTitle);
-        return;
-      }
+      const res = await requestLoginLink(email.trim().toLowerCase(), { preferPin: true });
 
       if (res.action === "PIN_REQUIRED") {
         setLocalInboxId(res.inboxId);
         setStep("pin");
+        return;
+      }
+
+      if (res.action === "LINK_SENT") {
+        setStep("sent");
+        toast.success(t.successTitle);
         return;
       }
 
@@ -212,7 +210,6 @@ export default function ClaimInboxPage({
       setIsPinRequired(true);
       setIsLocked(false);
 
-      // ✅ after login, if a shared token is pending, import it
       await maybeImportAfterAuth(inboxId, res.sessionToken);
 
       toast.success(language === "fr" ? "Connecté ✅" : "Logged in ✅");
@@ -248,12 +245,20 @@ export default function ClaimInboxPage({
     return (
       <AppFrame>
         <div className="text-center py-10">
-          <motion.div className="text-7xl" animate={{ y: [0, -8, 0], rotate: [0, -6, 6, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}>
+          <motion.div
+            className="text-7xl"
+            animate={{ y: [0, -8, 0], rotate: [0, -6, 6, 0] }}
+            transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+          >
             💌
           </motion.div>
 
-          <h1 className="mt-6 font-['Playfair_Display',serif] italic font-bold text-[28px] text-[color:var(--rose-deep)]">{t.successTitle}</h1>
-          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">{t.successMessage}</p>
+          <h1 className="mt-6 font-['Playfair_Display',serif] italic font-bold text-[28px] text-[color:var(--rose-deep)]">
+            {t.successTitle}
+          </h1>
+          <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
+            {t.successMessage}
+          </p>
 
           <button
             onClick={onBack}
@@ -261,9 +266,13 @@ export default function ClaimInboxPage({
                        bg-gradient-to-br from-[#e8a0b4] to-[#d4789c] transition active:scale-[0.99]"
           >
             <div className="flex items-center gap-5">
-              <div className="size-16 rounded-[22px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">←</div>
+              <div className="size-16 rounded-[22px] bg-white/25 backdrop-blur flex items-center justify-center text-[30px]">
+                ←
+              </div>
               <div className="flex-1 min-w-0">
-                <div className="font-['Playfair_Display',serif] text-[22px] font-bold text-white leading-tight">{t.back}</div>
+                <div className="font-['Playfair_Display',serif] text-[22px] font-bold text-white leading-tight">
+                  {t.back}
+                </div>
                 <div className="text-[16px] italic text-white/80 truncate mt-0.5">{language === "fr" ? "Revenir" : "Back"}</div>
               </div>
               <div className="text-white/70 text-2xl">→</div>
@@ -390,10 +399,18 @@ export default function ClaimInboxPage({
               </button>
 
               <div className="mt-3 flex items-center justify-between gap-4">
-                <button type="button" onClick={handleForgotPin} className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--text-light)]">
+                <button
+                  type="button"
+                  onClick={handleForgotPin}
+                  className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--text-light)]"
+                >
                   {t.forgot}
                 </button>
-                <button type="button" onClick={handleLoginByLink} className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]">
+                <button
+                  type="button"
+                  onClick={handleLoginByLink}
+                  className="text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]"
+                >
                   {t.loginByLink}
                 </button>
               </div>

@@ -1,4 +1,5 @@
 // src/services/api.ts
+
 const FN_BASE =
   (import.meta as any).env?.DEV
     ? "http://localhost:8888/.netlify/functions"
@@ -30,21 +31,19 @@ export async function claimPending(email: string): Promise<ClaimPendingResponse>
 export interface OpenLinkResponse {
   ok: true;
   inboxId: string;
+  deliveryMode?: "email" | "share" | "instagram";
+
   pinRequired: boolean;
   pinMustBeCreated: boolean;
+
+  // NOTE: can be null when PIN is required (user must verify PIN first)
   sessionToken: string | null;
+
   needsEmailAssociation: boolean;
   isPinReset?: boolean;
 }
-export async function openLink(token: string) {
-  const res = await fetch("/.netlify/functions/openLink", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ token }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || "openLink failed");
-  return data;
+export async function openLink(token: string): Promise<OpenLinkResponse> {
+  return postJSON<OpenLinkResponse>("openLink", { token });
 }
 
 // ---------------- VERIFY PIN ----------------
@@ -52,6 +51,7 @@ export interface VerifyPinResponse {
   ok: true;
   verified: boolean;
   pinRequired: boolean;
+  inboxId?: string;
   sessionToken: string | null;
 }
 export async function verifyPin(inboxId: string, pin: string): Promise<VerifyPinResponse> {
@@ -149,7 +149,6 @@ export interface SendMessageRequest {
   stickerId?: string;
   body: string;
 
-  // optional extras
   instagramHandle?: string;
   toNameHint?: string;
 }
@@ -168,7 +167,6 @@ export interface SendMessageResponse {
   quarantined?: boolean;
   moderationStatus?: "allow" | "quarantine" | "block";
 }
-
 export async function sendMessage(data: SendMessageRequest): Promise<SendMessageResponse> {
   return postJSON("sendMessage", data);
 }
@@ -192,7 +190,10 @@ export async function requestPinReset(email: string): Promise<{ ok: true }> {
 }
 
 // ---------------- UNLOCK (wrapper) ----------------
-export async function unlockInboxWithPin(inboxId: string, pin: string): Promise<{ ok: true; inboxId: string; sessionToken: string }> {
+export async function unlockInboxWithPin(
+  inboxId: string,
+  pin: string
+): Promise<{ ok: true; inboxId: string; sessionToken: string }> {
   const res = await verifyPin(inboxId, pin);
   if (!res?.sessionToken) throw new Error("No session token");
   return { ok: true, inboxId, sessionToken: res.sessionToken };
@@ -205,22 +206,27 @@ export interface ImportLinkToInboxRequest {
   destSessionToken: string;
 }
 
+// Your Netlify function currently returns: { ok, imported, importedMessageId }
+// (importedMessageId can be null in some cases)
 export interface ImportLinkToInboxResponse {
   ok: true;
-  importedMessageId: string;
+  imported: number;
+  importedMessageId: string | null;
 }
 
 export async function importLinkToInbox(args: ImportLinkToInboxRequest): Promise<ImportLinkToInboxResponse> {
   return postJSON("importLinkToInbox", args);
 }
 
-export async function createInboxAccount(email: string, password: string) {
-  const res = await fetch("/.netlify/functions/createInboxAccount", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || "createInboxAccount failed");
-  return data;
+// ---------------- CREATE INBOX ACCOUNT ----------------
+export interface CreateInboxAccountResponse {
+  ok: true;
+  inboxId: string;
+  sessionToken: string;
+  pinMustBeCreated?: boolean;
+  needsEmailAssociation?: boolean;
+}
+
+export async function createInboxAccount(email: string, password: string): Promise<CreateInboxAccountResponse> {
+  return postJSON("createInboxAccount", { email, password });
 }

@@ -1,8 +1,7 @@
 // src/components/PinEntryScreen.tsx
 import { useState } from "react";
 import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
-import { verifyPin } from "../services/api";
+import { unlockInboxWithPin } from "../services/api";
 import { useSession } from "../contexts/SessionContext";
 
 function LockIcon() {
@@ -31,50 +30,38 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
   const [error, setError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const translations = {
+  const t = {
     en: {
       title: "Enter PIN",
       subtitle: "Enter your 4-digit PIN to access your letters",
       incorrectPin: "Incorrect PIN. Try again.",
-      missingInbox: "Missing inbox id (open a link or login first).",
+      missingInbox: "Missing inbox id. Open a link or login first.",
       back: "Back",
     },
     fr: {
       title: "Entrez le PIN",
       subtitle: "Entrez votre code PIN à 4 chiffres pour accéder à vos lettres",
       incorrectPin: "PIN incorrect. Réessayez.",
-      missingInbox: "InboxId manquant (ouvre un lien ou connecte-toi d’abord).",
+      missingInbox: "Inbox introuvable. Ouvre un lien ou connecte-toi d’abord.",
       back: "Retour",
     },
-  };
+  }[language];
 
-  const t = translations[language];
-  const submitPin = async (pinValue: string) => {
+  const trySubmit = async (candidatePin: string) => {
     if (!inboxId) {
-      toast.error(t.missingInbox);
+      setError(true);
       return;
     }
-
     setIsSubmitting(true);
-    setError(false);
-
     try {
-      const res = await verifyPin(inboxId, pinValue);
-
-      if (!res?.sessionToken) {
-        throw new Error("No sessionToken");
-      }
-
-      // ✅ unlock app session
+      const res = await unlockInboxWithPin({ inboxId, pin: candidatePin });
       setSessionToken(res.sessionToken);
       setIsPinRequired(true);
       setIsLocked(false);
 
-      // little success delay for UI
       setTimeout(() => onSuccess(), 250);
-    } catch (e: any) {
+    } catch {
       setError(true);
-      toast.error(e?.message || t.incorrectPin);
       setTimeout(() => {
         setPin("");
         setError(false);
@@ -89,13 +76,13 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
     setPin(newPin);
     setError(false);
 
-    if (newPin.length === 4 && !isSubmitting) {
-      submitPin(newPin);
+    if (newPin.length === 4) {
+      void trySubmit(newPin);
     }
   };
 
   const handleNumberPad = (num: string) => {
-    if (isSubmitting || error) return;
+    if (isSubmitting) return;
     if (pin.length < 4) handlePinChange(pin + num);
   };
 
@@ -136,34 +123,26 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         <LockIcon />
       </motion.div>
 
-      <motion.h1
-        className="font-['Kaushan_Script',sans-serif] text-[35px] text-black mt-6 mb-2"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
+      <motion.h1 className="font-['Kaushan_Script',sans-serif] text-[35px] text-black mt-6 mb-2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
         {t.title}
       </motion.h1>
 
-      <motion.p
-        className="font-['Inter',sans-serif] font-light text-[16px] text-[#2d1b1b] text-center mb-12 max-w-[280px]"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-      >
+      <motion.p className="font-['Inter',sans-serif] font-light text-[16px] text-[#2d1b1b] text-center mb-12 max-w-[280px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
         {t.subtitle}
       </motion.p>
 
-      <motion.div className="flex gap-4 mb-3" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+      {!inboxId && (
+        <motion.p className="font-['Inter',sans-serif] font-medium text-[14px] text-red-600 mb-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {t.missingInbox}
+        </motion.p>
+      )}
+
+      <motion.div className="flex gap-4 mb-8" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
         {[0, 1, 2, 3].map((index) => (
           <motion.div
             key={index}
             className={`size-[60px] rounded-[15px] border-3 flex items-center justify-center font-['Inter',sans-serif] font-bold text-[32px] ${
-              error
-                ? "bg-red-100 border-red-400 text-red-600"
-                : pin.length > index
-                ? "bg-[#a31e46] border-[#a31e46] text-white"
-                : "bg-white/80 border-[#db8c8f] text-transparent"
+              error ? "bg-red-100 border-red-400 text-red-600" : pin.length > index ? "bg-[#a31e46] border-[#a31e46] text-white" : "bg-white/80 border-[#db8c8f] text-transparent"
             }`}
             animate={error ? { x: [-10, 10, -10, 10, 0] } : {}}
             transition={{ duration: 0.4 }}
@@ -173,12 +152,6 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         ))}
       </motion.div>
 
-      {isSubmitting && (
-        <motion.p className="font-['Inter',sans-serif] text-[13px] text-[#2d1b1b]/70 mb-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          {language === "fr" ? "Vérification…" : "Verifying…"}
-        </motion.p>
-      )}
-
       {error && (
         <motion.p className="font-['Inter',sans-serif] font-medium text-[14px] text-red-600 mb-4" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           {t.incorrectPin}
@@ -186,7 +159,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
       )}
 
       <motion.div className="grid grid-cols-3 gap-4 w-full max-w-[280px]" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-        {["1","2","3","4","5","6","7","8","9"].map((num) => (
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
           <motion.button
             key={num}
             onClick={() => handleNumberPad(num)}

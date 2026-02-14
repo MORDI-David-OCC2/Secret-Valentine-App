@@ -22,8 +22,8 @@ export interface ClaimPendingResponse {
   inboxId: string;
   emailed: boolean;
 }
-export function claimPending(email: string) {
-  return postJSON<ClaimPendingResponse>("claimPending", { email });
+export function claimPending(email: string): Promise<ClaimPendingResponse> {
+  return postJSON("claimPending", { email });
 }
 
 // ---------------- OPEN LINK ----------------
@@ -36,31 +36,30 @@ export interface OpenLinkResponse {
   needsEmailAssociation: boolean;
   isPinReset?: boolean;
 }
-export function openLink(token: string) {
-  return postJSON<OpenLinkResponse>("openLink", { token });
+export function openLink(token: string): Promise<OpenLinkResponse> {
+  return postJSON("openLink", { token });
 }
 
 // ---------------- VERIFY PIN ----------------
+// ton backend verifyPin peut exister ou non.
+// Si tu n'as pas verifyPin côté backend, utilise unlockInboxWithPin uniquement.
 export interface VerifyPinResponse {
   ok: true;
   verified: boolean;
   pinRequired: boolean;
   sessionToken: string | null;
 }
-export function verifyPin(inboxId: string, pin: string) {
-  return postJSON<VerifyPinResponse>("verifyPin", { inboxId, pin, mode: "verify" });
+export function verifyPin(inboxId: string, pin: string): Promise<VerifyPinResponse> {
+  return postJSON("verifyPin", { inboxId, pin, mode: "verify" });
 }
 
-export async function unlockInboxWithPin(
-  inboxIdOrParams: string | { inboxId: string; pin: string },
-  maybePin?: string
-): Promise<{ ok: true; sessionToken: string }> {
-  const payload =
-    typeof inboxIdOrParams === "string"
-      ? { inboxId: inboxIdOrParams, pin: String(maybePin || "") }
-      : inboxIdOrParams;
-
-  return postJSON("unlockInboxWithPin", payload);
+// ---------------- UNLOCK WITH PIN ----------------
+export interface UnlockInboxWithPinResponse {
+  ok: true;
+  sessionToken: string;
+}
+export function unlockInboxWithPin(args: { inboxId: string; pin: string }): Promise<UnlockInboxWithPinResponse> {
+  return postJSON("unlockInboxWithPin", args);
 }
 
 // ---------------- SET PIN ----------------
@@ -69,36 +68,35 @@ export interface SetPinResponse {
   updated?: boolean;
   removed?: boolean;
 }
-export function setPin(inboxId: string, pin: string | null, sessionToken: string) {
-  return postJSON<SetPinResponse>("setPin", { inboxId, pin, sessionToken });
+export function setPin(inboxId: string, pin: string | null, sessionToken: string): Promise<SetPinResponse> {
+  return postJSON("setPin", { inboxId, pin, sessionToken });
 }
 
 // ---------------- CLAIM EMAIL ----------------
-export function claimEmail(args: { inboxId: string; sessionToken: string; email: string }) {
-  return postJSON<{ ok: true }>("claimEmail", args);
+export function claimEmail(args: { inboxId: string; sessionToken: string; email: string }): Promise<{ ok: true }> {
+  return postJSON("claimEmail", args);
 }
 
 // ---------------- LIST INBOX ----------------
 export interface InboxMessage {
   id: string;
-  createdAt: number;
+  createdAt: number | null;
   fromName: string;
   type: "love" | "friendship" | "family" | "crush";
   stickerId?: string;
   body: string;
   unread: boolean;
-  lastActiveAt: number;
+  lastActiveAt: number | null;
   replyEnabled: boolean;
 }
-
 export interface ListInboxResponse {
   ok: true;
   pinRequired: boolean;
   unreadCount: number;
   messages: InboxMessage[];
 }
-export function listInbox(inboxId: string, sessionToken: string) {
-  return postJSON<ListInboxResponse>("listInbox", { inboxId, sessionToken });
+export function listInbox(inboxId: string, sessionToken: string): Promise<ListInboxResponse> {
+  return postJSON("listInbox", { inboxId, sessionToken });
 }
 
 // ---------------- GET MESSAGE ----------------
@@ -106,7 +104,7 @@ export interface MessageReply {
   id: string;
   body: string;
   from: "them" | "me";
-  createdAt: number;
+  createdAt: number | null;
 }
 export interface MessageDetail {
   id: string;
@@ -116,84 +114,43 @@ export interface MessageDetail {
   body: string;
   unread: boolean;
   replyEnabled: boolean;
-  createdAt: number;
+  createdAt: number | null;
 }
 export interface GetMessageResponse {
   ok: true;
   message: MessageDetail;
   replies: MessageReply[];
 }
-export function getMessage(inboxId: string, messageId: string, sessionToken: string) {
-  return postJSON<GetMessageResponse>("getMessage", { inboxId, messageId, sessionToken });
-}
-
-// ---------------- SEND MESSAGE ----------------
-export type DeliveryMode = "email" | "share" | "instagram";
-
-export interface SendMessageRequest {
-  deliveryMode: DeliveryMode;
-  toEmail?: string;
-  instagramHandle?: string;
-  fromName: string;
-  fromEmail?: string;
-  replyAllowed?: boolean;
-  type: "love" | "friendship" | "family" | "crush";
-  stickerId?: string;
-  body: string;
-  toNameHint?: string;
-}
-
-export interface SendMessageResponse {
-  ok: true;
-  inboxId: string;
-  messageId: string;
-  deliveryMode: DeliveryMode;
-  link: string;
-  emailed: boolean;
-  relayedToAdmin?: boolean;
-  push?: { ok: boolean; reason?: string; sent?: number; removed?: number };
-  quarantined?: boolean;
-  moderationStatus?: "allow" | "quarantine" | "block";
-}
-export function sendMessage(data: SendMessageRequest) {
-  return postJSON<SendMessageResponse>("sendMessage", data);
+export function getMessage(inboxId: string, messageId: string, sessionToken: string): Promise<GetMessageResponse> {
+  return postJSON("getMessage", { inboxId, messageId, sessionToken });
 }
 
 // ---------------- SEND REPLY ----------------
-export function sendReply(args: { inboxId: string; messageId: string; body: string; sessionToken: string }) {
-  return postJSON<{ ok: true; replyId: string }>("sendReply", args);
+export interface SendReplyResponse {
+  ok: true;
+  replyId: string;
+}
+export function sendReply(args: { inboxId: string; messageId: string; body: string; sessionToken: string }): Promise<SendReplyResponse> {
+  return postJSON("sendReply", args);
 }
 
-// ---------------- PUSH ----------------
-export function savePushSub(params: { inboxId: string; sessionToken: string; subscription: PushSubscription }) {
-  return postJSON("savePushSub", params);
-}
-
-// ---------------- LOGIN / RESET ----------------
+// ---------------- LOGIN BY EMAIL / PIN RESET ----------------
 export type RequestLoginLinkResponse =
   | { ok: true; action: "LINK_SENT" }
   | { ok: true; action: "PIN_REQUIRED"; inboxId: string };
 
-export function requestLoginLink(email: string) {
-  return postJSON<RequestLoginLinkResponse>("requestLoginLink", { email });
+export async function requestLoginLink(email: string): Promise<RequestLoginLinkResponse> {
+  const data: any = await postJSON("requestLoginLink", { email });
+
+  // Tolérance si backend ne met pas ok
+  if (data?.action === "LINK_SENT") return { ok: true, action: "LINK_SENT" };
+  if (data?.action === "PIN_REQUIRED" && typeof data?.inboxId === "string") {
+    return { ok: true, action: "PIN_REQUIRED", inboxId: data.inboxId };
+  }
+
+  throw new Error("Unexpected response from requestLoginLink");
 }
 
-export function requestPinReset(email: string) {
-  return postJSON<{ ok: true }>("requestPinReset", { email });
-}
-
-export async function importFromLink(args: {
-  token: string;
-  targetInboxId: string;
-  targetSessionToken: string;
-}): Promise<{ ok: true; imported: number; alreadyImported?: boolean }> {
-  return postJSON("importFromLink", args);
-}
-
-export async function mergeInboxFromToken(args: {
-  token: string;
-  targetInboxId: string;
-  targetSessionToken: string;
-}): Promise<{ ok: true; imported: number }> {
-  return postJSON("mergeInboxFromToken", args);
+export function requestPinReset(email: string): Promise<{ ok: true }> {
+  return postJSON("requestPinReset", { email });
 }

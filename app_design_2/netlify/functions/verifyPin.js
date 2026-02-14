@@ -1,3 +1,4 @@
+// netlify/functions/verifyPin.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
@@ -24,13 +25,13 @@ function initAdmin() {
 }
 
 function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"];
-  if (xf) return xf.split(",")[0].trim();
-  return event.headers["client-ip"] || "unknown";
+  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
+  if (xf) return String(xf).split(",")[0].trim();
+  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
 function pbkdf2Hash(pin, saltHex, iterations = 120000) {
-  const salt = Buffer.from(saltHex, "hex");
+  const salt = Buffer.from(String(saltHex || ""), "hex");
   const dk = crypto.pbkdf2Sync(String(pin), salt, iterations, 32, "sha256");
   return dk.toString("hex");
 }
@@ -48,6 +49,25 @@ function sha256Hex(input) {
 
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
+}
+
+async function resolveInboxIdFromToken(db, token) {
+  const tokenHash = sha256Hex(token);
+  const tokenRef = db.collection("tokens").doc(tokenHash);
+  const tokenSnap = await tokenRef.get();
+  if (!tokenSnap.exists) return null;
+
+  const tokenData = tokenSnap.data() || {};
+  const inboxId = String(tokenData.inboxId || "").trim();
+  if (!inboxId.startsWith("inbox_")) return null;
+
+  // Optionnel: vérifier expiration si présente
+  const expiresAt = tokenData.expiresAt;
+  if (expiresAt && typeof expiresAt.toDate === "function") {
+    if (expiresAt.toDate().getTime() < Date.now()) return null;
+  }
+
+  return inboxId;
 }
 
 exports.handler = async (event) => {
@@ -70,33 +90,67 @@ exports.handler = async (event) => {
     const db = admin.firestore();
 
     const ip = getClientIp(event);
-    const rl = await rateLimit(db, {
-      action: "verifyPin",
-      key: ip,
-      limit: 15,
-      windowSec: 60,
-    });
+    const rl = await rateLimit(db, { action: "verifyPin", key: ip, limit: 15, windowSec: 60 });
     if (!rl.allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
 
     let payload;
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return jsonResponse(400, { ok: false, error: "Invalid JSON body" }); }
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
+    }
 
-    const inboxId = String(payload.inboxId || "").trim();
+    // ✅ accepte plusieurs clés côté client (au cas où)
+    let inboxId =
+      String(payload.inboxId || payload.inbox_id || payload?.session?.inboxId || "").trim();
+
+    const token = String(payload.token || "").trim(); // ✅ NEW: allow passing link token
     const pin = String(payload.pin || "").trim();
     const mode = String(payload.mode || "verify").trim();
 
-    if (!inboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
-    if (!/^\d{4,8}$/.test(pin)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
     if (mode !== "verify") return jsonResponse(400, { ok: false, error: "Invalid mode" });
+    if (!/^\d{4,8}$/.test(pin)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
+
+    // ✅ if inboxId missing, try resolving from token
+    if (!inboxId && token) {
+      const resolved = await resolveInboxIdFromToken(db, token);
+      if (resolved) inboxId = resolved;
+    }
+
+    // ✅ clearer error when missing
+    if (!inboxId) {
+      return jsonResponse(400, { ok: false, error: "Missing inboxId (or token)" });
+    }
+
+    if (!inboxId.startsWith("inbox_")) {
+      return jsonResponse(400, { ok: false, error: "Invalid inboxId format" });
+    }
 
     const inboxRef = db.collection("inboxes").doc(inboxId);
     const snap = await inboxRef.get();
     if (!snap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
     const d = snap.data() || {};
+
+    // If no PIN configured => treat as already unlocked (rare, but safe)
     if (!d.pinHash || !d.pinSalt || !d.pinIter) {
-      return jsonResponse(200, { ok: true, verified: true, pinRequired: false, sessionToken: null });
+      // Create a session anyway so the client can proceed normally
+      const sessionToken = randomTokenBase64Url(32);
+      const sessionHash = sha256Hex(sessionToken);
+      const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+
+      await inboxRef.collection("sessions").doc(sessionHash).set({
+        inboxId,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt,
+        purpose: "unlocked_no_pin",
+      });
+
+      await ensureInboxCrypto(db, inboxId);
+      const inboxKey = await getInboxKeyViaRecovery(db, inboxId);
+      await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
+
+      return jsonResponse(200, { ok: true, verified: true, pinRequired: false, inboxId, sessionToken });
     }
 
     const computed = pbkdf2Hash(pin, d.pinSalt, d.pinIter);
@@ -107,15 +161,13 @@ exports.handler = async (event) => {
     const sessionToken = randomTokenBase64Url(32);
     const sessionHash = sha256Hex(sessionToken);
 
-    const expiresDays = 7;
-    const expiresAt = admin.firestore.Timestamp.fromDate(
-      new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
-    );
+    const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
 
-    await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).set({
+    await inboxRef.collection("sessions").doc(sessionHash).set({
       inboxId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt,
+      purpose: "unlock",
     });
 
     // --- Encryption bootstrap + attach inboxKeyEnc to session ---
@@ -123,9 +175,10 @@ exports.handler = async (event) => {
     const inboxKey = await getInboxKeyViaRecovery(db, inboxId);
     await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
 
-    return jsonResponse(200, { ok: true, verified: true, pinRequired: true, sessionToken });
+    return jsonResponse(200, { ok: true, verified: true, pinRequired: true, inboxId, sessionToken });
   } catch (err) {
     console.error(err);
-    return jsonResponse(500, { ok: false, error: err.message || "Server error" });
+    const status = err?.code && Number.isInteger(err.code) ? err.code : 500;
+    return jsonResponse(status, { ok: false, error: err.message || "Server error" });
   }
 };

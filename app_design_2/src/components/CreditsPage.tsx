@@ -26,7 +26,7 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
       dDesc:
         "Responsible for the core app logic, Netlify Functions, Firebase, encryption/session flows, and overall integration.",
 
-      fName: "Fleurine LAM",
+      fName: "Fleuriane LAM",
       fRole: "UI/UX Design & Frontend",
       fDesc:
         "Designed the UI1 visual style and helped implement the frontend interactions, animations, and overall polish.",

@@ -63,7 +63,7 @@ export default function ClaimInboxPage({
       weakPassword: "Password must be at least 6 characters",
 
       pinTitle: "Enter your PIN",
-      pinLabel: "PIN (4 digits)",
+      pinLabel: "PIN (6 digits)",
       pinPlaceholder: "••••",
       login: "Log in",
       forgot: "Forgot PIN?",
@@ -96,7 +96,7 @@ export default function ClaimInboxPage({
       weakPassword: "Le mot de passe doit faire au moins 6 caractères",
 
       pinTitle: "Entre ton PIN",
-      pinLabel: "PIN (4 chiffres)",
+      pinLabel: "PIN (6 chiffres)",
       pinPlaceholder: "••••",
       login: "Se connecter",
       forgot: "Mot de passe oublié ?",
@@ -376,7 +376,6 @@ export default function ClaimInboxPage({
 
               <input
                 type="password"
-                inputMode="numeric"
                 maxLength={6}
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}

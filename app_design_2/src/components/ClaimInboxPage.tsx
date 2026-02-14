@@ -203,7 +203,7 @@ export default function ClaimInboxPage({
 
     setIsSubmitting(true);
     try {
-      const res = await unlockInboxWithPin(inboxId, password);
+      const res = await unlockInboxWithPin(inboxId, pin);
 
       setInboxId(inboxId);
       setSessionToken(res.sessionToken);

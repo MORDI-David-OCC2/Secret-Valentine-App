@@ -213,7 +213,8 @@ export default function ClaimInboxPage({
       await maybeImportAfterAuth(inboxId, res.sessionToken);
 
       toast.success(language === "fr" ? "Connecté ✅" : "Logged in ✅");
-      onNavigate?.("letters") ?? onBack();
+      if (onNavigate) onNavigate("letters")
+      else onBack();
     } catch (e: any) {
       toast.error(e?.message || t.wrongPin);
     } finally {

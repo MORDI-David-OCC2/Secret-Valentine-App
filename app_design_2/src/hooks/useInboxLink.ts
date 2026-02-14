@@ -22,7 +22,6 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
 
   const [sessionTokenState, setSessionTokenState] = useState<string | null>(null);
   const [inboxIdState, setInboxIdState] = useState<string | null>(null);
-
   const [needsEmailAssociation, setNeedsEmailAssociation] = useState(false);
 
   const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
@@ -30,10 +29,13 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
   useEffect(() => {
     if (!token) return;
 
+    let cancelled = false;
+
     const run = async () => {
       setLoading(true);
       setError(null);
 
+      // reset
       setNeedsPin(false);
       setPinMustBeCreated(false);
       setSessionTokenState(null);
@@ -42,14 +44,15 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
 
       try {
         const res = await openLink(token);
+        if (cancelled) return;
 
         setInboxId(res.inboxId);
         setInboxIdState(res.inboxId);
-        setIsPinRequired(!!res.pinRequired);
 
+        setIsPinRequired(!!res.pinRequired);
         setNeedsEmailAssociation(!!res.needsEmailAssociation);
 
-        // 1) Must create PIN (first time OR pin reset) => go to FirstPinSetup with sessionToken
+        // Must create PIN (first time OR pin_reset)
         if (res.pinMustBeCreated) {
           setPinMustBeCreated(true);
           setSessionTokenState(res.sessionToken || null);
@@ -57,14 +60,14 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
           return;
         }
 
-        // 2) PIN required => locked until user enters PIN (no sessionToken yet)
+        // Pin exists => locked
         if (res.pinRequired) {
           setNeedsPin(true);
           setIsLocked(true);
           return;
         }
 
-        // 3) No PIN => direct session access expected
+        // No pin required => direct session
         if (res.sessionToken) {
           setSessionToken(res.sessionToken);
           setSessionTokenState(res.sessionToken);
@@ -72,16 +75,20 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
           return;
         }
 
-        throw new Error("Unexpected link state (no sessionToken)");
+        throw new Error("Unexpected link state");
       } catch (e: any) {
+        if (cancelled) return;
         console.error("openLink error:", e);
         setError(e?.message || "Invalid or expired link");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     run();
+    return () => {
+      cancelled = true;
+    };
   }, [token, setInboxId, setSessionToken, setIsLocked, setIsPinRequired]);
 
   return {

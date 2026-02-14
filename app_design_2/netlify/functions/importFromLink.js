@@ -1,4 +1,4 @@
-// netlify/functions/importFromLink.js
+// netlify/functions/importLinkToInbox.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 
@@ -40,14 +40,22 @@ async function requireValidSession(db, inboxId, sessionToken) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: jsonResponse(204, {}).headers, body: "" };
+      return {
+        statusCode: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-headers": "content-type",
+        },
+        body: "",
+      };
     }
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     initAdmin();
     const db = admin.firestore();
 
-    let payload;
+    let payload = {};
     try {
       payload = JSON.parse(event.body || "{}");
     } catch {
@@ -55,83 +63,63 @@ exports.handler = async (event) => {
     }
 
     const token = String(payload.token || "").trim();
-    const targetInboxId = String(payload.targetInboxId || "").trim();
-    const targetSessionToken = String(payload.targetSessionToken || "").trim();
+    const destInboxId = String(payload.destInboxId || "").trim();
+    const destSessionToken = String(payload.destSessionToken || "").trim();
 
     if (!token) return jsonResponse(400, { ok: false, error: "Missing token" });
-    if (!targetInboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid targetInboxId" });
-    if (!targetSessionToken) return jsonResponse(400, { ok: false, error: "Missing targetSessionToken" });
+    if (!destInboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid destInboxId" });
 
-    // 1) Validate target session (user must be logged in)
-    const okSession = await requireValidSession(db, targetInboxId, targetSessionToken);
-    if (!okSession) return jsonResponse(401, { ok: false, error: "Not logged in" });
+    const ok = await requireValidSession(db, destInboxId, destSessionToken);
+    if (!ok) return jsonResponse(401, { ok: false, error: "Unauthorized (session required)" });
 
-    // 2) Validate token -> source inbox
+    // Resolve source inbox from token
     const tokenHash = sha256Hex(token);
     const tokenRef = db.collection("tokens").doc(tokenHash);
     const tokenSnap = await tokenRef.get();
     if (!tokenSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
 
     const tokenData = tokenSnap.data() || {};
-    const expiresAt = tokenData.expiresAt;
-    if (expiresAt && expiresAt.toDate && expiresAt.toDate() < new Date()) {
-      return jsonResponse(401, { ok: false, error: "Link expired" });
+    const sourceInboxId = String(tokenData.inboxId || "").trim();
+    if (!sourceInboxId.startsWith("inbox_")) return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
+
+    if (sourceInboxId === destInboxId) {
+      return jsonResponse(200, { ok: true, imported: 0 });
     }
 
-    const sourceInboxId = tokenData.inboxId;
-    if (!sourceInboxId || !String(sourceInboxId).startsWith("inbox_")) {
-      return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
-    }
+    const sourceMessagesRef = db.collection("inboxes").doc(sourceInboxId).collection("messages");
+    const destMessagesRef = db.collection("inboxes").doc(destInboxId).collection("messages");
 
-    // Optional: only allow "open" purpose links to import (block pin_reset etc)
-    const purpose = tokenData.purpose || "open";
-    if (purpose !== "open") {
-      return jsonResponse(403, { ok: false, error: "This link cannot be imported" });
-    }
-
-    // 3) Idempotency guard: prevent importing same token into same target multiple times
-    const importedRef = db
-      .collection("inboxes")
-      .doc(targetInboxId)
-      .collection("importedTokens")
-      .doc(tokenHash);
-
-    const importedSnap = await importedRef.get();
-    if (importedSnap.exists) {
-      return jsonResponse(200, { ok: true, imported: 0, alreadyImported: true });
-    }
-
-    // 4) Copy messages from source inbox -> target inbox
-    const srcMessagesRef = db.collection("inboxes").doc(sourceInboxId).collection("messages");
-    const srcSnap = await srcMessagesRef.get();
+    const snap = await sourceMessagesRef.get();
+    if (snap.empty) return jsonResponse(200, { ok: true, imported: 0 });
 
     const batch = db.batch();
     let imported = 0;
 
-    srcSnap.docs.forEach((doc) => {
-      const msg = doc.data() || {};
-      const newId = db.collection("x").doc().id; // generate id
-      const dstRef = db.collection("inboxes").doc(targetInboxId).collection("messages").doc(newId);
+    snap.docs.forEach((doc) => {
+      const data = doc.data() || {};
 
-      batch.set(dstRef, {
-        ...msg,
+      // New ID to avoid collisions
+      const newId = `imp_${sourceInboxId}_${doc.id}`.slice(0, 150);
+
+      batch.set(destMessagesRef.doc(newId), {
+        ...data,
         importedFromInboxId: sourceInboxId,
-        importedFromMessageId: doc.id,
         importedAt: admin.firestore.FieldValue.serverTimestamp(),
+        unread: true,
       });
-
       imported += 1;
     });
 
-    // mark imported token
-    batch.set(importedRef, {
-      tokenHash,
-      sourceInboxId,
-      importedAt: admin.firestore.FieldValue.serverTimestamp(),
-      importedCount: imported,
-    });
-
     await batch.commit();
+
+    // Optionnel: marquer token comme "imported"
+    await tokenRef.set(
+      {
+        importedTo: destInboxId,
+        importedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
 
     return jsonResponse(200, { ok: true, imported });
   } catch (err) {

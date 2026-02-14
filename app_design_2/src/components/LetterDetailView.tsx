@@ -1,3 +1,4 @@
+// src/components/LetterDetailView.tsx
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner@2.0.3";
@@ -39,6 +40,10 @@ interface LetterDetailViewProps {
   color: string;
   onClose: () => void;
   language: "en" | "fr";
+
+  // ✅ new hooks to update parent UI without refresh
+  onRead?: (messageId: string) => void;
+  onReplySent?: (messageId: string, replyBody: string, createdAt?: number) => void;
 }
 
 function formatDate(msOrIso: any, language: "en" | "fr") {
@@ -66,7 +71,14 @@ function formatTimestamp(msOrIso: any, language: "en" | "fr") {
   }
 }
 
-export default function LetterDetailView({ messageId, color, onClose, language }: LetterDetailViewProps) {
+export default function LetterDetailView({
+  messageId,
+  color,
+  onClose,
+  language,
+  onRead,
+  onReplySent,
+}: LetterDetailViewProps) {
   const { session } = useSession();
   const [message, setMessage] = useState<MessageDetail | null>(null);
   const [replies, setReplies] = useState<MessageReply[]>([]);
@@ -85,6 +97,11 @@ export default function LetterDetailView({ messageId, color, onClose, language }
         const response = await getMessage(session.inboxId, messageId, session.sessionToken);
         setMessage(response.message);
         setReplies(response.replies || []);
+
+        // ✅ If message was unread, immediately tell parent to clear unread dot
+        if (response.message?.unread) {
+          onRead?.(messageId);
+        }
       } catch (error: any) {
         const msg = String(error?.message || "");
         if (msg.includes("401")) toast.error(language === "en" ? "Session expired" : "Session expirée");
@@ -97,7 +114,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
     };
 
     loadMessage();
-  }, [messageId, session.inboxId, session.sessionToken, onClose, language]);
+  }, [messageId, session.inboxId, session.sessionToken, onClose, language, onRead]);
 
   const letter: Letter | null = useMemo(() => {
     if (!message) return null;
@@ -129,19 +146,25 @@ export default function LetterDetailView({ messageId, color, onClose, language }
     );
   }
 
+  const replyEnabled = !!message.replyEnabled;
+
   if (showReply) {
     return (
       <ReplyToLetterView
         messageId={messageId}
         originalLetter={letter}
         color={color}
-        onClose={() => setShowReply(false)}
         language={language}
+        onClose={() => setShowReply(false)}
+        onSent={(reply) => {
+          // ✅ update conversation immediately
+          setReplies((prev) => [...prev, reply]);
+          setShowReply(false);
+          onReplySent?.(messageId, reply.body, reply.createdAt);
+        }}
       />
     );
   }
-
-  const replyEnabled = !!message.replyEnabled;
 
   return (
     <AnimatePresence>
@@ -162,8 +185,8 @@ export default function LetterDetailView({ messageId, color, onClose, language }
         <motion.div
           className="relative w-full max-w-[360px]"
           style={{
-            // Réduit la hauteur max pour éviter de toucher la barre du haut/bas
-            maxHeight: "calc(100dvh - max(28px, env(safe-area-inset-top)) - max(28px, env(safe-area-inset-bottom)) - 24px)",
+            maxHeight:
+              "calc(100dvh - max(28px, env(safe-area-inset-top)) - max(28px, env(safe-area-inset-bottom)) - 24px)",
             transform: "translateY(-40px)",
           }}
           initial={{ scale: 0.6, opacity: 0, rotateY: -60 }}
@@ -172,24 +195,11 @@ export default function LetterDetailView({ messageId, color, onClose, language }
           transition={{ type: "spring", stiffness: 220, damping: 22 }}
         >
           {/* Card */}
-          <motion.div
-            className={`${color} rounded-[20px] shadow-2xl relative overflow-hidden`}
-            initial={{ y: 18 }}
-            animate={{ y: 0 }}
-          >
-            {/* Close INSIDE card (fix principal) */}
+          <motion.div className={`${color} rounded-[20px] shadow-2xl relative overflow-hidden`} initial={{ y: 18 }} animate={{ y: 0 }}>
+            {/* Close */}
             <motion.button
               onClick={onClose}
-              className="
-                absolute top-3 right-3
-                size-10 rounded-full
-                bg-white/90
-                flex items-center justify-center
-                text-[color:var(--text)]
-                font-bold text-xl
-                shadow-lg
-                z-20
-              "
+              className="absolute top-3 right-3 size-10 rounded-full bg-white/90 flex items-center justify-center text-[color:var(--text)] font-bold text-xl shadow-lg z-20"
               whileHover={{ scale: 1.06, rotate: 90 }}
               whileTap={{ scale: 0.94 }}
               aria-label={language === "en" ? "Close" : "Fermer"}
@@ -197,7 +207,6 @@ export default function LetterDetailView({ messageId, color, onClose, language }
               ✕
             </motion.button>
 
-            {/* Scroll area (only inside the card) */}
             <div className="p-6 overflow-y-auto" style={{ maxHeight: "inherit" }}>
               {/* Decorative hearts */}
               <motion.div
@@ -247,10 +256,9 @@ export default function LetterDetailView({ messageId, color, onClose, language }
                 </div>
               </div>
 
-              {/* Divider */}
               <div className="h-px bg-black/30 mb-4" />
 
-              {/* CONTENT AREA */}
+              {/* CONTENT */}
               {!replyEnabled ? (
                 <div className="bg-white/20 backdrop-blur-sm rounded-[15px] p-5 border border-white/30 min-h-[160px] relative">
                   <div className="absolute top-2 left-3 text-black/25 font-serif text-[52px] leading-none">"</div>
@@ -307,11 +315,15 @@ export default function LetterDetailView({ messageId, color, onClose, language }
 
               {/* To */}
               <div className="mt-4 text-center">
-                <p className="italic text-[12px] text-black/70 font-['Cormorant_Garamond',serif]">{language === "en" ? "To" : "À"}</p>
-                <p className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-black drop-shadow">{letter.to}</p>
+                <p className="italic text-[12px] text-black/70 font-['Cormorant_Garamond',serif]">
+                  {language === "en" ? "To" : "À"}
+                </p>
+                <p className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-black drop-shadow">
+                  {letter.to}
+                </p>
               </div>
 
-              {/* Anonymous badge */}
+              {/* Anonymous */}
               {letter.isAnonymous && (
                 <div className="mt-4 flex justify-center">
                   <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/40 flex items-center gap-2">

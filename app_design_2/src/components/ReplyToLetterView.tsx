@@ -1,6 +1,7 @@
+// src/components/ReplyToLetterView.tsx
 import { useState } from "react";
 import { motion } from "motion/react";
-import { sendReply } from "../services/api";
+import { sendReply, MessageReply } from "../services/api";
 import { useSession } from "../contexts/SessionContext";
 import { toast } from "sonner@2.0.3";
 import svgPaths from "../imports/svg-01d0jglvrw";
@@ -36,64 +37,111 @@ interface ReplyToLetterViewProps {
   color: string;
   onClose: () => void;
   language: "en" | "fr";
+
+  // ✅ notify parent so it can update conversation immediately
+  onSent?: (reply: MessageReply) => void;
 }
 
-export default function ReplyToLetterView({ messageId, originalLetter, color, onClose, language }: ReplyToLetterViewProps) {
+export default function ReplyToLetterView({
+  messageId,
+  originalLetter,
+  color,
+  onClose,
+  language,
+  onSent,
+}: ReplyToLetterViewProps) {
   const { session } = useSession();
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
 
+  const t = {
+    en: {
+      replyTo: "Reply to",
+      yourMessage: "Your Message",
+      characterCount: "characters",
+      cancel: "Cancel",
+      send: "Send Reply",
+      sending: "Sending...",
+      empty: "Message is empty",
+      tooLong: "Message too long (max 2000)",
+      invalidSession: "Invalid session",
+      sent: "Reply sent! 💌",
+      disabled: "Replies disabled",
+      tooMany: "Too many replies",
+      expired: "Session expired",
+      blocked: "Blocked by moderation",
+      failed: "Failed to send",
+      placeholder: "Write your heartfelt reply...",
+      original: "Original message:",
+      sendTo: "Send your response to",
+    },
+    fr: {
+      replyTo: "Répondre à",
+      yourMessage: "Votre Message",
+      characterCount: "caractères",
+      cancel: "Annuler",
+      send: "Envoyer la Réponse",
+      sending: "Envoi...",
+      empty: "Message vide",
+      tooLong: "Message trop long (max 2000)",
+      invalidSession: "Session invalide",
+      sent: "Réponse envoyée! 💌",
+      disabled: "Réponses désactivées",
+      tooMany: "Trop de réponses",
+      expired: "Session expirée",
+      blocked: "Bloqué par modération",
+      failed: "Échec d'envoi",
+      placeholder: "Écrivez votre réponse...",
+      original: "Message original :",
+      sendTo: "Envoyer votre réponse à",
+    },
+  }[language];
+
   const handleSubmit = async () => {
-    if (!message.trim()) {
-      toast.error(language === "en" ? "Message is empty" : "Message vide");
+    const body = message.trim();
+    if (!body) {
+      toast.error(t.empty);
       return;
     }
-
-    if (message.length > 2000) {
-      toast.error(language === "en" ? "Message too long (max 2000)" : "Message trop long (max 2000)");
+    if (body.length > 2000) {
+      toast.error(t.tooLong);
       return;
     }
-
     if (!session.inboxId || !session.sessionToken) {
-      toast.error("Invalid session");
+      toast.error(t.invalidSession);
       return;
     }
 
     setIsSending(true);
 
     try {
-      await sendReply({
+      const res = await sendReply({
         inboxId: session.inboxId,
         messageId,
-        body: message.trim(),
+        body,
         sessionToken: session.sessionToken,
       });
 
-      toast.success(language === "en" ? "Reply sent! 💌" : "Réponse envoyée! 💌");
-      onClose();
+      const reply: MessageReply = {
+        id: res.replyId || `local_${Date.now()}`,
+        body,
+        from: "me",
+        createdAt: Date.now(),
+      };
+
+      toast.success(t.sent);
+      onSent?.(reply);
     } catch (error: any) {
-      if (error.message.includes("403")) {
-        toast.error(language === "en" ? "Replies disabled" : "Réponses désactivées");
-      } else if (error.message.includes("429")) {
-        toast.error(language === "en" ? "Too many replies" : "Trop de réponses");
-      } else if (error.message.includes("401")) {
-        toast.error(language === "en" ? "Session expired" : "Session expirée");
-      } else if (error.message.includes("block")) {
-        toast.error(language === "en" ? "Blocked by moderation" : "Bloqué par modération");
-      } else {
-        toast.error(error.message || (language === "en" ? "Failed to send" : "Échec d'envoi"));
-      }
+      const msg = String(error?.message || "");
+      if (msg.includes("403")) toast.error(t.disabled);
+      else if (msg.includes("429")) toast.error(t.tooMany);
+      else if (msg.includes("401")) toast.error(t.expired);
+      else if (msg.toLowerCase().includes("block")) toast.error(t.blocked);
+      else toast.error(error?.message || t.failed);
     } finally {
       setIsSending(false);
     }
   };
-
-  const translations = {
-    en: { replyTo: "Reply to", yourMessage: "Your Message", characterCount: "characters", cancel: "Cancel", send: "Send Reply", sending: "Sending..." },
-    fr: { replyTo: "Répondre à", yourMessage: "Votre Message", characterCount: "caractères", cancel: "Annuler", send: "Envoyer la Réponse", sending: "Envoi..." },
-  };
-
-  const t = translations[language];
 
   return (
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center px-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -137,18 +185,17 @@ export default function ReplyToLetterView({ messageId, originalLetter, color, on
             </motion.div>
 
             <h2 className="font-['Playfair_Display',serif] italic font-bold text-[28px] text-black mt-3 text-center drop-shadow-lg">
-              Reply to Letter
+              {t.replyTo} {originalLetter.from}
             </h2>
 
             <p className="font-['Cormorant_Garamond',serif] italic font-light text-[15px] text-black/80 mt-2 text-center">
-              {language === "en" ? "Send your response to" : "Envoyer votre réponse à"}{" "}
-              <span className="font-medium">{originalLetter.from}</span>
+              {t.sendTo} <span className="font-medium">{originalLetter.from}</span>
             </p>
           </motion.div>
 
           <motion.div className="bg-white/20 backdrop-blur-sm rounded-[12px] p-4 mb-6 border border-white/30" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
             <p className="font-['Cormorant_Garamond',serif] italic font-medium text-[13px] text-black/70 mb-2">
-              {language === "en" ? "Original message:" : "Message original :"}
+              {t.original}
             </p>
             <p className="font-['Cormorant_Garamond',serif] italic font-light text-[16px] text-black line-clamp-3">
               "{originalLetter.message || (language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi...")}"
@@ -163,7 +210,7 @@ export default function ReplyToLetterView({ messageId, originalLetter, color, on
               <motion.textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder={language === "en" ? "Write your heartfelt reply..." : "Écrivez votre réponse..."}
+                placeholder={t.placeholder}
                 rows={8}
                 className="w-full bg-white/90 border-2 border-white rounded-[10px] p-4 font-['Cormorant_Garamond',serif] italic text-[16px] text-[#2d1b1b] placeholder:text-[rgba(0,0,0,0.4)] focus:outline-none focus:ring-2 focus:ring-white focus:bg-white resize-none transition-all"
                 whileFocus={{ scale: 1.02 }}
@@ -177,7 +224,7 @@ export default function ReplyToLetterView({ messageId, originalLetter, color, on
               <motion.button
                 onClick={onClose}
                 className="flex-1 bg-white/30 backdrop-blur-sm text-black font-['Cormorant_Garamond',serif] italic font-bold text-[18px] rounded-[10px] h-[50px] border-2 border-white/50"
-                whileHover={{ scale: 1.03, backgroundColor: "rgba(255,255,255,0.4)" }}
+                whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 disabled={isSending}
               >
@@ -188,7 +235,7 @@ export default function ReplyToLetterView({ messageId, originalLetter, color, on
                 onClick={handleSubmit}
                 disabled={isSending}
                 className="flex-1 bg-white text-[#2d1b1b] font-['Cormorant_Garamond',serif] italic font-bold text-[18px] rounded-[10px] h-[50px] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                whileHover={!isSending ? { scale: 1.03, boxShadow: "0 10px 25px rgba(255,255,255,0.4)" } : {}}
+                whileHover={!isSending ? { scale: 1.03 } : {}}
                 whileTap={!isSending ? { scale: 0.97 } : {}}
               >
                 {isSending ? (
@@ -207,27 +254,6 @@ export default function ReplyToLetterView({ messageId, originalLetter, color, on
               </motion.button>
             </motion.div>
           </div>
-
-          {!isSending && (
-            <motion.div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-none" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>
-              {[...Array(3)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute"
-                  initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
-                  animate={{
-                    x: (Math.random() - 0.5) * 100,
-                    y: -50 - Math.random() * 50,
-                    opacity: [0, 0.4, 0],
-                    scale: [0, 1, 0.8],
-                  }}
-                  transition={{ delay: 1.2 + i * 0.4, duration: 2, repeat: Infinity, repeatDelay: 2, ease: "easeOut" }}
-                >
-                  <MdiHeart className="size-[16px]" />
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
         </motion.div>
       </motion.div>
     </motion.div>

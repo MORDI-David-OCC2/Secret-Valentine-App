@@ -1,3 +1,4 @@
+// src/components/LettersPage.tsx
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
@@ -8,18 +9,6 @@ import type { Letter } from "../App";
 import LetterDetailView from "./LetterDetailView";
 import AppFrame from "./ui/AppFrame";
 import { UnreadDot } from "./ui/UnreadDot";
-
-function MdiHeart({ className }: { className?: string }) {
-  return (
-    <div className={className || "relative shrink-0 size-[24px]"} data-name="mdi:heart">
-      <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 24 24">
-        <g id="mdi:heart">
-          <path d={svgPaths.p18ccc940} fill="#DB8C8F" />
-        </g>
-      </svg>
-    </div>
-  );
-}
 
 function EnvelopeIcon() {
   return (
@@ -47,7 +36,6 @@ function OvalLoveIcon() {
   );
 }
 
-/** ✅ On garde Letter intact, et on ajoute unread localement */
 type LetterUI = Letter & { isUnread: boolean };
 
 interface LetterCardProps {
@@ -96,7 +84,6 @@ function LetterCard({ letter, color, index, isUnread, onClick }: LetterCardProps
       whileHover={{ y: -3, scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
     >
-      {/* ✅ Unread badge (sans casser l'UI) */}
       {isUnread && (
         <div className="absolute top-3 right-3 z-20">
           <UnreadDot />
@@ -117,9 +104,7 @@ function LetterCard({ letter, color, index, isUnread, onClick }: LetterCardProps
 
       {/* center icon */}
       <div className="absolute left-1/2 top-[50px] -translate-x-1/2 -translate-y-1/2 z-10">
-        <div className="relative">
-          <OvalLoveIcon />
-        </div>
+        <OvalLoveIcon />
       </div>
 
       {/* From + Date */}
@@ -134,11 +119,7 @@ function LetterCard({ letter, color, index, isUnread, onClick }: LetterCardProps
 
       {/* type tag */}
       <div className="absolute bottom-3 right-4">
-        <p
-          className={`font-['Playfair_Display',serif] italic text-[13px] ${
-            textColor === "text-white" ? "text-white/80" : "text-black/70"
-          } capitalize`}
-        >
+        <p className={`font-['Playfair_Display',serif] italic text-[13px] ${textColor === "text-white" ? "text-white/80" : "text-black/70"} capitalize`}>
           {letter.type}
         </p>
       </div>
@@ -158,36 +139,37 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
   const [loading, setLoading] = useState(true);
   const [selectedLetter, setSelectedLetter] = useState<{ letter: LetterUI; color: string } | null>(null);
 
-  useEffect(() => {
-    const loadMessages = async () => {
-      if (!session.inboxId || !session.sessionToken) {
-        toast.error(language === "en" ? "Invalid session" : "Session invalide");
+  const reload = async () => {
+    if (!session.inboxId || !session.sessionToken) {
+      toast.error(language === "en" ? "Invalid session" : "Session invalide");
+      onBack();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await listInbox(session.inboxId, session.sessionToken);
+      setMessages(response.messages);
+    } catch (error: any) {
+      const msg = String(error?.message || "");
+      if (msg.includes("401")) {
+        toast.error(language === "en" ? "Session expired" : "Session expirée");
         onBack();
-        return;
+      } else if (msg.includes("429")) {
+        toast.error(language === "en" ? "Too many requests" : "Trop de requêtes");
+      } else {
+        toast.error(error.message || (language === "en" ? "Failed to load" : "Échec du chargement"));
       }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      try {
-        const response = await listInbox(session.inboxId, session.sessionToken);
-        setMessages(response.messages);
-      } catch (error: any) {
-        const msg = String(error?.message || "");
-        if (msg.includes("401")) {
-          toast.error(language === "en" ? "Session expired" : "Session expirée");
-          onBack();
-        } else if (msg.includes("429")) {
-          toast.error(language === "en" ? "Too many requests" : "Trop de requêtes");
-        } else {
-          toast.error(error.message || (language === "en" ? "Failed to load" : "Échec du chargement"));
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.inboxId, session.sessionToken]);
 
-    loadMessages();
-  }, [session.inboxId, session.sessionToken, language, onBack]);
-
-  /** ✅ on map en LetterUI (avec isUnread) */
   const letters: LetterUI[] = messages.map((msg) => ({
     id: msg.id,
     from: msg.fromName,
@@ -199,11 +181,11 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
       year: "2-digit",
     }),
     message: msg.body,
-    isAnonymous: msg.fromName.toLowerCase().includes("anonymous"),
+    isAnonymous: msg.fromName?.toLowerCase?.().includes("anonymous") || false,
     isUnread: msg.unread === true,
   }));
 
-  const translations = {
+  const t = {
     en: {
       back: "Back",
       title: "Your Love Letters",
@@ -222,9 +204,7 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
       waitingForYou: "qui vous attendent",
       footer: "créé par D&F avec",
     },
-  };
-
-  const t = translations[language];
+  }[language];
 
   if (loading) {
     return (
@@ -243,30 +223,19 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
       <div className="relative">
         {/* Back */}
         <motion.button
-  onClick={onBack}
-  className="
-    inline-flex items-center gap-3
-    text-[24px] italic
-    text-[color:var(--text-light)]
-    font-['Cormorant_Garamond',serif]
-    px-3 py-2
-    rounded-[14px]
-    bg-white/35 backdrop-blur
-    border border-white/50
-    shadow-[0_10px_30px_rgba(180,90,130,.10)]
-    hover:bg-white/45
-    active:scale-[0.99]
-    transition
-  "
-  initial={{ opacity: 0, x: -12 }}
-  animate={{ opacity: 1, x: 0 }}
-  whileHover={{ x: -3 }}
-  whileTap={{ scale: 0.98 }}
->
-  <span className="text-[30px] leading-none">←</span>
-  <span className="leading-none">{t.back}</span>
-</motion.button>
-
+          onClick={onBack}
+          className="inline-flex items-center gap-3 text-[24px] italic text-[color:var(--text-light)]
+                     font-['Cormorant_Garamond',serif] px-3 py-2 rounded-[14px] bg-white/35 backdrop-blur
+                     border border-white/50 shadow-[0_10px_30px_rgba(180,90,130,.10)] hover:bg-white/45
+                     active:scale-[0.99] transition"
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          whileHover={{ x: -3 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <span className="text-[30px] leading-none">←</span>
+          <span className="leading-none">{t.back}</span>
+        </motion.button>
 
         {/* Header */}
         <div className="mt-4 flex flex-col items-center">
@@ -278,14 +247,12 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
             {t.title}
           </h1>
 
-          {/* Divider */}
           <div className="mt-5 mb-4 flex items-center gap-3 w-full">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
-            <div className="text-[13px] text-[color:var(--rose-deep)]">♥</div>
+            <div className="text-[13px] text-[color:var(--rose-deep)]">♥️</div>
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[color:var(--rose)] to-transparent" />
           </div>
 
-          {/* Count */}
           <p className="text-center italic text-[14px] text-[color:var(--text-light)] leading-relaxed">
             {t.youHave}{" "}
             <span className="font-['Playfair_Display',serif] text-[color:var(--rose-deep)] font-bold not-italic">
@@ -312,8 +279,9 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
         {/* Footer */}
         <button
           onClick={() => onNavigate?.("credits")}
-          className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition">
-          {t.footer} ♥
+          className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition"
+        >
+          {t.footer} ♥️
         </button>
 
         {/* Detail modal */}
@@ -323,6 +291,18 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
             color={selectedLetter.color}
             onClose={() => setSelectedLetter(null)}
             language={language}
+            onRead={(id) => {
+              // ✅ remove unread dot immediately
+              setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, unread: false } : m)));
+            }}
+            onReplySent={(id, replyBody, createdAt) => {
+              // Optional: keep list ordering fresh when a reply is sent
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === id ? { ...m, lastActiveAt: createdAt ?? Date.now() } : m
+                )
+              );
+            }}
           />
         )}
       </div>

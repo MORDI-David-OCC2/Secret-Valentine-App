@@ -31,11 +31,19 @@ function pbkdf2Hash(pin, saltHex, iterations = 120000) {
   return dk.toString("hex");
 }
 
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function isValidEmail(email) {
+  return email.includes("@") && email.includes(".");
+}
+
 async function revokeAllSessions(db, inboxId) {
   const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions");
   const snap = await sessionRef.get();
   const batch = db.batch();
-  snap.docs.forEach(d => batch.delete(d.ref));
+  snap.docs.forEach((d) => batch.delete(d.ref));
   await batch.commit();
 }
 
@@ -50,14 +58,59 @@ async function requireValidSession(db, inboxId, sessionToken) {
   return d.expiresAt.toDate() > new Date();
 }
 
+async function linkInboxToEmail(db, inboxId, email) {
+  const norm = normalizeEmail(email);
+  if (!norm) return;
+  if (!isValidEmail(norm)) throw new Error("Invalid email");
+
+  const emailHash = sha256Hex(norm);
+  const emailIndexRef = db.collection("emailIndex").doc(emailHash);
+  const emailIndexSnap = await emailIndexRef.get();
+
+  // Si l’email est déjà lié à un autre inbox => conflit
+  if (emailIndexSnap.exists) {
+    const existing = emailIndexSnap.data() || {};
+    if (existing.inboxId && existing.inboxId !== inboxId) {
+      throw new Error("Email already linked to another inbox");
+    }
+  }
+
+  const batch = db.batch();
+
+  batch.set(
+    emailIndexRef,
+    {
+      inboxId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  batch.set(
+    db.collection("inboxes").doc(inboxId),
+    {
+      linkedEmailHash: emailHash,
+      linkedEmail: norm, // optionnel; si tu veux éviter de stocker l’email en clair, supprime cette ligne
+      linkedEmailAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  await batch.commit();
+}
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: {
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "POST, OPTIONS",
-        "access-control-allow-headers": "content-type",
-      }, body: "" };
+      return {
+        statusCode: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-headers": "content-type",
+        },
+        body: "",
+      };
     }
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
@@ -65,12 +118,18 @@ exports.handler = async (event) => {
     const db = admin.firestore();
 
     let payload;
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return jsonResponse(400, { ok: false, error: "Invalid JSON body" }); }
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
+    }
 
     const inboxId = String(payload.inboxId || "").trim();
     const pin = payload.pin; // string or null
     const sessionToken = String(payload.sessionToken || "").trim() || null;
+
+    // NEW: optional email association (share/instagram flows)
+    const emailToLink = normalizeEmail(payload.email);
 
     if (!inboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
 
@@ -81,7 +140,7 @@ exports.handler = async (event) => {
     const d = inboxSnap.data() || {};
     const hasPin = !!(d.pinHash && d.pinSalt && d.pinIter);
 
-    // If PIN already exists, require valid session to change/remove it
+    // If PIN already exists, require valid session to change/remove it (reset link will provide session)
     if (hasPin) {
       const ok = await requireValidSession(db, inboxId, sessionToken);
       if (!ok) return jsonResponse(401, { ok: false, error: "Unlock inbox first (PIN required)." });
@@ -89,14 +148,16 @@ exports.handler = async (event) => {
 
     // Remove PIN
     if (pin === null) {
-      await inboxRef.set({
-        pinHash: null,
-        pinSalt: null,
-        pinIter: null,
-        pinSetAt: null,
-      }, { merge: true });
+      await inboxRef.set(
+        {
+          pinHash: null,
+          pinSalt: null,
+          pinIter: null,
+          pinSetAt: null,
+        },
+        { merge: true }
+      );
       await revokeAllSessions(db, inboxId);
-
       return jsonResponse(200, { ok: true, removed: true });
     }
 
@@ -108,16 +169,24 @@ exports.handler = async (event) => {
     const iterations = 120000;
     const pinHash = pbkdf2Hash(pinStr, saltHex, iterations);
 
-    await inboxRef.set({
-      pinHash,
-      pinSalt: saltHex,
-      pinIter: iterations,
-      pinSetAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    await inboxRef.set(
+      {
+        pinHash,
+        pinSalt: saltHex,
+        pinIter: iterations,
+        pinSetAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Link email (optional)
+    if (emailToLink) {
+      await linkInboxToEmail(db, inboxId, emailToLink);
+    }
 
     await revokeAllSessions(db, inboxId);
 
-    return jsonResponse(200, { ok: true, updated: true });
+    return jsonResponse(200, { ok: true, updated: true, linkedEmail: !!emailToLink });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

@@ -30,6 +30,28 @@ function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
 
+function isValidEmail(e) {
+  return typeof e === "string" && e.includes("@") && e.includes(".");
+}
+
+async function createSessionTokenForInbox(db, inboxRef, inboxId) {
+  const sessionToken = randomTokenBase64Url(32);
+  const sessionHash = sha256Hex(sessionToken);
+
+  const expiresDays = 7;
+  const expiresAtSession = admin.firestore.Timestamp.fromDate(
+    new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
+  );
+
+  await inboxRef.collection("sessions").doc(sessionHash).set({
+    inboxId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: expiresAtSession,
+  });
+
+  return sessionToken;
+}
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
@@ -66,7 +88,11 @@ exports.handler = async (event) => {
     if (!tokenSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
 
     const tokenData = tokenSnap.data() || {};
-    if (tokenData.purpose && tokenData.purpose !== "open") {
+    const purpose = String(tokenData.purpose || "open");
+    const isPinReset = purpose === "pin_reset";
+
+    // accept only expected purposes
+    if (purpose !== "open" && purpose !== "pin_reset") {
       return jsonResponse(403, { ok: false, error: "Invalid token purpose" });
     }
 
@@ -84,31 +110,24 @@ exports.handler = async (event) => {
 
     const inbox = inboxSnap.data() || {};
     const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
-    const pinMustBeCreated = !pinRequired;
 
-    // NEW: used for share/instagram flows
-    const emailLinked = !!(inbox.email && String(inbox.email).includes("@"));
+    // If pin_reset => we want to force user to set a new PIN (even if one exists)
+    const pinMustBeCreated = isPinReset ? true : !pinRequired;
 
-    // If no PIN yet, create a session token so the user can set PIN immediately
+    // email association: use primaryEmail (your “remember me” email binding)
+    const primaryEmail = inbox.primaryEmail || null;
+    const needsEmailAssociation = !isValidEmail(primaryEmail);
+
+    // session token:
+    // - for first-time PIN setup: YES
+    // - for pin reset: YES
+    // - otherwise (PIN exists and normal open): NO
     let sessionToken = null;
-
     if (pinMustBeCreated) {
-      sessionToken = randomTokenBase64Url(32);
-      const sessionHash = sha256Hex(sessionToken);
-
-      const expiresDays = 7;
-      const expiresAtSession = admin.firestore.Timestamp.fromDate(
-        new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
-      );
-
-      await inboxRef.collection("sessions").doc(sessionHash).set({
-        inboxId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        expiresAt: expiresAtSession,
-      });
+      sessionToken = await createSessionTokenForInbox(db, inboxRef, inboxId);
     }
 
-    // mark activated
+    // mark activated (optional)
     await inboxRef.set(
       { activatedAt: admin.firestore.FieldValue.serverTimestamp() },
       { merge: true }
@@ -117,10 +136,12 @@ exports.handler = async (event) => {
     return jsonResponse(200, {
       ok: true,
       inboxId,
+      purpose,               // "open" | "pin_reset"
       pinRequired,
-      pinMustBeCreated, // 👈 frontend uses this to redirect to FirstPinSetup
-      emailLinked,      // 👈 frontend uses this to decide if it must ask for email
-      sessionToken,
+      pinMustBeCreated,      // frontend -> redirect to FirstPinSetup (or ResetPin)
+      sessionToken,          // present only when pinMustBeCreated
+      primaryEmail: isValidEmail(primaryEmail) ? String(primaryEmail) : null,
+      needsEmailAssociation, // frontend -> show email field when true
     });
   } catch (err) {
     console.error(err);

@@ -10,8 +10,8 @@ interface FirstPinSetupProps {
   onPinCreated: (pin: string) => void;
   onBack: () => void;
   language: "en" | "fr";
-
-  // NEW:
+  needsEmailAssociation?: boolean;
+    // NEW:
   requireEmail?: boolean;            // true for share/instagram
   onEmailLinked?: (email: string) => void;
 }
@@ -163,23 +163,18 @@ export default function FirstPinSetup({
         animate={{ opacity: 1, y: 0 }}
       >
         {/* NEW: Email field (share/instagram only) */}
-        {requireEmail && (
-          <div>
-            <label className="font-['Inter',sans-serif] font-medium text-[14px] text-[#2d1b1b] mb-2 block">
-              {t.emailLabel}
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[16px] text-[#2d1b1b]
-                         focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
-              placeholder="you@example.com"
-              disabled={isSubmitting}
-            />
-            <p className="mt-2 text-[12px] italic text-[color:var(--text-light)]">{t.emailHint}</p>
-          </div>
-        )}
+        {needsEmailAssociation && (
+  <div>
+    <label>Votre email (pour retrouver votre boîte)</label>
+    <input
+      type="email"
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+      placeholder="you@email.com"
+    />
+  </div>
+)}
+
 
         <div>
           <label className="font-['Inter',sans-serif] font-medium text-[14px] text-[#2d1b1b] mb-2 block">

@@ -1,11 +1,6 @@
-import { useEffect, useState } from 'react';
-import { openLink } from '../services/api';
-import { useSession } from '../contexts/SessionContext';
-
-/**
- * Hook pour gérer l'ouverture d'un lien inbox via token
- * Gère les cas: pas de PIN, PIN requis, erreurs
- */
+import { useEffect, useState } from "react";
+import { openLink } from "../services/api";
+import { useSession } from "../contexts/SessionContext";
 
 interface UseInboxLinkResult {
   loading: boolean;
@@ -19,54 +14,74 @@ interface UseInboxLinkResult {
 export function useInboxLink(token: string | null): UseInboxLinkResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [needsPin, setNeedsPin] = useState(false);
   const [pinMustBeCreated, setPinMustBeCreated] = useState(false);
+
   const [sessionTokenState, setSessionTokenState] = useState<string | null>(null);
-  const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
   const [inboxId, setInboxIdState] = useState<string | null>(null);
+
+  const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
 
   useEffect(() => {
     if (!token) return;
 
-    const handleOpenLink = async () => {
+    const run = async () => {
       setLoading(true);
       setError(null);
+      setNeedsPin(false);
+      setPinMustBeCreated(false);
+      setSessionTokenState(null);
 
       try {
-        const response = await openLink(token);
-        
-        setInboxId(response.inboxId);
-        setInboxIdState(response.inboxId);
-        setIsPinRequired(response.pinRequired);
+        const res = await openLink(token);
 
-        if (response.pinRequired) {
-          // PIN requis mais pas encore défini - forcer la création
-          if (response.sessionToken) {
-            // Le backend retourne un sessionToken même si PIN requis
-            // Cela signifie que c'est la première fois et le PIN doit être créé
-            setPinMustBeCreated(true);
-            setSessionTokenState(response.sessionToken);
-            setIsLocked(false);
-          } else {
-            // PIN déjà défini - l'utilisateur doit déverrouiller
-            setNeedsPin(true);
-            setIsLocked(true);
+        setInboxId(res.inboxId);
+        setInboxIdState(res.inboxId);
+
+        // pinRequired = "un PIN existe déjà"
+        setIsPinRequired(!!res.pinRequired);
+
+        // ✅ 1) Première fois => création obligatoire
+        if (res.pinMustBeCreated) {
+          setPinMustBeCreated(true);
+
+          // le backend doit fournir un sessionToken pour permettre setPin
+          if (res.sessionToken) {
+            setSessionTokenState(res.sessionToken);
+            setSessionToken(res.sessionToken);
           }
-        } else if (response.sessionToken) {
-          // Pas de PIN - accès direct
-          setSessionToken(response.sessionToken);
-          setSessionTokenState(response.sessionToken);
+
           setIsLocked(false);
+          return;
         }
-      } catch (err: any) {
-        console.error('Error opening link:', err);
-        setError(err.message || 'Lien invalide ou expiré');
+
+        // ✅ 2) PIN existe => il faut unlock (pas de sessionToken)
+        if (res.pinRequired) {
+          setNeedsPin(true);
+          setIsLocked(true);
+          return;
+        }
+
+        // ✅ 3) Cas fallback: pas de PIN + session directe
+        if (res.sessionToken) {
+          setSessionTokenState(res.sessionToken);
+          setSessionToken(res.sessionToken);
+          setIsLocked(false);
+          return;
+        }
+
+        // Si on arrive ici, c'est incohérent
+        setError("Invalid session state");
+      } catch (e: any) {
+        console.error("Error opening link:", e);
+        setError(e?.message || "Lien invalide ou expiré");
       } finally {
         setLoading(false);
       }
     };
 
-    handleOpenLink();
+    run();
   }, [token]);
 
   return { loading, error, needsPin, inboxId, sessionToken: sessionTokenState, pinMustBeCreated };

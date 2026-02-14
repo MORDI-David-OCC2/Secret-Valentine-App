@@ -51,6 +51,18 @@ export function verifyPin(inboxId: string, pin: string) {
   return postJSON<VerifyPinResponse>("verifyPin", { inboxId, pin, mode: "verify" });
 }
 
+export async function unlockInboxWithPin(
+  inboxIdOrParams: string | { inboxId: string; pin: string },
+  maybePin?: string
+): Promise<{ ok: true; sessionToken: string }> {
+  const payload =
+    typeof inboxIdOrParams === "string"
+      ? { inboxId: inboxIdOrParams, pin: String(maybePin || "") }
+      : inboxIdOrParams;
+
+  return postJSON("unlockInboxWithPin", payload);
+}
+
 // ---------------- SET PIN ----------------
 export interface SetPinResponse {
   ok: true;
@@ -168,11 +180,4 @@ export function requestLoginLink(email: string) {
 
 export function requestPinReset(email: string) {
   return postJSON<{ ok: true }>("requestPinReset", { email });
-}
-
-// ---------------- UNLOCK ----------------
-export async function unlockInboxWithPin(inboxId: string, pin: string) {
-  const res = await verifyPin(inboxId, pin);
-  if (!res?.sessionToken) throw new Error("No session token");
-  return { ok: true as const, inboxId, sessionToken: res.sessionToken };
 }

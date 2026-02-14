@@ -374,7 +374,7 @@ export default function ClaimInboxPage({
               <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">{t.pinLabel}</p>
 
               <input
-                type="password"
+                type="pin"
                 inputMode="numeric"
                 maxLength={4}
                 value={password}

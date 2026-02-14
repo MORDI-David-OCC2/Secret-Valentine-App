@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Toaster } from "sonner@2.0.3";
-import { SessionProvider } from "./contexts/SessionContext";
+import { SessionProvider, useSession } from "./contexts/SessionContext";
 
 import HomePage from "./components/HomePage";
 import LettersPage from "./components/LettersPage";
@@ -54,10 +54,7 @@ const PAGE_DEPTH: Record<Page, number> = {
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("home");
   const [language, setLanguage] = useState<"en" | "fr">("en");
-
-  const [pinCode, setPinCode] = useState<string | null>(null);
-  const [isPinVerified, setIsPinVerified] = useState(false);
-
+  const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
 
@@ -71,6 +68,8 @@ function AppContent() {
   const [navDir, setNavDir] = useState<NavDir>("forward");
   const prevDepthRef = useMemo(() => ({ depth: PAGE_DEPTH[currentPage] }), []);
 
+  const { session, isAuthenticated, logout } = useSession();
+
   const setPage = (next: Page) => {
     const prevDepth = prevDepthRef.depth;
     const nextDepth = PAGE_DEPTH[next] ?? 0;
@@ -79,6 +78,7 @@ function AppContent() {
     setCurrentPage(next);
   };
 
+  // Disable zoom (iOS)
   useEffect(() => {
     const preventGesture = (e: Event) => e.preventDefault();
     document.addEventListener("gesturestart", preventGesture as any, { passive: false } as any);
@@ -101,6 +101,7 @@ function AppContent() {
     };
   }, []);
 
+  // Disable scroll only on Home
   useEffect(() => {
     const prevHtmlOverflow = document.documentElement.style.overflow;
     const prevBodyOverflow = document.body.style.overflow;
@@ -123,6 +124,7 @@ function AppContent() {
     };
   }, [currentPage]);
 
+  // detect token /#/inbox?t=...
   useEffect(() => {
     const detectToken = () => {
       const hash = window.location.hash;
@@ -144,35 +146,54 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ NEW: Home -> Letters routing uses SessionContext ONLY
   const handleNavigateToLetters = () => {
-    if (pinCode && !isPinVerified) setPage("pin");
-    else setPage("letters");
+    // if no inbox at all => go login
+    if (!session.inboxId) {
+      setClaimMode("login");
+      setPage("claim");
+      return;
+    }
+
+    // if need create pin
+    if (session.mustCreatePin) {
+      // If you have temp setup tokens, go first-pin, else user must reopen link or login
+      if (tempInboxId && tempSessionToken) setPage("first-pin");
+      else setPage("first-pin");
+      return;
+    }
+
+    // if locked => ask PIN
+    if (session.isLocked) {
+      setPage("pin");
+      return;
+    }
+
+    // authenticated => inbox
+    if (isAuthenticated) {
+      setPage("letters");
+      return;
+    }
+
+    // default => login
+    setClaimMode("login");
+    setPage("claim");
   };
 
   const handlePinSuccess = () => {
-    setIsPinVerified(true);
+    // PinEntryScreen already updates SessionContext; just go letters
     setPage("letters");
   };
 
-  const handlePinChange = (newPin: string | null) => {
-    setPinCode(newPin);
-    if (newPin === null) setIsPinVerified(false);
-  };
-
-  const handleFirstPinCreated = (pin: string) => {
-    setPinCode(pin);
-    setIsPinVerified(true);
-
+  const handleFirstPinCreated = () => {
     setTempInboxId(null);
     setTempSessionToken(null);
     setTempNeedsEmailAssociation(false);
-
     setPage("letters");
   };
 
   const handleLogout = () => {
-    setPinCode(null);
-    setIsPinVerified(false);
+    logout();
 
     setTempInboxId(null);
     setTempSessionToken(null);
@@ -196,6 +217,7 @@ function AppContent() {
     }),
   };
 
+  // Inbox link special flow
   if (currentPage === "inbox-link" && linkToken) {
     return (
       <InboxLinkHandler
@@ -203,14 +225,17 @@ function AppContent() {
         onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
           setLinkToken(null);
 
-          // ✅ do NOT block inbox access just because pin must be created
+          // needs pin => go pin
           if (needsPin) {
+            setInboxId(inboxId);          // ✅ obligatoire
+            setIsPinRequired(true);       // ✅ cohérent avec ton système
+            setIsLocked(true);            // ✅ l’inbox est locked tant que pin pas vérifié
             setPage("pin");
             return;
           }
 
-          // If you still want to keep this available later, store it but go letters now
-          if (pinMustBeCreated && sessionToken) {
+          // if pin must be created: keep setup tokens, but allow letters screen
+          if (sessionToken) {
             setTempInboxId(inboxId);
             setTempSessionToken(sessionToken);
             setTempNeedsEmailAssociation(!!needsEmailAssociation);
@@ -279,7 +304,11 @@ function AppContent() {
             transition={{ duration: 0.38, ease: [0.77, 0, 0.18, 1] }}
             style={{ height: "100%" }}
           >
-            <LettersPage onBack={() => setPage("home")} language={language} onNavigate={(page) => setPage(page as Page)} />
+            <LettersPage
+              onBack={() => setPage("home")}
+              language={language}
+              onNavigate={(page) => setPage(page as Page)}
+            />
           </motion.div>
         )}
 
@@ -341,8 +370,8 @@ function AppContent() {
             <SettingsPage
               language={language}
               onLanguageChange={setLanguage}
-              pinCode={pinCode}
-              onPinCodeChange={handlePinChange}
+              pinCode={null} // no longer used for gating
+              onPinCodeChange={() => {}}
               onBack={() => setPage("home")}
               onLogout={handleLogout}
               onNavigate={(page) => setPage(page as Page)}
@@ -413,4 +442,4 @@ export default function App() {
       <AppContent />
     </SessionProvider>
   );
-  }
+}

@@ -164,6 +164,7 @@ export default function LetterDetailView({ messageId, color, onClose, language }
           style={{
             // Réduit la hauteur max pour éviter de toucher la barre du haut/bas
             maxHeight: "calc(100dvh - max(28px, env(safe-area-inset-top)) - max(28px, env(safe-area-inset-bottom)) - 24px)",
+            transform: "translateY(-40px)",
           }}
           initial={{ scale: 0.6, opacity: 0, rotateY: -60 }}
           animate={{ scale: 1, opacity: 1, rotateY: 0 }}

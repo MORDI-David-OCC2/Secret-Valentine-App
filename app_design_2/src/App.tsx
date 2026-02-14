@@ -28,7 +28,6 @@ type Page =
   | "first-pin";
 
 type NavDir = "forward" | "back";
-type ClaimMode = "login" | "create";
 
 const PAGE_DEPTH: Record<Page, number> = {
   home: 0,
@@ -52,7 +51,7 @@ function AppContent() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
 
-  const [claimMode, setClaimMode] = useState<ClaimMode>("login");
+  const [claimMode, setClaimMode] = useState<"login" | "create">("login");
 
   const [tempInboxId, setTempInboxId] = useState<string | null>(null);
   const [tempSessionToken, setTempSessionToken] = useState<string | null>(null);
@@ -69,6 +68,7 @@ function AppContent() {
     setCurrentPage(next);
   };
 
+  // Disable zoom (iOS)
   useEffect(() => {
     const preventGesture = (e: Event) => e.preventDefault();
     document.addEventListener("gesturestart", preventGesture as any, { passive: false } as any);
@@ -91,6 +91,7 @@ function AppContent() {
     };
   }, []);
 
+  // Disable scroll only on Home
   useEffect(() => {
     const prevHtmlOverflow = document.documentElement.style.overflow;
     const prevBodyOverflow = document.body.style.overflow;
@@ -113,6 +114,7 @@ function AppContent() {
     };
   }, [currentPage]);
 
+  // detect token /#/inbox?t=...
   useEffect(() => {
     const detectToken = () => {
       const hash = window.location.hash;
@@ -149,23 +151,37 @@ function AppContent() {
     if (newPin === null) setIsPinVerified(false);
   };
 
+  // ✅ IMPORTANT: after first pin created, if a link was pending, go back to hub so we can IMPORT
   const handleFirstPinCreated = (pin: string) => {
     setPinCode(pin);
     setIsPinVerified(true);
+
     setTempInboxId(null);
     setTempSessionToken(null);
     setTempNeedsEmailAssociation(false);
+
+    if (pendingLinkToken) {
+      const tok = pendingLinkToken;
+      setPendingLinkToken(null);
+      setLinkToken(tok);
+      setPage("inbox-link");
+      return;
+    }
+
     setPage("letters");
   };
 
   const handleLogout = () => {
     setPinCode(null);
     setIsPinVerified(false);
+
     setTempInboxId(null);
     setTempSessionToken(null);
     setTempNeedsEmailAssociation(false);
+
     setPendingLinkToken(null);
     setLinkToken(null);
+
     setPage("home");
   };
 
@@ -181,14 +197,13 @@ function AppContent() {
     }),
   };
 
-  // Inbox link flow
+  // Inbox link special flow
   if (currentPage === "inbox-link" && linkToken) {
     return (
       <InboxLinkHandler
         token={linkToken}
         onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
           setLinkToken(null);
-          setPendingLinkToken(null);
 
           if (pinMustBeCreated && sessionToken) {
             setTempInboxId(inboxId);
@@ -300,22 +315,14 @@ function AppContent() {
                   setPage("home");
                 }
               }}
-              language={language}
-              onNavigate={(page) => {
-                if (page === "letters" && pendingLinkToken) {
-                  setLinkToken(pendingLinkToken);
-                  setPage("inbox-link");
-                  return;
-                }
-                setPage(page as Page);
-              }}
-              // when create succeeds => go to first pin setup directly
-              onCreated={(inboxId, sessionToken) => {
+              onCreated={(inboxId, sessionToken, needsEmailAssociation) => {
                 setTempInboxId(inboxId);
                 setTempSessionToken(sessionToken);
-                setTempNeedsEmailAssociation(false);
+                setTempNeedsEmailAssociation(!!needsEmailAssociation);
                 setPage("first-pin");
               }}
+              language={language}
+              onNavigate={(page) => setPage(page as Page)}
             />
           </motion.div>
         )}

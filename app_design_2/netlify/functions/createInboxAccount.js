@@ -106,7 +106,7 @@ exports.handler = async (event) => {
     const password = String(payload.password || "").trim();
 
     if (!isValidEmail(email)) return jsonResponse(400, { ok: false, error: "Invalid email" });
-    if (password.length < 4) return jsonResponse(400, { ok: false, error: "Password must be at least 6 chars" });
+    if (password.length < 4) return jsonResponse(400, { ok: false, error: "Password must be 4 digits" });
 
     const emailHash = sha256Hex(email);
     const emailIndexRef = db.collection("emailIndex").doc(emailHash);

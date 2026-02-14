@@ -62,8 +62,8 @@ function getClientIp(event) {
 /** ---------------- EMAIL (Resend) ---------------- */
 
 async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY_2;
-  const from = process.env.EMAIL_VALENTINE_2;
+  const apiKey = process.env.API_EMAIL_KEY;
+  const from = process.env.EMAIL_VALENTINE;
 
   if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
   if (!from) throw new Error("Missing EMAIL_VALENTINE env var");

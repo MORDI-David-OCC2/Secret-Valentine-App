@@ -1,5 +1,5 @@
 // src/components/InboxLinkHandler.tsx
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import { useInboxLink } from "../hooks/useInboxLink";
@@ -8,6 +8,9 @@ import { importLinkToInbox } from "../services/api";
 
 interface InboxLinkHandlerProps {
   token: string;
+
+  // appelé quand on doit aller vers l'inbox courante (après import)
+  // ou quand tu veux continuer ton flow principal
   onSuccess: (
     inboxId: string,
     needsPin: boolean,
@@ -15,35 +18,43 @@ interface InboxLinkHandlerProps {
     pinMustBeCreated: boolean,
     needsEmailAssociation: boolean
   ) => void;
+
+  // fallback/back (souvent = retour home)
   onError: () => void;
+
+  // ✅ NEW: navigation directe
+  onGoToLogin?: () => void;
+  onGoToCreate?: () => void;
+
   language: "en" | "fr";
 }
 
 /**
- * IMPORTANT:
- * - Cet écran s'affiche TOUJOURS après résolution du lien.
- * - Il ne dépend plus de isAuthenticated.
- * - Il propose des actions selon l'état session actuel.
+ * HUB qui s'affiche TOUJOURS une fois que le lien est résolu.
+ * - On retire l'option "Open link inbox" (tu as dit que tu peux l'enlever).
+ * - Create => va sur la page création (email + PIN etc)
+ * - Login => va sur la page login
+ * - Import => ajoute à la boîte déjà connectée
  */
-export default function InboxLinkHandler({ token, onSuccess, onError, language }: InboxLinkHandlerProps) {
+export default function InboxLinkHandler({
+  token,
+  onSuccess,
+  onError,
+  onGoToLogin,
+  onGoToCreate,
+  language,
+}: InboxLinkHandlerProps) {
   const {
     loading,
     error,
-    inboxId,
+    inboxId, // inbox visée par le lien (source)
     needsPin,
     sessionToken,
     pinMustBeCreated,
     needsEmailAssociation,
   } = useInboxLink(token);
 
-  const {
-    session,
-    setInboxId,
-    setSessionToken,
-    setIsLocked,
-    setIsPinRequired,
-    setMustCreatePin,
-  } = useSession();
+  const { session } = useSession();
 
   const [isImporting, setIsImporting] = useState(false);
 
@@ -52,104 +63,85 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
       ({
         en: {
           loading: "Opening your link…",
-          error: "Invalid or expired link",
-          tryAgain: "Return to home",
+          errorTitle: "Invalid or expired link",
+          backHome: "Return",
 
           hubTitle: "What do you want to do?",
-          hubSubtitle: "Choose how you’d like to open this letter.",
+          hubSubtitle: "Choose how you’d like to use this letter.",
 
-          openLinkInbox: "Open the inbox from this link",
-          openLinkInboxHint: "Use the inbox attached to the shared link.",
-
-          importToMine: "Add this letter to my current inbox",
+          importToMine: "Add this to my current inbox",
           importToMineHint: "Keep everything in one place (recommended).",
           importing: "Adding…",
           importDone: "Added to your inbox ✅",
+          importFailed: "Import failed",
+          noActiveSession: "You are not logged in on this device.",
+          sameInbox: "This letter already belongs to your current inbox.",
 
           loginToMine: "Log in to my inbox",
-          loginToMineHint: "Access your existing inbox (PIN / email).",
+          loginToMineHint: "Access an existing inbox (PIN / email).",
 
-          createNew: "Create a new inbox",
-          createNewHint: "Start fresh with a new inbox.",
-
-          noActiveSession: "No active inbox found on this device.",
+          createNew: "Create my inbox",
+          createNewHint: "Create a new inbox (email + PIN) and use this letter.",
         },
         fr: {
           loading: "Ouverture du lien…",
-          error: "Lien invalide ou expiré",
-          tryAgain: "Retour à l'accueil",
+          errorTitle: "Lien invalide ou expiré",
+          backHome: "Retour",
 
           hubTitle: "Que veux-tu faire ?",
-          hubSubtitle: "Choisis comment tu veux ouvrir ce message.",
-
-          openLinkInbox: "Ouvrir la boîte du lien",
-          openLinkInboxHint: "Utiliser la boîte attachée à ce lien.",
+          hubSubtitle: "Choisis comment tu veux utiliser ce message.",
 
           importToMine: "Ajouter à ma boîte actuelle",
           importToMineHint: "Tout garder au même endroit (recommandé).",
           importing: "Ajout…",
           importDone: "Ajouté à ta boîte ✅",
+          importFailed: "Échec de l’import",
+          noActiveSession: "Tu n’es pas connecté(e) sur cet appareil.",
+          sameInbox: "Ce message appartient déjà à ta boîte actuelle.",
 
           loginToMine: "Me connecter à ma boîte",
-          loginToMineHint: "Accéder à ta boîte existante (PIN / email).",
+          loginToMineHint: "Accéder à une boîte existante (PIN / email).",
 
-          createNew: "Créer une nouvelle boîte",
-          createNewHint: "Repartir de zéro avec une nouvelle boîte.",
-
-          noActiveSession: "Aucune boîte active trouvée sur cet appareil.",
+          createNew: "Créer ma boîte",
+          createNewHint: "Créer une nouvelle boîte (email + PIN) et utiliser ce message.",
         },
       }[language]),
     [language]
   );
 
   const hasActiveSession = !!(session.inboxId && session.sessionToken);
-  const canImport = !!(hasActiveSession && inboxId && session.inboxId && session.inboxId !== inboxId);
+  const linkInboxResolved = !!inboxId;
 
-  /** Appliquer l'inbox du lien dans la session + naviguer via onSuccess */
-  const openLinkedInbox = useCallback(() => {
-    if (!inboxId) return;
+  // Import possible seulement si:
+  // - session locale existe
+  // - inbox du lien existe
+  // - inbox du lien != inbox courante
+  const canImport =
+    hasActiveSession &&
+    linkInboxResolved &&
+    !!session.inboxId &&
+    !!inboxId &&
+    session.inboxId !== inboxId;
 
-    // 1) on met la session sur l'inbox du lien
-    setInboxId(inboxId);
+  const importDisabledReason = useMemo(() => {
+    if (!hasActiveSession) return t.noActiveSession;
+    if (hasActiveSession && inboxId && session.inboxId === inboxId) return t.sameInbox;
+    return "";
+  }, [hasActiveSession, inboxId, session.inboxId, t.noActiveSession, t.sameInbox]);
 
-    // 2) pin flags cohérents
-    setIsPinRequired(!!needsPin);
-    setMustCreatePin(!!pinMustBeCreated);
-
-    if (pinMustBeCreated) {
-      setSessionToken(sessionToken || null);
-      setIsLocked(false);
-    } else if (needsPin) {
-      setSessionToken(null);
-      setIsLocked(true);
-    } else {
-      setSessionToken(sessionToken || null);
-      setIsLocked(false);
-    }
-
-    // 3) continue le flow app
-    onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
-  }, [
-    inboxId,
-    needsPin,
-    pinMustBeCreated,
-    sessionToken,
-    needsEmailAssociation,
-    onSuccess,
-    setInboxId,
-    setIsPinRequired,
-    setMustCreatePin,
-    setSessionToken,
-    setIsLocked,
-  ]);
-
-  /** Importer la lettre vers la session courante */
   const handleImport = useCallback(async () => {
     if (!session.inboxId || !session.sessionToken) {
       toast.error(t.noActiveSession);
       return;
     }
     if (!inboxId) return;
+
+    // si même inbox, pas besoin d'import
+    if (session.inboxId === inboxId) {
+      toast.success(t.sameInbox);
+      onSuccess(session.inboxId, false, session.sessionToken, false, false);
+      return;
+    }
 
     setIsImporting(true);
     try {
@@ -158,42 +150,62 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
         destInboxId: session.inboxId,
         destSessionToken: session.sessionToken,
       });
+
       toast.success(t.importDone);
 
-      // rester sur l'inbox du user
+      // ✅ rester sur la boîte déjà connectée
       onSuccess(session.inboxId, false, session.sessionToken, false, false);
     } catch (e: any) {
-      toast.error(e?.message || "Import failed");
+      toast.error(e?.message || t.importFailed);
     } finally {
       setIsImporting(false);
     }
-  }, [session.inboxId, session.sessionToken, inboxId, token, onSuccess, t.noActiveSession, t.importDone]);
+  }, [
+    session.inboxId,
+    session.sessionToken,
+    inboxId,
+    token,
+    onSuccess,
+    t.noActiveSession,
+    t.importDone,
+    t.importFailed,
+    t.sameInbox,
+  ]);
 
-  /** "Me connecter à ma boîte" ou "Créer une nouvelle boîte" :
-   *  -> c’est ton flow existant (HomePage / ClaimInboxPage / RequestLoginLink).
-   *  -> Ici on ne peut que renvoyer l’utilisateur via onError() ou un callback dédié si tu en as un.
-   *
-   *  Si tu veux un routing propre: ajoute `onGoToLogin` et `onGoToCreate`.
-   *  Pour l’instant, onError() ramène au home où tu as ces options.
-   */
-  const goHomeToLoginOrCreate = () => {
-    onError();
+  const goLogin = () => {
+    if (onGoToLogin) onGoToLogin();
+    else onError(); // fallback
   };
 
+  const goCreate = () => {
+    if (onGoToCreate) onGoToCreate();
+    else onError(); // fallback
+  };
+
+  // Error screen
   if (error) {
     return (
-      <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center">
-          <div className="text-6xl mb-6">💔</div>
-          <h1 className="font-['Kaushan_Script',sans-serif] text-[32px] text-[#a31e46] mb-4">{t.error}</h1>
-          <p className="font-['Inter',sans-serif] text-[16px] text-[#2d1b1b] mb-8">{error}</p>
+      <div
+        className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex items-center justify-center px-6"
+        style={{
+          paddingTop: "max(14px, env(safe-area-inset-top))",
+          paddingBottom: "max(14px, env(safe-area-inset-bottom))",
+        }}
+      >
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[420px] text-center">
+          <div className="text-6xl mb-5">💔</div>
+          <h1 className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)]">
+            {t.errorTitle}
+          </h1>
+          <p className="mt-3 font-['Inter',sans-serif] text-[14px] text-[#2d1b1b] opacity-80">{error}</p>
+
           <motion.button
             onClick={onError}
-            className="bg-[#a31e46] text-white px-8 py-3 rounded-full font-['Inter',sans-serif] font-medium"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className="mt-6 w-full rounded-[18px] px-5 py-4 bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] text-white font-['Playfair_Display',serif] italic font-bold text-[16px] shadow-[0_10px_30px_rgba(155,45,90,.25)]"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.99 }}
           >
-            {t.tryAgain}
+            {t.backHome}
           </motion.button>
         </motion.div>
       </div>
@@ -203,66 +215,78 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
   // Loading
   if (loading || !inboxId) {
     return (
-      <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center">
+      <div
+        className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-6"
+        style={{
+          paddingTop: "max(14px, env(safe-area-inset-top))",
+          paddingBottom: "max(14px, env(safe-area-inset-bottom))",
+        }}
+      >
         <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="text-8xl mb-8"
+          animate={{ scale: [1, 1.15, 1], rotate: [0, 8, -8, 0] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          className="text-7xl mb-6"
         >
           💌
         </motion.div>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]">
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-['Inter',sans-serif] text-[18px] text-[#2d1b1b]">
           {t.loading}
         </motion.p>
-        <motion.div className="flex gap-2 mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="w-3 h-3 bg-[#a31e46] rounded-full"
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.2 }}
-            />
-          ))}
-        </motion.div>
       </div>
     );
   }
 
-  // ✅ HUB: toujours affiché
+  // HUB (toujours)
   return (
-    <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex items-center justify-center px-6">
-      <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-[420px] text-center"
-      >
-        <div className="text-6xl mb-5">💌</div>
-
-        <h1 className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)]">
-          {t.hubTitle}
-        </h1>
-
-        <p className="mt-2 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
-          {t.hubSubtitle}
-        </p>
-
-        {/* Option 1: Open link inbox */}
-        <button
-          onClick={openLinkedInbox}
-          className="mt-6 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
-                     bg-white/70 backdrop-blur border border-white/60 transition active:scale-[0.99]"
+    <div
+      className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex items-center justify-center px-6"
+      style={{
+        paddingTop: "max(14px, env(safe-area-inset-top))",
+        paddingBottom: "max(14px, env(safe-area-inset-bottom))",
+      }}
+    >
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[420px]">
+        {/* Back (même vibe que tes autres pages) */}
+        <motion.button
+          onClick={onError}
+          className="
+            inline-flex items-center gap-3
+            text-[22px] italic
+            text-[color:var(--text-light)]
+            font-['Cormorant_Garamond',serif]
+            px-3 py-2
+            rounded-[14px]
+            bg-white/35 backdrop-blur
+            border border-white/50
+            shadow-[0_10px_30px_rgba(180,90,130,.10)]
+            hover:bg-white/45
+            active:scale-[0.99]
+            transition
+          "
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          whileHover={{ x: -3 }}
+          whileTap={{ scale: 0.98 }}
         >
-          <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-[color:var(--rose-deep)] leading-tight">
-            {t.openLinkInbox}
-          </div>
-          <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.openLinkInboxHint}</div>
-        </button>
+          <span className="text-[28px] leading-none">←</span>
+          <span className="leading-none">{t.backHome}</span>
+        </motion.button>
 
-        {/* Option 2: Import (only if possible) */}
+        <div className="text-center mt-5">
+          <div className="text-6xl mb-4">💌</div>
+          <h1 className="font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)]">
+            {t.hubTitle}
+          </h1>
+          <p className="mt-2 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">
+            {t.hubSubtitle}
+          </p>
+        </div>
+
+        {/* Import */}
         <button
           onClick={handleImport}
           disabled={!canImport || isImporting}
-          className="mt-3 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
+          className="mt-6 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.25)]
                      bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] text-white transition
                      disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
         >
@@ -270,18 +294,16 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
             {isImporting ? t.importing : t.importToMine}
           </div>
           <div className="mt-1 text-[13px] italic text-white/80">{t.importToMineHint}</div>
-          {!canImport && (
-            <div className="mt-2 text-[12px] italic text-white/70">
-              {hasActiveSession ? "" : t.noActiveSession}
-            </div>
+          {!canImport && !!importDisabledReason && (
+            <div className="mt-2 text-[12px] italic text-white/70">{importDisabledReason}</div>
           )}
         </button>
 
-        {/* Option 3: Login */}
+        {/* Login */}
         <button
-          onClick={goHomeToLoginOrCreate}
+          onClick={goLogin}
           className="mt-3 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
-                     bg-white/55 backdrop-blur border border-white/60 transition active:scale-[0.99]"
+                     bg-white/65 backdrop-blur border border-white/60 transition active:scale-[0.99]"
         >
           <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-[color:var(--rose-deep)] leading-tight">
             {t.loginToMine}
@@ -289,24 +311,16 @@ export default function InboxLinkHandler({ token, onSuccess, onError, language }
           <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.loginToMineHint}</div>
         </button>
 
-        {/* Option 4: Create new */}
+        {/* Create */}
         <button
-          onClick={goHomeToLoginOrCreate}
+          onClick={goCreate}
           className="mt-3 w-full rounded-[18px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
-                     bg-white/55 backdrop-blur border border-white/60 transition active:scale-[0.99]"
+                     bg-white/65 backdrop-blur border border-white/60 transition active:scale-[0.99]"
         >
           <div className="font-['Playfair_Display',serif] text-[18px] font-bold text-[color:var(--rose-deep)] leading-tight">
             {t.createNew}
           </div>
           <div className="mt-1 text-[13px] italic text-[color:var(--text-light)]">{t.createNewHint}</div>
-        </button>
-
-        {/* Back */}
-        <button
-          onClick={onError}
-          className="mt-5 w-full text-[13px] italic underline underline-offset-4 decoration-dotted text-[color:var(--rose-deep)]"
-        >
-          {t.tryAgain}
         </button>
       </motion.div>
     </div>

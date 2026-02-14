@@ -63,7 +63,7 @@ export default function ClaimInboxPage({
       weakPassword: "Password must be at least 6 characters",
 
       pinTitle: "Enter your PIN",
-      pinLabel: "PIN (6 digits)",
+      pinLabel: "Password",
       pinPlaceholder: "••••",
       login: "Log in",
       forgot: "Forgot PIN?",
@@ -96,7 +96,7 @@ export default function ClaimInboxPage({
       weakPassword: "Le mot de passe doit faire au moins 6 caractères",
 
       pinTitle: "Entre ton PIN",
-      pinLabel: "PIN (6 chiffres)",
+      pinLabel: "Mot de passe",
       pinPlaceholder: "••••",
       login: "Se connecter",
       forgot: "Mot de passe oublié ?",
@@ -197,7 +197,7 @@ export default function ClaimInboxPage({
       return;
     }
     if (!/^\d{6}$/.test(pin)) {
-      toast.error(language === "fr" ? "Le PIN doit faire 6 chiffres" : "PIN must be 6 digits");
+      toast.error(language === "fr" ? "Le PIN doit faire 6 caractères" : "PIN must be 6 characters");
       return;
     }
 

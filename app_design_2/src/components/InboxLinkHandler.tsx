@@ -1,50 +1,64 @@
-import { useEffect } from 'react';
-import { motion } from 'motion/react';
-import { useInboxLink } from '../hooks/useInboxLink';
-
-/**
- * Composant pour gérer l'ouverture d'un lien inbox
- * Affiche loading / erreur / redirige vers PIN si nécessaire
- */
+import { useEffect } from "react";
+import { motion } from "motion/react";
+import { useInboxLink } from "../hooks/useInboxLink";
 
 interface InboxLinkHandlerProps {
   token: string;
-  onSuccess: (inboxId: string, needsPin: boolean, sessionToken: string | null, pinMustBeCreated: boolean, needsEmailAssociation: boolean) => void;
+  onSuccess: (
+    inboxId: string,
+    needsPin: boolean,
+    sessionToken: string | null,
+    pinMustBeCreated: boolean,
+    needsEmailAssociation: boolean
+  ) => void;
   onError: () => void;
-  language: 'en' | 'fr';
+  language: "en" | "fr";
 }
 
 export default function InboxLinkHandler({
   token,
   onSuccess,
   onError,
-  language
+  language,
 }: InboxLinkHandlerProps) {
-  const { loading, error, needsPin, inboxId, sessionToken, pinMustBeCreated } = useInboxLink(token);
+  const {
+    loading,
+    error,
+    needsPin,
+    inboxId,
+    sessionToken,
+    pinMustBeCreated,
+    needsEmailAssociation,
+  } = useInboxLink(token);
 
   useEffect(() => {
-    if (inboxId) {
-      onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated);
-    }
-  }, [inboxId, needsPin, sessionToken, pinMustBeCreated]);
+    // only proceed when inboxId exists (openLink ok)
+    if (!inboxId) return;
+
+    onSuccess(
+      inboxId,
+      needsPin,
+      sessionToken,
+      pinMustBeCreated,
+      needsEmailAssociation
+    );
+  }, [inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation, onSuccess]);
 
   useEffect(() => {
-    if (error) {
-      onError();
-    }
-  }, [error]);
+    if (error) onError();
+  }, [error, onError]);
 
   const translations = {
     en: {
-      loading: 'Opening your inbox...',
-      error: 'Invalid or expired link',
-      tryAgain: 'Return to home'
+      loading: "Opening your inbox...",
+      error: "Invalid or expired link",
+      tryAgain: "Return to home",
     },
     fr: {
-      loading: 'Ouverture de votre boîte...',
-      error: 'Lien invalide ou expiré',
-      tryAgain: 'Retour à l\'accueil'
-    }
+      loading: "Ouverture de votre boîte...",
+      error: "Lien invalide ou expiré",
+      tryAgain: "Retour à l’accueil",
+    },
   };
 
   const t = translations[language];
@@ -52,11 +66,7 @@ export default function InboxLinkHandler({
   if (error) {
     return (
       <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center px-8">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="text-center"
-        >
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center">
           <div className="text-6xl mb-6">💔</div>
           <h1 className="font-['Kaushan_Script',sans-serif] text-[32px] text-[#a31e46] mb-4">
             {t.error}
@@ -80,26 +90,21 @@ export default function InboxLinkHandler({
   return (
     <div className="bg-[rgba(246,193,208,0.71)] min-h-screen w-full flex flex-col items-center justify-center">
       <motion.div
-        animate={{
-          scale: [1, 1.2, 1],
-          rotate: [0, 10, -10, 0]
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: 'easeInOut'
-        }}
+        animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
+        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         className="text-8xl mb-8"
       >
         💌
       </motion.div>
+
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="font-['Inter',sans-serif] text-[20px] text-[#2d1b1b]"
       >
-        {t.loading}
+        {loading ? t.loading : t.loading}
       </motion.p>
+
       <motion.div
         className="flex gap-2 mt-6"
         initial={{ opacity: 0 }}
@@ -110,14 +115,8 @@ export default function InboxLinkHandler({
           <motion.div
             key={i}
             className="w-3 h-3 bg-[#a31e46] rounded-full"
-            animate={{
-              y: [0, -10, 0]
-            }}
-            transition={{
-              duration: 0.6,
-              repeat: Infinity,
-              delay: i * 0.2
-            }}
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.2 }}
           />
         ))}
       </motion.div>

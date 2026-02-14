@@ -103,7 +103,7 @@ export default function ClaimInboxPage({ onBack, language, onNavigate }: ClaimIn
     setIsSubmitting(true);
     try {
       // Cette fonction doit exister côté backend (unlock) ou équivalent de ton flow actuel
-      await unlockInboxWithPin(inboxId, pin);
+      await unlockInboxWithPin({inboxId, pin});
       toast.success(language === "fr" ? "Connecté ✅" : "Logged in ✅");
       onBack();
     } catch (e: any) {

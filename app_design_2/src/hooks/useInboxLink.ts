@@ -5,10 +5,20 @@ import { useSession } from "../contexts/SessionContext";
 interface UseInboxLinkResult {
   loading: boolean;
   error: string | null;
+
+  // if pin exists => user must enter pin
   needsPin: boolean;
+
+  // inbox info
   inboxId: string | null;
+
+  // session token (only when backend created one for setup/pin reset)
   sessionToken: string | null;
+
+  // true when user MUST create a PIN now (first time or pin reset)
   pinMustBeCreated: boolean;
+
+  // NEW: show email field in FirstPinSetup (share/instagram)
   needsEmailAssociation: boolean;
 }
 
@@ -18,10 +28,11 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
 
   const [needsPin, setNeedsPin] = useState(false);
   const [pinMustBeCreated, setPinMustBeCreated] = useState(false);
-  const [needsEmailAssociation, setNeedsEmailAssociation] = useState(false);
 
   const [sessionTokenState, setSessionTokenState] = useState<string | null>(null);
-  const [inboxId, setInboxIdState] = useState<string | null>(null);
+  const [inboxIdState, setInboxIdState] = useState<string | null>(null);
+
+  const [needsEmailAssociation, setNeedsEmailAssociation] = useState(false);
 
   const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
 
@@ -31,53 +42,57 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
     const run = async () => {
       setLoading(true);
       setError(null);
+
+      // reset
       setNeedsPin(false);
       setPinMustBeCreated(false);
       setSessionTokenState(null);
+      setInboxIdState(null);
+      setNeedsEmailAssociation(false);
 
       try {
         const res = await openLink(token);
 
-        setNeedsEmailAssociation(!!res.needsEmailAssociation);
         setInboxId(res.inboxId);
         setInboxIdState(res.inboxId);
 
-        // pinRequired = "un PIN existe déjà"
-        setIsPinRequired(!!res.pinRequired);
+        // pin exists?
+        setIsPinRequired(res.pinRequired);
 
-        // ✅ 1) Première fois => création obligatoire
+        // NEW
+        setNeedsEmailAssociation(!!res.needsEmailAssociation);
+
+        // If backend says user must create pin (first time OR pin_reset)
         if (res.pinMustBeCreated) {
           setPinMustBeCreated(true);
 
-          // le backend doit fournir un sessionToken pour permettre setPin
-          if (res.sessionToken) {
-            setSessionTokenState(res.sessionToken);
-            setSessionToken(res.sessionToken);
-          }
+          // backend should always provide a sessionToken for setup/reset
+          setSessionTokenState(res.sessionToken || null);
 
+          // allow setup page (not locked)
           setIsLocked(false);
           return;
         }
 
-        // ✅ 2) PIN existe => il faut unlock (pas de sessionToken)
+        // Otherwise, pin exists => locked until pin entry
         if (res.pinRequired) {
           setNeedsPin(true);
           setIsLocked(true);
           return;
         }
 
-        // ✅ 3) Cas fallback: pas de PIN + session directe
+        // No pin required => direct access (should come with sessionToken)
         if (res.sessionToken) {
-          setSessionTokenState(res.sessionToken);
           setSessionToken(res.sessionToken);
+          setSessionTokenState(res.sessionToken);
           setIsLocked(false);
           return;
         }
 
-        // Si on arrive ici, c'est incohérent
-        setError("Invalid session state");
+        // fallback
+        throw new Error("Unexpected link state");
       } catch (e: any) {
-        console.error("Error opening link:", e);
+        console.error("openLink error:", e);
         setError(e?.message || "Lien invalide ou expiré");
       } finally {
         setLoading(false);
@@ -87,5 +102,13 @@ export function useInboxLink(token: string | null): UseInboxLinkResult {
     run();
   }, [token]);
 
-  return { loading, error, needsPin, inboxId, sessionToken: sessionTokenState, pinMustBeCreated, needsEmailAssociation };
+  return {
+    loading,
+    error,
+    needsPin,
+    inboxId: inboxIdState,
+    sessionToken: sessionTokenState,
+    pinMustBeCreated,
+    needsEmailAssociation,
+  };
 }

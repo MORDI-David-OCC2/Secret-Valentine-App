@@ -49,7 +49,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
   };
 
   const t = translations[language];
-
+  console.log(inboxId)
   const submitPin = async (pinValue: string) => {
     if (!inboxId) {
       toast.error(t.missingInbox);

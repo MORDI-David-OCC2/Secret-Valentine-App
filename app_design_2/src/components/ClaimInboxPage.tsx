@@ -18,7 +18,7 @@ interface ClaimInboxPageProps {
   language: "en" | "fr";
   onNavigate?: (page: "home" | "letters" | "compose" | "settings" | "credits" | "claim") => void;
 
-  // ✅ NEW: if user came from an inbox link flow, import after creation
+  // ✅ if user came from a shared link, we keep it here and import after create/login
   pendingImportToken?: string | null;
   onConsumedPendingImportToken?: () => void;
 }
@@ -31,11 +31,11 @@ export default function ClaimInboxPage({
   pendingImportToken,
   onConsumedPendingImportToken,
 }: ClaimInboxPageProps) {
-  const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired, setMustCreatePin } = useSession();
+  const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); // create mode
-  const [pin, setPin] = useState(""); // login mode pin
+  const [pin, setPin] = useState(""); // login mode PIN step
 
   const [step, setStep] = useState<"email" | "pin" | "sent">("email");
   const [inboxId, setLocalInboxId] = useState<string | null>(null);
@@ -71,6 +71,9 @@ export default function ClaimInboxPage({
       resetSent: "Reset link sent ✅",
       wrongPin: "Wrong PIN",
       footer: "made by D&F with",
+
+      imported: "Letter added to your inbox ✅",
+      importFailed: "Could not add the letter",
     },
     fr: {
       back: "Retour",
@@ -101,10 +104,30 @@ export default function ClaimInboxPage({
       resetSent: "Lien de reset envoyé ✅",
       wrongPin: "PIN incorrect",
       footer: "créé par D&F avec",
+
+      imported: "Lettre ajoutée à ta boîte ✅",
+      importFailed: "Impossible d’ajouter la lettre",
     },
   }[language];
 
   const validateEmail = (v: string) => v.includes("@") && v.includes(".");
+
+  async function maybeImportAfterAuth(destInboxId: string, destSessionToken: string) {
+    if (!pendingImportToken) return;
+
+    try {
+      await importLinkToInbox({
+        token: pendingImportToken,
+        destInboxId,
+        destSessionToken,
+      });
+      toast.success(t.imported);
+    } catch (e: any) {
+      toast.error(e?.message || t.importFailed);
+    } finally {
+      onConsumedPendingImportToken?.();
+    }
+  }
 
   const handleEmailContinue = async () => {
     if (!validateEmail(email)) {
@@ -112,7 +135,7 @@ export default function ClaimInboxPage({
       return;
     }
 
-    // ✅ CREATE MODE: create account -> (optional) import pending link -> open inbox (letters)
+    // ✅ CREATE MODE: create account -> (optional import) -> go letters
     if (mode === "create") {
       if (password.trim().length < 6) {
         toast.error(t.weakPassword);
@@ -124,29 +147,16 @@ export default function ClaimInboxPage({
         const res = await createInboxAccount(email.trim().toLowerCase(), password.trim());
         if (!res?.inboxId || !res?.sessionToken) throw new Error("Create failed");
 
-        // ✅ store usable session
+        // store session
         setInboxId(res.inboxId);
         setSessionToken(res.sessionToken);
         setIsPinRequired(false);
-        setMustCreatePin(false);
         setIsLocked(false);
 
-        // ✅ if user came from an inbox-link flow, import immediately into the new inbox
-        if (pendingImportToken) {
-          try {
-            await importLinkToInbox({
-              token: pendingImportToken,
-              destInboxId: res.inboxId,
-              destSessionToken: res.sessionToken,
-            });
-            onConsumedPendingImportToken?.(); // clear it in App
-          } catch (e: any) {
-            // we still allow opening inbox even if import fails
-            toast.error(e?.message || (language === "fr" ? "Import impossible" : "Import failed"));
-          }
-        }
-
         toast.success(language === "fr" ? "Compte créé ✅" : "Account created ✅");
+
+        // ✅ import the shared letter into the newly created inbox (if we came from a link)
+        await maybeImportAfterAuth(res.inboxId, res.sessionToken);
 
         onNavigate?.("letters");
         if (!onNavigate) onBack();
@@ -158,7 +168,7 @@ export default function ClaimInboxPage({
       return;
     }
 
-    // ✅ LOGIN MODE
+    // ✅ LOGIN MODE (unchanged)
     setIsSubmitting(true);
     try {
       const res = await requestLoginLink(email.trim().toLowerCase());
@@ -195,13 +205,15 @@ export default function ClaimInboxPage({
 
     setIsSubmitting(true);
     try {
-      const res = await unlockInboxWithPin({ inboxId, pin });
+      const res = await unlockInboxWithPin(inboxId, pin);
 
       setInboxId(inboxId);
       setSessionToken(res.sessionToken);
       setIsPinRequired(true);
-      setMustCreatePin(false);
       setIsLocked(false);
+
+      // ✅ after login, if a shared token is pending, import it
+      await maybeImportAfterAuth(inboxId, res.sessionToken);
 
       toast.success(language === "fr" ? "Connecté ✅" : "Logged in ✅");
       onNavigate?.("letters") ?? onBack();

@@ -16,7 +16,6 @@ import FirstPinSetup from "./components/FirstPinSetup";
 
 import Petals from "./components/ui/Petals";
 
-// ✅ IMPORTANT: LettersPage imports this type from "../App"
 export type Letter = {
   id: string;
   from: string;
@@ -24,7 +23,7 @@ export type Letter = {
   type: "love" | "friend" | "family" | "crush";
   date: string;
   message: string;
-  isAnonymous?: boolean;
+  isAnonymous: boolean;
 };
 
 type Page =
@@ -64,6 +63,7 @@ function AppContent() {
 
   const [claimMode, setClaimMode] = useState<"login" | "create">("login");
 
+  // keep these but they won't block opening inbox anymore
   const [tempInboxId, setTempInboxId] = useState<string | null>(null);
   const [tempSessionToken, setTempSessionToken] = useState<string | null>(null);
   const [tempNeedsEmailAssociation, setTempNeedsEmailAssociation] = useState(false);
@@ -79,7 +79,6 @@ function AppContent() {
     setCurrentPage(next);
   };
 
-  // Disable zoom (iOS)
   useEffect(() => {
     const preventGesture = (e: Event) => e.preventDefault();
     document.addEventListener("gesturestart", preventGesture as any, { passive: false } as any);
@@ -102,7 +101,6 @@ function AppContent() {
     };
   }, []);
 
-  // Disable scroll only on Home
   useEffect(() => {
     const prevHtmlOverflow = document.documentElement.style.overflow;
     const prevBodyOverflow = document.body.style.overflow;
@@ -125,7 +123,6 @@ function AppContent() {
     };
   }, [currentPage]);
 
-  // detect token /#/inbox?t=...
   useEffect(() => {
     const detectToken = () => {
       const hash = window.location.hash;
@@ -199,7 +196,6 @@ function AppContent() {
     }),
   };
 
-  // Inbox link special flow
   if (currentPage === "inbox-link" && linkToken) {
     return (
       <InboxLinkHandler
@@ -207,16 +203,22 @@ function AppContent() {
         onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
           setLinkToken(null);
 
+          // ✅ do NOT block inbox access just because pin must be created
+          if (needsPin) {
+            setPage("pin");
+            return;
+          }
+
+          // If you still want to keep this available later, store it but go letters now
           if (pinMustBeCreated && sessionToken) {
             setTempInboxId(inboxId);
             setTempSessionToken(sessionToken);
             setTempNeedsEmailAssociation(!!needsEmailAssociation);
-            setPage("first-pin");
-          } else if (needsPin) {
-            setPage("pin");
-          } else {
             setPage("letters");
+            return;
           }
+
+          setPage("letters");
         }}
         onError={() => {
           setLinkToken(null);
@@ -313,7 +315,6 @@ function AppContent() {
               onConsumedPendingImportToken={() => setPendingLinkToken(null)}
               onBack={() => {
                 if (pendingLinkToken) {
-                  // user cancels claim, go back to hub
                   setLinkToken(pendingLinkToken);
                   setPage("inbox-link");
                 } else {
@@ -412,4 +413,4 @@ export default function App() {
       <AppContent />
     </SessionProvider>
   );
-}
+  }

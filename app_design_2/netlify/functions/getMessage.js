@@ -106,11 +106,7 @@ function extractOriginalMessageId(importId) {
   if (!isImportedMessageId(importId)) return null;
 
   // imp_inbox_XXXX_<rest>
-  const afterPrefix = importId.slice("imp_inbox_".length); // "XXXX_<rest>"
-  const firstUnderscore = afterPrefix.indexOf("_");
-  if (firstUnderscore === -1) return null;
-
-  const original = afterPrefix.slice(firstUnderscore + 1).trim();
+  const original = importId.slice(29,); // "XXXX_<rest>"
   return original || null;
 }
 

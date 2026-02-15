@@ -469,7 +469,7 @@ exports.handler = async (event) => {
     batch.set(themReplyRef, {
       createdAt: now,
       from: "them",
-      fromInboxId: replyToInboxId,
+      fromInboxId: inboxId,
       bodyEnc: encForThem.bodyEnc,
       dekWrapped: encForThem.dekWrapped,
       cryptoVersion: encForThem.cryptoVersion,

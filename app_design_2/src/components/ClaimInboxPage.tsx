@@ -336,7 +336,7 @@ export default function ClaimInboxPage({
               <p className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.passwordLabel}</p>
               <input
                 type="password"
-                value={pin}
+                value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t.passwordPlaceholder}
                 className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
@@ -377,7 +377,7 @@ export default function ClaimInboxPage({
               <input
                 type="password"
                 maxLength={6}
-                value={password}
+                value={pin}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t.pinPlaceholder}
                 className="mt-2 w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow

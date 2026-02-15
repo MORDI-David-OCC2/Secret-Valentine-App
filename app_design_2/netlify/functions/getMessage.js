@@ -188,6 +188,7 @@ exports.handler = async (event) => {
     console.log(idsToTry);
     console.log(isImportedMessageId(messageId));
     const originalMessageId = extractOriginalMessageId(messageId);
+    console.log(originalMessageId)
     if (originalMessageId && originalMessageId !== messageId) {
       idsToTry.push(originalMessageId);
     }
@@ -228,10 +229,11 @@ exports.handler = async (event) => {
     // ---- Fetch replies from all relevant thread docs that exist ----
     const existingThreadIds = [];
     for (const id of idsToTry) {
+      console.log(id);
       const s = await db.collection("inboxes").doc(inboxId).collection("messages").doc(id).get();
       if (s.exists) existingThreadIds.push(id);
     }
-
+    console.log(s);
     const repliesArrays = await Promise.all(
       existingThreadIds.map((threadId) => fetchRepliesForThread({ db, inboxId, threadId, inboxKey }))
     );
@@ -245,6 +247,7 @@ exports.handler = async (event) => {
         seen.add(r.id);
         merged.push(r);
       }
+      console.log(merged);
     }
 
     // Sort by createdAt asc (nulls last)

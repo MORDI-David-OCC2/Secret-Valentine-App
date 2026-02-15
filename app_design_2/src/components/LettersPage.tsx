@@ -136,7 +136,6 @@ interface LettersPageProps {
 export default function LettersPage({ onBack, language, onNavigate }: LettersPageProps) {
   const { session } = useSession();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
-  console.log(messages)
   const [loading, setLoading] = useState(true);
   const [selectedLetter, setSelectedLetter] = useState<{ letter: LetterUI; color: string } | null>(null);
 

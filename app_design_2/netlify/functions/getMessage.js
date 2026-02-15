@@ -1,3 +1,4 @@
+// netlify/functions/getMessage.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
@@ -91,6 +92,49 @@ function decryptBodyMaybe(inboxKeyBuf, doc) {
   return open(dek, doc.bodyEnc).toString("utf8");
 }
 
+// --------- IMPORT ID HELPERS (robustes) ----------
+function isImportedMessageId(id) {
+  return typeof id === "string" && id.startsWith("imp_inbox_");
+}
+
+/**
+ * Format attendu: imp_inbox_<someInboxOrMeta>_<originalMessageId>
+ * -> on enlève "imp_inbox_" + "<meta>_" et on garde le reste
+ * (marche même si originalMessageId contient des underscores)
+ */
+function extractOriginalMessageId(importId) {
+  if (!isImportedMessageId(importId)) return null;
+
+  // imp_inbox_XXXX_<rest>
+  const afterPrefix = importId.slice("imp_inbox_".length); // "XXXX_<rest>"
+  const firstUnderscore = afterPrefix.indexOf("_");
+  if (firstUnderscore === -1) return null;
+
+  const original = afterPrefix.slice(firstUnderscore + 1).trim();
+  return original || null;
+}
+
+// fetch replies for a threadId in this inbox
+async function fetchRepliesForThread({ db, inboxId, threadId, inboxKey }) {
+  const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(threadId);
+
+  const repliesSnap = await msgRef.collection("replies").orderBy("createdAt", "asc").limit(200).get();
+
+  return repliesSnap.docs.map((d) => {
+    const r = d.data() || {};
+    const fromInboxId = String(r.fromInboxId || "").trim();
+    const fromSide = fromInboxId && fromInboxId === inboxId ? "me" : "them";
+
+    return {
+      id: d.id,
+      body: decryptBodyMaybe(inboxKey, r),
+      from: fromSide,
+      createdAt: toMillisMaybe(r.createdAt),
+      _threadId: threadId, // debug (optionnel)
+    };
+  });
+}
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
@@ -122,8 +166,11 @@ exports.handler = async (event) => {
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
 
     let payload;
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return jsonResponse(400, { ok: false, error: "Invalid JSON body" }); }
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
+    }
 
     const inboxId = String(payload.inboxId || "").trim();
     const messageId = String(payload.messageId || "").trim();
@@ -142,13 +189,21 @@ exports.handler = async (event) => {
     let inboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);
     if (!inboxKey) inboxKey = await getInboxKeyViaRecovery(db, inboxId);
 
+    // ---- Determine which thread IDs to load ----
+    const idsToTry = [messageId];
+    const originalMessageId = extractOriginalMessageId(messageId);
+    if (originalMessageId && originalMessageId !== messageId) {
+      idsToTry.push(originalMessageId);
+    }
+
+    // ---- Load main message doc (must exist for requested id) ----
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
     const msgSnap = await msgRef.get();
     if (!msgSnap.exists) return jsonResponse(404, { ok: false, error: "Message not found" });
 
     const m = msgSnap.data() || {};
 
-    // Mark as read
+    // Mark requested thread as read
     if (m.unread === true) {
       await msgRef.set(
         { unread: false, readAt: admin.firestore.FieldValue.serverTimestamp() },
@@ -156,25 +211,60 @@ exports.handler = async (event) => {
       );
     }
 
+    // Best-effort: if imported, also mark the original as read (if it exists)
+    if (originalMessageId) {
+      try {
+        const altRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(originalMessageId);
+        const altSnap = await altRef.get();
+        if (altSnap.exists && altSnap.data()?.unread === true) {
+          await altRef.set(
+            { unread: false, readAt: admin.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     const body = decryptBodyMaybe(inboxKey, m);
 
-    const repliesSnap = await msgRef.collection("replies").orderBy("createdAt", "asc").limit(200).get();
-    const replies = repliesSnap.docs.map((d) => {
-      const r = d.data() || {};
-      const fromInboxId = String(r.fromInboxId || "").trim();
-      const fromSide = fromInboxId && fromInboxId === inboxId ? "me": "them";
-      return {
-        id: d.id,
-        body: decryptBodyMaybe(inboxKey, r),
-        from: fromSide,
-        createdAt: toMillisMaybe(r.createdAt),
-      };
+    // ---- Fetch replies from all relevant thread docs that exist ----
+    const existingThreadIds = [];
+    for (const id of idsToTry) {
+      const s = await db.collection("inboxes").doc(inboxId).collection("messages").doc(id).get();
+      if (s.exists) existingThreadIds.push(id);
+    }
+
+    const repliesArrays = await Promise.all(
+      existingThreadIds.map((threadId) => fetchRepliesForThread({ db, inboxId, threadId, inboxKey }))
+    );
+
+    // Merge + dedupe (same replyId can exist under both docs)
+    const merged = [];
+    const seen = new Set();
+    for (const arr of repliesArrays) {
+      for (const r of arr) {
+        if (seen.has(r.id)) continue;
+        seen.add(r.id);
+        merged.push(r);
+      }
+    }
+
+    // Sort by createdAt asc (nulls last)
+    merged.sort((a, b) => {
+      const ta = typeof a.createdAt === "number" ? a.createdAt : Number.POSITIVE_INFINITY;
+      const tb = typeof b.createdAt === "number" ? b.createdAt : Number.POSITIVE_INFINITY;
+      return ta - tb;
     });
+
+    // Cap at 200 total
+    const replies = merged.slice(-200).map(({ _threadId, ...rest }) => rest);
 
     return jsonResponse(200, {
       ok: true,
       message: {
-        id: msgSnap.id,
+        id: msgSnap.id, // keep requested id (important for UI)
         fromName: m.fromName || "Someone",
         type: m.type || "love",
         stickerId: m.stickerId || "heart_01",
@@ -184,6 +274,9 @@ exports.handler = async (event) => {
         createdAt: toMillisMaybe(m.createdAt),
       },
       replies,
+      // optional debug info:
+      // threadIdsLoaded: existingThreadIds,
+      // originalMessageId: originalMessageId || null,
     });
   } catch (err) {
     console.error(err);

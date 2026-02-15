@@ -423,7 +423,7 @@ exports.handler = async (event) => {
     const threadId = normalizeThreadId(messageId, msg);
     const now = admin.firestore.FieldValue.serverTimestamp();
     const replyId = crypto.randomBytes(9).toString("hex");
-    const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(threadId);
+    const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
     const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(threadId);
     const meReplyRef = meThreadRef.collection("replies").doc(replyId);
     const themReplyRef = themThreadRef.collection("replies").doc(replyId);

@@ -179,7 +179,7 @@ export default function SettingsPage({
 
   const handleSavePin = () => {
     if (mode !== "remove") {
-      if (newPin.length !== 4) return toast.error(t.pinTooShort);
+      if (newPin.length !== 6) return toast.error(t.pinTooShort);
       if (newPin !== confirmPin) return toast.error(t.pinsDontMatch);
     }
 

@@ -379,7 +379,6 @@ exports.handler = async (event) => {
     const messageId = String(payload.messageId || "").trim();
     const body = String(payload.body || "").trim();
     const sessionToken = String(payload.sessionToken || "").trim();
-    const messageId2 = messageId.slice(29,)
 
     if (!inboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
     if (!messageId) return jsonResponse(400, { ok: false, error: "Missing messageId" });
@@ -421,7 +420,7 @@ exports.handler = async (event) => {
     const preview = body.slice(0, 80);
     const previewForMe = encryptTextForInbox(myInboxKey, preview);
     const previewForThem = encryptTextForInbox(theirInboxKey, preview);
-    const threadId = normalizeThreadId(message, msg);
+    const threadId = normalizeThreadId(messageId, msg);
     const now = admin.firestore.FieldValue.serverTimestamp();
     const replyId = crypto.randomBytes(9).toString("hex");
     const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(threadId);

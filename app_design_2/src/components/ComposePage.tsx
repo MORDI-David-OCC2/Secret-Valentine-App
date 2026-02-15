@@ -18,6 +18,11 @@ function EnvelopeIcon() {
   );
 }
 
+const blurActive = () => {
+  const el = document.activeElement as HTMLElement | null;
+  el?.blur?.();
+};
+
 type PageName = "home" | "letters" | "compose" | "settings" | "credits" | "claim";
 type DeliveryMode = "email" | "share" | "instagram";
 
@@ -174,6 +179,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
   };
 
   const handleCopy = async (txt: string) => {
+    blurActive();
     try {
       await navigator.clipboard.writeText(txt);
       toast.success(language === "fr" ? "Lien copié ✅" : "Link copied ✅");
@@ -183,6 +189,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
   };
 
   const handleSubmit = async () => {
+    blurActive();
     // reset link when switching away from share
     if (deliveryMode !== "share") setGeneratedLink(null);
 
@@ -411,7 +418,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
               value={to}
               onChange={(e) => setTo(e.target.value)}
               placeholder={t.toInput}
-              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
+              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[16px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
             />
           </div>
 
@@ -426,7 +433,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
                 value={toEmail}
                 onChange={(e) => setToEmail(e.target.value)}
                 placeholder={t.emailToPlaceholder}
-                className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
+                className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[16px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
               />
             </div>
           )}
@@ -441,7 +448,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
                 value={instagramHandle}
                 onChange={(e) => setInstagramHandle(e.target.value)}
                 placeholder={t.instaToPlaceholder}
-                className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
+                className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] h-[46px] px-4 text-[16px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)]"
               />
             </div>
           )}
@@ -568,7 +575,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
               onChange={(e) => setMessage(e.target.value)}
               placeholder={t.messagePlaceholder}
               rows={6}
-              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] p-4 text-[14px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)] resize-none"
+              className="w-full bg-[rgba(247,221,230,.45)] border border-[rgba(232,160,180,.55)] rounded-[12px] p-4 text-[16px] text-[color:var(--text)] font-['Cormorant_Garamond',serif] placeholder:italic placeholder:text-[rgba(158,107,128,.65)] focus:outline-none focus:ring-2 focus:ring-[rgba(201,102,122,.25)] resize-none"
             />
           </div>
 

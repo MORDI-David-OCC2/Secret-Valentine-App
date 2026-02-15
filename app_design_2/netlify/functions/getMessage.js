@@ -192,7 +192,7 @@ exports.handler = async (event) => {
     if (originalMessageId && originalMessageId !== messageId) {
       idsToTry.push(originalMessageId);
     }
-
+    console.log(idsToTry);
     // ---- Load main message doc (must exist for requested id) ----
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
     const msgSnap = await msgRef.get();

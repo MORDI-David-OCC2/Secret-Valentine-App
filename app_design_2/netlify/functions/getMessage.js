@@ -96,15 +96,12 @@ function decryptBodyMaybe(inboxKeyBuf, doc) {
 function isImportedMessageId(id) {
   return typeof id === "string" && id.startsWith("imp_inbox_");
 }
-
 /**
  * Format attendu: imp_inbox_<someInboxOrMeta>_<originalMessageId>
  * -> on enlève "imp_inbox_" + "<meta>_" et on garde le reste
  * (marche même si originalMessageId contient des underscores)
  */
 function extractOriginalMessageId(importId) {
-  console.log(!isImportedMessageId(importId));
-  console.log(importId)
   if (!isImportedMessageId(importId)) return null;
 
   // imp_inbox_XXXX_<rest>
@@ -188,6 +185,8 @@ exports.handler = async (event) => {
 
     // ---- Determine which thread IDs to load ----
     const idsToTry = [messageId];
+    console.log(idsToTry);
+    console.log(isImportedMessageId(messageId));
     const originalMessageId = extractOriginalMessageId(messageId);
     if (originalMessageId && originalMessageId !== messageId) {
       idsToTry.push(originalMessageId);

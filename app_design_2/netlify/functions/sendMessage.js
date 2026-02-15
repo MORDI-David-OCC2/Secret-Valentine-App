@@ -533,7 +533,6 @@ exports.handler = async (event) => {
           type,
           stickerId,
           ...encForSender,
-          toName: toNameHint,
           unread: false,
           hasReplies: false,
           lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),

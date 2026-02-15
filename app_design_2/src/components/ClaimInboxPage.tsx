@@ -196,7 +196,7 @@ export default function ClaimInboxPage({
       toast.error(language === "fr" ? "Inbox introuvable. Réessaie." : "Inbox not found. Try again.");
       return;
     }
-    if (!/^\d{6}$/.test(password)) {
+    if (!/^\d{6}$/.test(pin)) {
       toast.error(language === "fr" ? "Le PIN doit faire 6 caractères" : "PIN must be 6 characters");
       return;
     }
@@ -336,7 +336,7 @@ export default function ClaimInboxPage({
               <p className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.passwordLabel}</p>
               <input
                 type="password"
-                value={password}
+                value={pin}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t.passwordPlaceholder}
                 className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]

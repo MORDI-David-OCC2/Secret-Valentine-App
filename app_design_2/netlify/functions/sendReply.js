@@ -19,6 +19,14 @@ function jsonResponse(statusCode, body) {
   };
 }
 
+function normalizeThreadId(messageId, msg) {
+  if (msg && typeof msg.originalMessageId === "string" && msg.originalMessageId.trim()) {
+    return msg.originalMessageId.trim();
+  }
+  const m = /^imp_inbox_[^_]+_(.+)$/.exec(String(messageId || ""));
+  return m ? m[1] : messageId;
+}
+
 function initAdmin() {
   if (admin.apps.length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -408,20 +416,16 @@ exports.handler = async (event) => {
     // Encrypt reply for both inboxes
     const encForMe = encryptTextForInbox(myInboxKey, body);
     const encForThem = encryptTextForInbox(theirInboxKey, body);
-
+  
     // Preview fields (used for list view); still ok to keep encrypted preview in DB
     const preview = body.slice(0, 80);
     const previewForMe = encryptTextForInbox(myInboxKey, preview);
     const previewForThem = encryptTextForInbox(theirInboxKey, preview);
-
+    const threadId = normalizeThreadId(message, msg);
     const now = admin.firestore.FieldValue.serverTimestamp();
     const replyId = crypto.randomBytes(9).toString("hex");
-    if messageId.startsWith("imp_inbox_")  {
-    const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId2);
-    const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(messageId2);
-    }
-    const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
-    const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(messageId);
+    const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(threadId);
+    const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(threadId);
     const meReplyRef = meThreadRef.collection("replies").doc(replyId);
     const themReplyRef = themThreadRef.collection("replies").doc(replyId);
 

@@ -107,6 +107,7 @@ function extractOriginalMessageId(importId) {
 
   // imp_inbox_XXXX_<rest>
   const original = importId.slice(29,); // "XXXX_<rest>"
+  console.log(original)
   return original || null;
 }
 

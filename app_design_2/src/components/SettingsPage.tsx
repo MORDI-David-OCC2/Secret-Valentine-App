@@ -433,8 +433,7 @@ const handleLogout = () => {
                       <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.enterCurrentPin}</div>
                       <input
                         type="password"
-                        inputMode="numeric"
-                        maxLength={4}
+                        maxLength={6}
                         value={currentPin}
                         onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
                         className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
@@ -451,8 +450,7 @@ const handleLogout = () => {
                         <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.enterNewPin}</div>
                         <input
                           type="password"
-                          inputMode="numeric"
-                          maxLength={4}
+                          maxLength={6}
                           value={newPin}
                           onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
                           className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
@@ -466,8 +464,7 @@ const handleLogout = () => {
                         <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.confirmNewPin}</div>
                         <input
                           type="password"
-                          inputMode="numeric"
-                          maxLength={4}
+                          maxLength={6}
                           value={confirmPin}
                           onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
                           className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]

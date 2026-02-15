@@ -230,7 +230,8 @@ exports.handler = async (event) => {
     const existingThreadIds = [];
     for (const id of idsToTry) {
       console.log(id);
-      const s = await db.collection("inboxes").doc(inboxId).collection("replies").doc(id).get();
+      console.log(db.collection("inboxes").doc(inboxId).collection("messages"))
+      const s = await db.collection("inboxes").doc(inboxId).collection("messages").doc(id).get();
       if (s.exists) existingThreadIds.push(id);
     }
     console.log(existingThreadIds);

@@ -103,14 +103,14 @@ function isImportedMessageId(id) {
  * (marche même si originalMessageId contient des underscores)
  */
 function extractOriginalMessageId(importId) {
+  console.log(!isImportedMessageId(importId));
+  console.log(importId)
   if (!isImportedMessageId(importId)) return null;
 
   // imp_inbox_XXXX_<rest>
   const original = importId.slice(29,); // "XXXX_<rest>"
-  console.log(original)
   return original || null;
 }
-
 // fetch replies for a threadId in this inbox
 async function fetchRepliesForThread({ db, inboxId, threadId, inboxKey }) {
   const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(threadId);

@@ -164,7 +164,7 @@ exports.handler = async (event) => {
     const replies = repliesSnap.docs.map((d) => {
       const r = d.data() || {};
       const fromInboxId = String(r.fromInboxId || "").trim();
-    const fromSide = fromInboxId && fromInboxId === inboxId ? "me": "them";
+      const fromSide = fromInboxId && fromInboxId === inboxId ? "me": "them";
       return {
         id: d.id,
         body: decryptBodyMaybe(inboxKey, r),

@@ -159,12 +159,14 @@ exports.handler = async (event) => {
     const body = decryptBodyMaybe(inboxKey, m);
 
     const repliesSnap = await msgRef.collection("replies").orderBy("createdAt", "asc").limit(200).get();
+    const fromInboxId = String(r.fromInboxId || "").trim();
+    const fromSide = fromInboxId && fromInboxId === inboxId ? "me": "them";
     const replies = repliesSnap.docs.map((d) => {
       const r = d.data() || {};
       return {
         id: d.id,
         body: decryptBodyMaybe(inboxKey, r),
-        from: r.from || "them",
+        from: fromSide,
         createdAt: toMillisMaybe(r.createdAt),
       };
     });

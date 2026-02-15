@@ -371,6 +371,7 @@ exports.handler = async (event) => {
     const messageId = String(payload.messageId || "").trim();
     const body = String(payload.body || "").trim();
     const sessionToken = String(payload.sessionToken || "").trim();
+    const messageId2 = messageId.slice(29,)
 
     if (!inboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
     if (!messageId) return jsonResponse(400, { ok: false, error: "Missing messageId" });
@@ -415,10 +416,12 @@ exports.handler = async (event) => {
 
     const now = admin.firestore.FieldValue.serverTimestamp();
     const replyId = crypto.randomBytes(9).toString("hex");
-
+    if messageId.startsWith("imp_inbox_")  {
+    const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId2);
+    const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(messageId2);
+    }
     const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
     const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(messageId);
-
     const meReplyRef = meThreadRef.collection("replies").doc(replyId);
     const themReplyRef = themThreadRef.collection("replies").doc(replyId);
 

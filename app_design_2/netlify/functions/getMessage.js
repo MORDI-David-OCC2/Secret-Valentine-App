@@ -233,7 +233,7 @@ exports.handler = async (event) => {
       const s = await db.collection("inboxes").doc(inboxId).collection("messages").doc(id).get();
       if (s.exists) existingThreadIds.push(id);
     }
-    console.log(s);
+    console.log(existingThreadIds);
     const repliesArrays = await Promise.all(
       existingThreadIds.map((threadId) => fetchRepliesForThread({ db, inboxId, threadId, inboxKey }))
     );

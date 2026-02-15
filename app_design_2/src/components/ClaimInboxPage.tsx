@@ -196,7 +196,7 @@ export default function ClaimInboxPage({
       toast.error(language === "fr" ? "Inbox introuvable. Réessaie." : "Inbox not found. Try again.");
       return;
     }
-    if (!/^\d{6}$/.test(pin)) {
+    if (!/^\d{6}$/.test(password)) {
       toast.error(language === "fr" ? "Le PIN doit faire 6 caractères" : "PIN must be 6 characters");
       return;
     }

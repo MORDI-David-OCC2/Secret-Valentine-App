@@ -141,6 +141,7 @@ exports.handler = async (event) => {
     const plainPreview = decryptPreviewMaybe(sourceInboxKey, data);
 
     const importedMessageId = `imp_${sourceInboxId}_${doc.id}`.slice(0, 150);
+    const importedMessageId2= importedMessageId.slice(29,)
 
     const clean = { ...data };
 

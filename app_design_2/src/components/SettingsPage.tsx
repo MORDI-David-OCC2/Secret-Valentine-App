@@ -73,7 +73,7 @@ export default function SettingsPage({
     en: {
       back: "Back",
       title: "Settings",
-      subtitle: "Language, PIN, and account options.",
+      subtitle: "Language, Password, and account options.",
       language: "Language",
 
       push: "Notifications",
@@ -83,21 +83,21 @@ export default function SettingsPage({
       pushNotSupported: "Push notifications are not supported on this device/browser.",
       pushPermissionDenied: "Notifications are blocked in your browser settings.",
 
-      pin: "PIN Lock",
-      pinDescription: "Protect your inbox with a 4-digit PIN.",
-      createPin: "Create PIN",
-      changePin: "Change PIN",
-      removePin: "Remove PIN",
-      enterCurrentPin: "Current PIN",
-      enterNewPin: "New PIN",
+      pin: "Password Lock",
+      pinDescription: "Protect your inbox with a 6 characters password.",
+      createPin: "Create password",
+      changePin: "Change password",
+      removePin: "Remove password",
+      enterCurrentPin: "Current password",
+      enterNewPin: "New password",
       confirmNewPin: "Confirm",
       cancel: "Cancel",
       save: "Save",
       remove: "Remove",
-      pinsDontMatch: "PINs don’t match",
-      pinTooShort: "PIN must be 4 digits",
-      pinSaved: "PIN updated!",
-      pinRemoved: "PIN removed",
+      pinsDontMatch: "Passwords don’t match",
+      pinTooShort: "Password must be 6 characters",
+      pinSaved: "Password updated!",
+      pinRemoved: "Password removed",
 
       account: "Account",
       logout: "Log out",
@@ -108,7 +108,7 @@ export default function SettingsPage({
     fr: {
       back: "Retour",
       title: "Réglages",
-      subtitle: "Langue, PIN, et options de compte.",
+      subtitle: "Langue, Mot de passe, et options de compte.",
       language: "Langue",
 
       push: "Notifications",
@@ -118,21 +118,21 @@ export default function SettingsPage({
       pushNotSupported: "Les notifications push ne sont pas supportées sur cet appareil/navigateur.",
       pushPermissionDenied: "Les notifications sont bloquées dans les réglages du navigateur.",
 
-      pin: "Verrou PIN",
-      pinDescription: "Protège ta boîte avec un PIN à 4 chiffres.",
-      createPin: "Créer un PIN",
-      changePin: "Changer le PIN",
-      removePin: "Supprimer le PIN",
-      enterCurrentPin: "PIN actuel",
-      enterNewPin: "Nouveau PIN",
+      pin: "Verrou Mot de passe",
+      pinDescription: "Protège ta boîte avec un PIN à 6 caractères.",
+      createPin: "Créer un mot de passe",
+      changePin: "Changer le mot de passe",
+      removePin: "Supprimer le mot de passe",
+      enterCurrentPin: "mot de passe actuel",
+      enterNewPin: "Nouveau mot de passe",
       confirmNewPin: "Confirmer",
       cancel: "Annuler",
       save: "Enregistrer",
       remove: "Supprimer",
-      pinsDontMatch: "Les PIN ne correspondent pas",
-      pinTooShort: "Le PIN doit faire 4 chiffres",
-      pinSaved: "PIN mis à jour !",
-      pinRemoved: "PIN supprimé",
+      pinsDontMatch: "Les mot de passe ne correspondent pas",
+      pinTooShort: "Le mot de passe doit faire 6 caractères.",
+      pinSaved: "mot de passe mis à jour !",
+      pinRemoved: "mot de passe supprimé",
 
       account: "Compte",
       logout: "Se déconnecter",
@@ -179,7 +179,7 @@ export default function SettingsPage({
 
   const handleSavePin = () => {
     if (mode !== "remove") {
-      if (newPin.length !== 4) return toast.error(t.pinTooShort);
+      if (newPin.length !== 6) return toast.error(t.pinTooShort);
       if (newPin !== confirmPin) return toast.error(t.pinsDontMatch);
     }
 
@@ -433,8 +433,7 @@ const handleLogout = () => {
                       <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.enterCurrentPin}</div>
                       <input
                         type="password"
-                        inputMode="numeric"
-                        maxLength={4}
+                        maxLength={6}
                         value={currentPin}
                         onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
                         className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
@@ -451,8 +450,7 @@ const handleLogout = () => {
                         <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.enterNewPin}</div>
                         <input
                           type="password"
-                          inputMode="numeric"
-                          maxLength={4}
+                          maxLength={6}
                           value={newPin}
                           onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
                           className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
@@ -466,8 +464,7 @@ const handleLogout = () => {
                         <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.confirmNewPin}</div>
                         <input
                           type="password"
-                          inputMode="numeric"
-                          maxLength={4}
+                          maxLength={6}
                           value={confirmPin}
                           onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
                           className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]

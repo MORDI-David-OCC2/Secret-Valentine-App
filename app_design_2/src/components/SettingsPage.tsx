@@ -83,7 +83,7 @@ export default function SettingsPage({
       pushNotSupported: "Push notifications are not supported on this device/browser.",
       pushPermissionDenied: "Notifications are blocked in your browser settings.",
 
-      pin: "PIN Lock",
+      pin: "Password Lock",
       pinDescription: "Protect your inbox with a 6 characters password.",
       createPin: "Create password",
       changePin: "Change password",
@@ -94,7 +94,7 @@ export default function SettingsPage({
       cancel: "Cancel",
       save: "Save",
       remove: "Remove",
-      pinsDontMatch: "PINs don’t match",
+      pinsDontMatch: "Passwords don’t match",
       pinTooShort: "Password must be 6 characters",
       pinSaved: "Password updated!",
       pinRemoved: "Password removed",
@@ -118,7 +118,7 @@ export default function SettingsPage({
       pushNotSupported: "Les notifications push ne sont pas supportées sur cet appareil/navigateur.",
       pushPermissionDenied: "Les notifications sont bloquées dans les réglages du navigateur.",
 
-      pin: "Verrou PIN",
+      pin: "Verrou Mot de passe",
       pinDescription: "Protège ta boîte avec un PIN à 6 caractères.",
       createPin: "Créer un mot de passe",
       changePin: "Changer le mot de passe",

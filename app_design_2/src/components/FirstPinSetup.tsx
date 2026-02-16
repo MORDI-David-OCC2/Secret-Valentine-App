@@ -162,8 +162,7 @@ export default function FirstPinSetup({
           <label className="font-['Inter',sans-serif] font-medium text-[14px] text-[#2d1b1b] mb-2 block">{t.enterNewPin}</label>
           <input
             type="password"
-            inputMode="numeric"
-            maxLength={4}
+            maxLength={6}
             value={newPin}
             onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
             className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[18px] text-[#2d1b1b]
@@ -177,8 +176,7 @@ export default function FirstPinSetup({
           <label className="font-['Inter',sans-serif] font-medium text-[14px] text-[#2d1b1b] mb-2 block">{t.confirmNewPin}</label>
           <input
             type="password"
-            inputMode="numeric"
-            maxLength={4}
+            maxLength={6}
             value={confirmPin}
             onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
             className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[18px] text-[#2d1b1b]

@@ -29,7 +29,7 @@ export default function CreditsPage({ onBack, language }: CreditsPageProps) {
       fName: "Fleuriane LAM",
       fRole: "UI/UX Design & Frontend",
       fDesc:
-        "Designed the UI1 visual style and helped implement the frontend interactions, animations, and overall polish.",
+        "Designed the UI visual style and helped implement the frontend interactions, animations, and overall polish.",
 
       links: "Links",
       linkedIn: "LinkedIn",

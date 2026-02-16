@@ -1,6 +1,6 @@
 // src/components/LetterDetailView.tsx
 import { motion, AnimatePresence } from "motion/react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner@2.0.3";
 import { useSession } from "../contexts/SessionContext";
 import { getMessage, MessageDetail, MessageReply } from "../services/api";
@@ -41,7 +41,6 @@ interface LetterDetailViewProps {
   onClose: () => void;
   language: "en" | "fr";
 
-  // ✅ new hooks to update parent UI without refresh
   onRead?: (messageId: string) => void;
   onReplySent?: (messageId: string, replyBody: string, createdAt?: number) => void;
 }
@@ -80,10 +79,14 @@ export default function LetterDetailView({
   onReplySent,
 }: LetterDetailViewProps) {
   const { session } = useSession();
+
   const [message, setMessage] = useState<MessageDetail | null>(null);
   const [replies, setReplies] = useState<MessageReply[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReply, setShowReply] = useState(false);
+
+  // ✅ single scroll container for ALL content (prevents growing / header overlap)
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const loadMessage = async () => {
@@ -93,12 +96,12 @@ export default function LetterDetailView({
         return;
       }
 
+      setLoading(true);
       try {
         const response = await getMessage(session.inboxId, messageId, session.sessionToken);
         setMessage(response.message);
         setReplies(response.replies || []);
 
-        // ✅ If message was unread, immediately tell parent to clear unread dot
         if (response.message?.unread) {
           onRead?.(messageId);
         }
@@ -115,6 +118,18 @@ export default function LetterDetailView({
 
     loadMessage();
   }, [messageId, session.inboxId, session.sessionToken, onClose, language, onRead]);
+
+  // ✅ auto-scroll to bottom when conversation loads/updates
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    // if replies exist, go near bottom so latest is visible
+    if ((replies?.length || 0) > 0) {
+      requestAnimationFrame(() => {
+        const el = scrollRef.current!;
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+  }, [replies.length, showReply]);
 
   const letter: Letter | null = useMemo(() => {
     if (!message) return null;
@@ -136,7 +151,11 @@ export default function LetterDetailView({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="text-6xl">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="text-6xl"
+        >
           💌
         </motion.div>
         <p className="text-white italic font-['Cormorant_Garamond',serif] text-[16px]">
@@ -157,7 +176,6 @@ export default function LetterDetailView({
         language={language}
         onClose={() => setShowReply(false)}
         onSent={(reply) => {
-          // ✅ update conversation immediately
           setReplies((prev) => [...prev, reply]);
           setShowReply(false);
           onReplySent?.(messageId, reply.body, reply.createdAt);
@@ -177,26 +195,32 @@ export default function LetterDetailView({
           paddingTop: "max(14px, env(safe-area-inset-top))",
           paddingBottom: "max(14px, env(safe-area-inset-bottom))",
         }}
+        role="dialog"
+        aria-modal="true"
       >
         {/* Backdrop */}
         <motion.div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-        {/* Content wrapper */}
+        {/* Card wrapper */}
         <motion.div
           className="relative w-full max-w-[360px]"
           style={{
             maxHeight:
               "calc(100dvh - max(28px, env(safe-area-inset-top)) - max(28px, env(safe-area-inset-bottom)) - 24px)",
-            transform: "translateY(-40px)",
           }}
           initial={{ scale: 0.6, opacity: 0, rotateY: -60 }}
           animate={{ scale: 1, opacity: 1, rotateY: 0 }}
           exit={{ scale: 0.6, opacity: 0, rotateY: 60 }}
           transition={{ type: "spring", stiffness: 220, damping: 22 }}
         >
-          {/* Card */}
-          <motion.div className={`${color} rounded-[20px] shadow-2xl relative overflow-hidden`} initial={{ y: 18 }} animate={{ y: 0 }}>
-            {/* Close */}
+          {/* ✅ IMPORTANT: overflow-hidden + flex-col locks the height and makes ONLY the body scroll */}
+          <motion.div
+            className={`${color} rounded-[20px] shadow-2xl relative overflow-hidden flex flex-col`}
+            style={{ maxHeight: "inherit" }}
+            initial={{ y: 18 }}
+            animate={{ y: 0 }}
+          >
+            {/* Close (fixed in header) */}
             <motion.button
               onClick={onClose}
               className="absolute top-3 right-3 size-10 rounded-full bg-white/90 flex items-center justify-center text-[color:var(--text)] font-bold text-xl shadow-lg z-20"
@@ -207,7 +231,8 @@ export default function LetterDetailView({
               ✕
             </motion.button>
 
-            <div className="p-6 overflow-y-auto" style={{ maxHeight: "inherit" }}>
+            {/* ✅ Scrollable body */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6">
               {/* Decorative hearts */}
               <motion.div
                 className="absolute top-4 left-4 opacity-20 pointer-events-none"
@@ -216,6 +241,7 @@ export default function LetterDetailView({
               >
                 <MdiHeart className="size-[36px]" />
               </motion.div>
+
               <motion.div
                 className="absolute bottom-4 right-4 opacity-20 pointer-events-none"
                 animate={{ rotate: [0, -10, 10, 0], scale: [1, 1.1, 1] }}
@@ -277,7 +303,8 @@ export default function LetterDetailView({
                   </div>
                 </div>
               ) : (
-                <div className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border border-white/25 max-h-[280px] overflow-y-auto">
+                // ✅ no nested scroll here — it grows inside the ONE scroll container (scrollRef)
+                <div className="bg-white/15 backdrop-blur-sm rounded-[15px] p-4 border border-white/25">
                   <div className="space-y-3">
                     {/* original bubble */}
                     <div className="flex justify-start">
@@ -285,7 +312,9 @@ export default function LetterDetailView({
                         <div className="rounded-[18px] px-4 py-3 bg-white/30 border border-white/30">
                           <p className="font-['Cormorant_Garamond',serif] italic text-[15px] leading-relaxed text-black whitespace-pre-wrap">
                             {letter.message ||
-                              (language === "en" ? "A secret message just for you..." : "Un message secret rien que pour toi...")}
+                              (language === "en"
+                                ? "A secret message just for you..."
+                                : "Un message secret rien que pour toi...")}
                           </p>
                         </div>
                         <p className="font-['Cormorant_Garamond',serif] italic text-[11px] text-black/50 mt-1 ml-2">
@@ -298,12 +327,20 @@ export default function LetterDetailView({
                     {replies.map((r) => (
                       <div key={r.id} className={`flex ${r.from === "me" ? "justify-end" : "justify-start"}`}>
                         <div className={`max-w-[85%] ${r.from === "me" ? "items-end" : "items-start"} flex flex-col`}>
-                          <div className={`rounded-[18px] px-4 py-3 border border-white/30 ${r.from === "me" ? "bg-white/45" : "bg-white/25"}`}>
+                          <div
+                            className={`rounded-[18px] px-4 py-3 border border-white/30 ${
+                              r.from === "me" ? "bg-white/45" : "bg-white/25"
+                            }`}
+                          >
                             <p className="font-['Cormorant_Garamond',serif] italic text-[15px] leading-relaxed text-black whitespace-pre-wrap">
                               {r.body}
                             </p>
                           </div>
-                          <p className={`font-['Cormorant_Garamond',serif] italic text-[11px] text-black/50 mt-1 ${r.from === "me" ? "mr-2" : "ml-2"}`}>
+                          <p
+                            className={`font-['Cormorant_Garamond',serif] italic text-[11px] text-black/50 mt-1 ${
+                              r.from === "me" ? "mr-2" : "ml-2"
+                            }`}
+                          >
                             {formatTimestamp(r.createdAt, language)}
                           </p>
                         </div>
@@ -327,7 +364,6 @@ export default function LetterDetailView({
               {letter.isAnonymous && (
                 <div className="mt-4 flex justify-center">
                   <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/40 flex items-center gap-2">
-                    <span className="text-[16px]">🎭</span>
                     <p className="font-['Cormorant_Garamond',serif] italic text-[12px] text-black">
                       {language === "en" ? "Sent anonymously" : "Envoyé anonymement"}
                     </p>
@@ -353,6 +389,9 @@ export default function LetterDetailView({
                   </button>
                 )}
               </div>
+
+              {/* bottom padding so last elements aren't under iOS bar */}
+              <div style={{ height: "max(12px, env(safe-area-inset-bottom))" }} />
             </div>
           </motion.div>
         </motion.div>

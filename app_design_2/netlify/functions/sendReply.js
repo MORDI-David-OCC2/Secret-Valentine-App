@@ -19,6 +19,14 @@ function jsonResponse(statusCode, body) {
   };
 }
 
+function normalizeThreadId(messageId, msg) {
+  if (msg && typeof msg.originalMessageId === "string" && msg.originalMessageId.trim()) {
+    return msg.originalMessageId.trim();
+  }
+  const m = /^imp_inbox_[^_]+_(.+)$/.exec(String(messageId || ""));
+  return m ? m[1] : messageId;
+}
+
 function initAdmin() {
   if (admin.apps.length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -114,8 +122,8 @@ function buildBaseUrl(event) {
 }
 
 async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY;
-  const from = process.env.EMAIL_VALENTINE;
+  const apiKey = process.env.API_EMAIL_KEY_2;
+  const from = process.env.EMAIL_VALENTINE_2;
 
   if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
   if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
@@ -407,18 +415,16 @@ exports.handler = async (event) => {
     // Encrypt reply for both inboxes
     const encForMe = encryptTextForInbox(myInboxKey, body);
     const encForThem = encryptTextForInbox(theirInboxKey, body);
-
+  
     // Preview fields (used for list view); still ok to keep encrypted preview in DB
     const preview = body.slice(0, 80);
     const previewForMe = encryptTextForInbox(myInboxKey, preview);
     const previewForThem = encryptTextForInbox(theirInboxKey, preview);
-
+    const threadId = normalizeThreadId(messageId, msg);
     const now = admin.firestore.FieldValue.serverTimestamp();
     const replyId = crypto.randomBytes(9).toString("hex");
-
     const meThreadRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
-    const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(messageId);
-
+    const themThreadRef = db.collection("inboxes").doc(replyToInboxId).collection("messages").doc(threadId);
     const meReplyRef = meThreadRef.collection("replies").doc(replyId);
     const themReplyRef = themThreadRef.collection("replies").doc(replyId);
 

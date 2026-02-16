@@ -196,14 +196,14 @@ export default function ClaimInboxPage({
       toast.error(language === "fr" ? "Inbox introuvable. Réessaie." : "Inbox not found. Try again.");
       return;
     }
-    if (!/^\d{4}$/.test(password)) {
-      toast.error(language === "fr" ? "Le PIN doit faire 4 chiffres" : "PIN must be 4 digits");
+    if (!/^\d{6}$/.test(pin)) {
+      toast.error(language === "fr" ? "Le PIN doit faire 6 caractères" : "PIN must be 6 characters");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await unlockInboxWithPin(inboxId, password);
+      const res = await unlockInboxWithPin(inboxId, pin);
 
       setInboxId(inboxId);
       setSessionToken(res.sessionToken);
@@ -213,7 +213,8 @@ export default function ClaimInboxPage({
       await maybeImportAfterAuth(inboxId, res.sessionToken);
 
       toast.success(language === "fr" ? "Connecté ✅" : "Logged in ✅");
-      onNavigate?.("letters") ?? onBack();
+      if (onNavigate) onNavigate("letters")
+      else onBack();
     } catch (e: any) {
       toast.error(e?.message || t.wrongPin);
     } finally {
@@ -335,6 +336,7 @@ export default function ClaimInboxPage({
               <p className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.passwordLabel}</p>
               <input
                 type="password"
+                maxLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t.passwordPlaceholder}

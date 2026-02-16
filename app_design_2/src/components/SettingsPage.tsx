@@ -6,23 +6,36 @@ import AppFrame from "./ui/AppFrame";
 import { savePushSub, getInboxMeta, updateInboxPin } from "../services/api";
 import { urlBase64ToUint8Array } from "../push/push";
 
-type PageName = "home" | "letters" | "compose" | "settings" | "credits" | "claim";
+type PageName =
+  | "home"
+  | "letters"
+  | "compose"
+  | "settings"
+  | "credits"
+  | "claim";
 
 async function enableNotifications() {
-  if (!("serviceWorker" in navigator)) throw new Error("No service worker");
-  if (!("PushManager" in window)) throw new Error("No PushManager");
+  if (!("serviceWorker" in navigator))
+    throw new Error("No service worker");
+  if (!("PushManager" in window))
+    throw new Error("No PushManager");
 
   const perm = await Notification.requestPermission();
-  if (perm !== "granted") throw new Error("Permission not granted");
+  if (perm !== "granted")
+    throw new Error("Permission not granted");
 
   const reg = await navigator.serviceWorker.ready;
 
-  const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
-  if (!vapidPublicKey) throw new Error("Missing VITE_VAPID_PUBLIC_KEY");
+  const vapidPublicKey =
+    import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
+
+  if (!vapidPublicKey)
+    throw new Error("Missing VITE_VAPID_PUBLIC_KEY");
 
   const sub = await reg.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+    applicationServerKey:
+      urlBase64ToUint8Array(vapidPublicKey),
   });
 
   return sub;
@@ -30,7 +43,9 @@ async function enableNotifications() {
 
 async function getExistingPushSub(): Promise<PushSubscription | null> {
   if (!("serviceWorker" in navigator)) return null;
-  const reg = await navigator.serviceWorker.ready.catch(() => null);
+  const reg = await navigator.serviceWorker.ready.catch(
+    () => null
+  );
   if (!reg) return null;
   return reg.pushManager.getSubscription();
 }
@@ -39,11 +54,8 @@ interface SettingsPageProps {
   onBack: () => void;
   language: "en" | "fr";
   onLanguageChange: (lang: "en" | "fr") => void;
-
-  // keep props but we no longer rely on them for truth
   pinCode: string | null;
   onPinCodeChange: (pin: string | null) => void;
-
   onLogout: () => void;
   onNavigate?: (page: PageName) => void;
 }
@@ -57,128 +69,100 @@ export default function SettingsPage({
   onLogout,
   onNavigate,
 }: SettingsPageProps) {
-  const { session, logout, setIsLocked, setIsPinRequired } = useSession();
+  const {
+    session,
+    logout,
+    setIsLocked,
+    setIsPinRequired,
+  } = useSession();
 
-  const [showPinOptions, setShowPinOptions] = useState(false);
-  const [mode, setMode] = useState<"create" | "change" | "remove">("create");
+  const [showPinOptions, setShowPinOptions] =
+    useState(false);
+  const [mode, setMode] = useState<
+    "create" | "change" | "remove"
+  >("create");
+
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
 
-  // ✅ Firestore truth
-  const [pinRequiredDb, setPinRequiredDb] = useState<boolean>(false);
-  const [pinLoading, setPinLoading] = useState<boolean>(true);
-  const [pinBusy, setPinBusy] = useState<boolean>(false);
+  const [pinRequiredDb, setPinRequiredDb] =
+    useState<boolean>(false);
+  const [pinLoading, setPinLoading] =
+    useState<boolean>(true);
+  const [pinBusy, setPinBusy] =
+    useState<boolean>(false);
 
-  // PUSH UI STATE
-  const [pushSupported, setPushSupported] = useState(true);
-  const [pushPermission, setPushPermission] = useState<NotificationPermission>("default");
-  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushSupported, setPushSupported] =
+    useState(true);
+  const [pushPermission, setPushPermission] =
+    useState<NotificationPermission>("default");
+  const [pushSubscribed, setPushSubscribed] =
+    useState(false);
   const [pushBusy, setPushBusy] = useState(false);
 
-  const translations = {
-    en: {
-      back: "Back",
-      title: "Settings",
-      subtitle: "Language, Password, and account options.",
-      language: "Language",
+  const validatePin6 = (v: string) =>
+    /^[A-Za-z0-9]{6}$/.test(v);
 
-      push: "Notifications",
-      pushDesc: "Get notified when you receive a new secret letter.",
-      pushEnable: "Enable notifications",
-      pushEnabled: "Notifications enabled",
-      pushNotSupported: "Push notifications are not supported on this device/browser.",
-      pushPermissionDenied: "Notifications are blocked in your browser settings.",
-
-      pin: "Password Lock",
-      pinDescription: "Protect your inbox with a 6 characters password (letters+numbers).",
-      createPin: "Create password",
-      changePin: "Change password",
-      removePin: "Remove password",
-      enterCurrentPin: "Current password",
-      enterNewPin: "New password",
-      confirmNewPin: "Confirm",
-      cancel: "Cancel",
-      save: "Save",
-      remove: "Remove",
-      pinsDontMatch: "Passwords don’t match",
-      pinTooShort: "Password must be 6 characters (A-Z, 0-9)",
-      pinSaved: "Password updated!",
-      pinRemoved: "Password removed",
-      wrongPin: "Wrong password",
-
-      account: "Account",
-      logout: "Log out",
-      logoutDescription: "Disconnect from this inbox on this device.",
-      currentInbox: "Current inbox",
-      footer: "made by D&F with",
-    },
-    fr: {
-      back: "Retour",
-      title: "Réglages",
-      subtitle: "Langue, Mot de passe, et options de compte.",
-      language: "Langue",
-
-      push: "Notifications",
-      pushDesc: "Reçois une alerte quand tu reçois une nouvelle lettre.",
-      pushEnable: "Activer les notifications",
-      pushEnabled: "Notifications activées",
-      pushNotSupported: "Les notifications push ne sont pas supportées sur cet appareil/navigateur.",
-      pushPermissionDenied: "Les notifications sont bloquées dans les réglages du navigateur.",
-
-      pin: "Verrou Mot de passe",
-      pinDescription: "Protège ta boîte avec un mot de passe de 6 caractères (lettres+chiffres).",
-      createPin: "Créer un mot de passe",
-      changePin: "Changer le mot de passe",
-      removePin: "Supprimer le mot de passe",
-      enterCurrentPin: "Mot de passe actuel",
-      enterNewPin: "Nouveau mot de passe",
-      confirmNewPin: "Confirmer",
-      cancel: "Annuler",
-      save: "Enregistrer",
-      remove: "Supprimer",
-      pinsDontMatch: "Les mots de passe ne correspondent pas",
-      pinTooShort: "Le mot de passe doit faire 6 caractères (A-Z, 0-9)",
-      pinSaved: "Mot de passe mis à jour !",
-      pinRemoved: "Mot de passe supprimé",
-      wrongPin: "Mot de passe incorrect",
-
-      account: "Compte",
-      logout: "Se déconnecter",
-      logoutDescription: "Déconnecte cette boîte sur cet appareil.",
-      currentInbox: "Boîte actuelle",
-      footer: "créé par D&F avec",
-    },
-  };
-
-  const t = translations[language];
-
-  const validatePin6 = (v: string) => /^[A-Za-z0-9]{6}$/.test(v);
-
-  // ✅ load DB truth: pinRequired
+  /* =======================================================
+     ✅ FIXED: load DB truth WITHOUT loop
+  ======================================================== */
   useEffect(() => {
-    (async () => {
+    let mounted = true;
+
+    const loadMeta = async () => {
+      if (!session.inboxId || !session.sessionToken)
+        return;
+
       try {
         setPinLoading(true);
-        if (!session.inboxId || !session.sessionToken) return;
-        const meta = await getInboxMeta(session.inboxId, session.sessionToken);
-        setPinRequiredDb(!!meta.pinRequired);
-        setIsPinRequired?.(!!meta.pinRequired);
-      } catch {
-        // ignore quietly; settings still usable
-      } finally {
-        setPinLoading(false);
-      }
-    })();
-  }, [session.inboxId, session.sessionToken, setIsPinRequired]);
 
-  // Detect push support + current status on mount
+        const meta = await getInboxMeta(
+          session.inboxId,
+          session.sessionToken
+        );
+
+        if (!mounted) return;
+
+        const next = !!meta.pinRequired;
+
+        setPinRequiredDb(next);
+
+        // Only update context if changed
+        setIsPinRequired?.((prev: boolean) =>
+          prev === next ? prev : next
+        );
+      } catch {
+        // silent fail
+      } finally {
+        if (mounted) setPinLoading(false);
+      }
+    };
+
+    loadMeta();
+
+    return () => {
+      mounted = false;
+    };
+  }, [session.inboxId, session.sessionToken]); // ❌ removed setIsPinRequired
+
+  /* =======================================================
+     Push Detection
+  ======================================================== */
   useEffect(() => {
-    const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    const supported =
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window;
+
     setPushSupported(supported);
 
-    const perm = (typeof Notification !== "undefined" ? Notification.permission : "default") as NotificationPermission;
-    setPushPermission(perm);
+    const perm =
+      typeof Notification !== "undefined"
+        ? Notification.permission
+        : "default";
+
+    setPushPermission(perm as NotificationPermission);
 
     if (!supported) return;
 
@@ -194,7 +178,9 @@ export default function SettingsPage({
     setConfirmPin("");
   };
 
-  const handlePinAction = (action: "create" | "change" | "remove") => {
+  const handlePinAction = (
+    action: "create" | "change" | "remove"
+  ) => {
     setMode(action);
     setShowPinOptions(true);
     resetPinForm();
@@ -207,66 +193,99 @@ export default function SettingsPage({
 
   const handleSavePin = async () => {
     if (!session.inboxId || !session.sessionToken) {
-      toast.error(language === "fr" ? "Pas connecté" : "Not logged in");
+      toast.error(
+        language === "fr"
+          ? "Pas connecté"
+          : "Not logged in"
+      );
       return;
     }
 
-    // validate
     if (mode !== "remove") {
-      if (!validatePin6(newPin)) return toast.error(t.pinTooShort);
-      if (newPin !== confirmPin) return toast.error(t.pinsDontMatch);
+      if (!validatePin6(newPin))
+        return toast.error(
+          "Password must be 6 characters (A-Z, 0-9)"
+        );
+
+      if (newPin !== confirmPin)
+        return toast.error("Passwords don’t match");
     }
-    if ((mode === "change" || mode === "remove") && !validatePin6(currentPin)) {
-      return toast.error(t.wrongPin);
+
+    if (
+      (mode === "change" || mode === "remove") &&
+      !validatePin6(currentPin)
+    ) {
+      return toast.error("Wrong password");
     }
 
     setPinBusy(true);
+
     try {
       const res = await updateInboxPin({
         inboxId: session.inboxId,
         sessionToken: session.sessionToken,
         action: mode,
-        currentPin: mode === "create" ? undefined : currentPin,
-        newPin: mode === "remove" ? undefined : newPin,
+        currentPin:
+          mode === "create" ? undefined : currentPin,
+        newPin:
+          mode === "remove" ? undefined : newPin,
       });
 
-      setPinRequiredDb(!!res.pinRequired);
-      setIsPinRequired?.(!!res.pinRequired);
+      const next = !!res.pinRequired;
 
-      // optional: keep your parent prop in sync too
-      onPinCodeChange(res.pinRequired ? newPin : null);
+      setPinRequiredDb(next);
+      setIsPinRequired?.((prev: boolean) =>
+        prev === next ? prev : next
+      );
 
-      toast.success(mode === "remove" ? t.pinRemoved : t.pinSaved);
+      onPinCodeChange(next ? newPin : null);
 
-      // If they removed PIN, inbox should not be "locked"
-      if (!res.pinRequired) setIsLocked?.(false);
+      if (!next) setIsLocked?.(false);
+
+      toast.success(
+        mode === "remove"
+          ? "Password removed"
+          : "Password updated!"
+      );
 
       setShowPinOptions(false);
       resetPinForm();
     } catch (e: any) {
       const msg = String(e?.message || "");
-      if (msg.toLowerCase().includes("wrong")) toast.error(t.wrongPin);
-      else toast.error(msg || (language === "fr" ? "Erreur" : "Failed"));
+      if (msg.toLowerCase().includes("wrong"))
+        toast.error("Wrong password");
+      else toast.error(msg || "Failed");
     } finally {
       setPinBusy(false);
     }
   };
 
   const handleLogout = () => {
-    logout(); // clears storage + session
+    logout();
     onLogout?.();
-    toast.success(language === "fr" ? "Déconnecté" : "Logged out");
+    toast.success(
+      language === "fr" ? "Déconnecté" : "Logged out"
+    );
   };
 
   const onEnablePush = async () => {
-    if (!pushSupported) return toast.error(t.pushNotSupported);
-    if (!session.inboxId || !session.sessionToken) return toast.error(language === "fr" ? "Pas connecté" : "Not logged in");
-    if (pushPermission === "denied") return toast.error(t.pushPermissionDenied);
+    if (!pushSupported)
+      return toast.error(
+        "Push not supported on this device"
+      );
+
+    if (!session.inboxId || !session.sessionToken)
+      return toast.error("Not logged in");
+
+    if (pushPermission === "denied")
+      return toast.error(
+        "Notifications blocked in browser"
+      );
 
     setPushBusy(true);
+
     try {
       const sub = await enableNotifications();
-      setPushPermission(Notification.permission);
 
       await savePushSub({
         inboxId: session.inboxId,
@@ -275,26 +294,29 @@ export default function SettingsPage({
       });
 
       setPushSubscribed(true);
-      toast.success(language === "fr" ? "Notifications activées ✅" : "Notifications enabled ✅");
+      toast.success("Notifications enabled ✅");
     } catch (e: any) {
-      toast.error(String(e?.message || (language === "fr" ? "Erreur" : "Failed")));
-      const sub = await getExistingPushSub();
-      setPushSubscribed(!!sub);
-      setPushPermission((typeof Notification !== "undefined" ? Notification.permission : "default") as NotificationPermission);
+      toast.error(String(e?.message || "Failed"));
     } finally {
       setPushBusy(false);
     }
   };
 
   const pushStatus = useMemo(() => {
-    if (!pushSupported) return { ok: false, text: t.pushNotSupported };
-    if (pushPermission === "denied") return { ok: false, text: t.pushPermissionDenied };
-    if (pushSubscribed) return { ok: true, text: t.pushEnabled };
-    return { ok: false, text: language === "fr" ? "Désactivées" : "Disabled" };
-  }, [pushSupported, pushPermission, pushSubscribed, t, language]);
+    if (!pushSupported)
+      return { ok: false, text: "Not supported" };
 
-  const hasPin = pinRequiredDb; // ✅ truth from DB
+    if (pushPermission === "denied")
+      return { ok: false, text: "Blocked" };
 
+    if (pushSubscribed)
+      return { ok: true, text: "Enabled" };
+
+    return { ok: false, text: "Disabled" };
+  }, [pushSupported, pushPermission, pushSubscribed]);
+
+  const hasPin = pinRequiredDb;
+  
   return (
     <AppFrame>
       <div className="relative">

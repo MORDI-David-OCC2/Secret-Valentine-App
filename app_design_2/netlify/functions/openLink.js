@@ -115,7 +115,7 @@ exports.handler = async (event) => {
 
     const inbox = inboxSnap.data() || {};
 
-    const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
+    const pinRequired = !!(inbox.passHash && inbox.passSalt && inbox.passIter);
     const pinMustBeCreated = !pinRequired || isPinReset;
 
     const hasPrimaryEmail = isValidEmail(inbox.primaryEmail);

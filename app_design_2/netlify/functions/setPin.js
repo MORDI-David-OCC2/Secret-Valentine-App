@@ -138,7 +138,7 @@ exports.handler = async (event) => {
     if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
     const d = inboxSnap.data() || {};
-    const hasPin = !!(d.pinHash && d.pinSalt && d.pinIter);
+    const hasPin = !!(d.passHash && d.passSalt && d.passIter);
 
     // If PIN already exists, require valid session to change/remove it (reset link will provide session)
     if (hasPin) {
@@ -150,10 +150,10 @@ exports.handler = async (event) => {
     if (pin === null) {
       await inboxRef.set(
         {
-          pinHash: null,
-          pinSalt: null,
-          pinIter: null,
-          pinSetAt: null,
+          passHash: null,
+          passSalt: null,
+          passIter: null,
+          passSetAt: null,
         },
         { merge: true }
       );
@@ -172,9 +172,9 @@ exports.handler = async (event) => {
     await inboxRef.set(
       {
         pinHash,
-        pinSalt: saltHex,
-        pinIter: iterations,
-        pinSetAt: admin.firestore.FieldValue.serverTimestamp(),
+        passSalt: saltHex,
+        passIter: iterations,
+        passSetAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     );

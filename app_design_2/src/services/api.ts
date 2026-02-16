@@ -230,3 +230,31 @@ export interface CreateInboxAccountResponse {
 export async function createInboxAccount(email: string, password: string): Promise<CreateInboxAccountResponse> {
   return postJSON("createInboxAccount", { email, password });
 }
+
+export async function getInboxMeta(inboxId: string, sessionToken: string) {
+  const res = await fetch("/.netlify/functions/getInboxMeta", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ inboxId, sessionToken }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(String(data?.error || res.status));
+  return data as { ok: true; pinRequired: boolean };
+}
+
+export async function updateInboxPin(input: {
+  inboxId: string;
+  sessionToken: string;
+  action: "create" | "change" | "remove";
+  currentPin?: string;
+  newPin?: string;
+}) {
+  const res = await fetch("/.netlify/functions/updatePin", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(String(data?.error || res.status));
+  return data as { ok: true; pinRequired: boolean };
+}

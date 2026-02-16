@@ -175,7 +175,7 @@ exports.handler = async (event) => {
 
     const inboxSnap = await db.collection("inboxes").doc(inboxId).get();
     const inboxData = inboxSnap.data() || {};
-    const pinRequired = !!(inboxData.pinHash && inboxData.pinSalt && inboxData.pinIter);
+    const pinRequired = !!(inboxData.passHash && inboxData.passSalt && inboxData.passIter);
 
     const okSession = await requireValidSession(db, inboxId, sessionToken);
     if (!okSession) return jsonResponse(401, { ok: false, error: "Locked. Verify PIN to unlock.", pinRequired });

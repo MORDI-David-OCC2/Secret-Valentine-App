@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import { useSession } from "../contexts/SessionContext";
 import AppFrame from "./ui/AppFrame";
-import { savePushSub } from "../services/api";
+import { savePushSub, getInboxMeta, updateInboxPin } from "../services/api";
 import { urlBase64ToUint8Array } from "../push/push";
 
 type PageName = "home" | "letters" | "compose" | "settings" | "credits" | "claim";
@@ -18,8 +18,7 @@ async function enableNotifications() {
   const reg = await navigator.serviceWorker.ready;
 
   const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
-  console.log(vapidPublicKey);
-  if (!vapidPublicKey) throw new Error("Missing VITE_VAPID_PUBLIC_KEY1");
+  if (!vapidPublicKey) throw new Error("Missing VITE_VAPID_PUBLIC_KEY");
 
   const sub = await reg.pushManager.subscribe({
     userVisibleOnly: true,
@@ -40,8 +39,11 @@ interface SettingsPageProps {
   onBack: () => void;
   language: "en" | "fr";
   onLanguageChange: (lang: "en" | "fr") => void;
+
+  // keep props but we no longer rely on them for truth
   pinCode: string | null;
   onPinCodeChange: (pin: string | null) => void;
+
   onLogout: () => void;
   onNavigate?: (page: PageName) => void;
 }
@@ -55,13 +57,18 @@ export default function SettingsPage({
   onLogout,
   onNavigate,
 }: SettingsPageProps) {
-  const { session } = useSession();
+  const { session, logout, setIsLocked, setIsPinRequired } = useSession();
 
   const [showPinOptions, setShowPinOptions] = useState(false);
   const [mode, setMode] = useState<"create" | "change" | "remove">("create");
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+
+  // ✅ Firestore truth
+  const [pinRequiredDb, setPinRequiredDb] = useState<boolean>(false);
+  const [pinLoading, setPinLoading] = useState<boolean>(true);
+  const [pinBusy, setPinBusy] = useState<boolean>(false);
 
   // PUSH UI STATE
   const [pushSupported, setPushSupported] = useState(true);
@@ -84,7 +91,7 @@ export default function SettingsPage({
       pushPermissionDenied: "Notifications are blocked in your browser settings.",
 
       pin: "Password Lock",
-      pinDescription: "Protect your inbox with a 6 characters password.",
+      pinDescription: "Protect your inbox with a 6 characters password (letters+numbers).",
       createPin: "Create password",
       changePin: "Change password",
       removePin: "Remove password",
@@ -95,9 +102,10 @@ export default function SettingsPage({
       save: "Save",
       remove: "Remove",
       pinsDontMatch: "Passwords don’t match",
-      pinTooShort: "Password must be 6 characters",
+      pinTooShort: "Password must be 6 characters (A-Z, 0-9)",
       pinSaved: "Password updated!",
       pinRemoved: "Password removed",
+      wrongPin: "Wrong password",
 
       account: "Account",
       logout: "Log out",
@@ -119,20 +127,21 @@ export default function SettingsPage({
       pushPermissionDenied: "Les notifications sont bloquées dans les réglages du navigateur.",
 
       pin: "Verrou Mot de passe",
-      pinDescription: "Protège ta boîte avec un PIN à 6 caractères.",
+      pinDescription: "Protège ta boîte avec un mot de passe de 6 caractères (lettres+chiffres).",
       createPin: "Créer un mot de passe",
       changePin: "Changer le mot de passe",
       removePin: "Supprimer le mot de passe",
-      enterCurrentPin: "mot de passe actuel",
+      enterCurrentPin: "Mot de passe actuel",
       enterNewPin: "Nouveau mot de passe",
       confirmNewPin: "Confirmer",
       cancel: "Annuler",
       save: "Enregistrer",
       remove: "Supprimer",
-      pinsDontMatch: "Les mot de passe ne correspondent pas",
-      pinTooShort: "Le mot de passe doit faire 6 caractères.",
-      pinSaved: "mot de passe mis à jour !",
-      pinRemoved: "mot de passe supprimé",
+      pinsDontMatch: "Les mots de passe ne correspondent pas",
+      pinTooShort: "Le mot de passe doit faire 6 caractères (A-Z, 0-9)",
+      pinSaved: "Mot de passe mis à jour !",
+      pinRemoved: "Mot de passe supprimé",
+      wrongPin: "Mot de passe incorrect",
 
       account: "Compte",
       logout: "Se déconnecter",
@@ -143,6 +152,45 @@ export default function SettingsPage({
   };
 
   const t = translations[language];
+
+  const validatePin6 = (v: string) => /^[A-Za-z0-9]{6}$/.test(v);
+
+  // ✅ load DB truth: pinRequired
+  useEffect(() => {
+    let mounted = true;
+  
+    (async () => {
+      try {
+        setPinLoading(true);
+        if (!session.inboxId || !session.sessionToken) return;
+  
+        const meta = await getInboxMeta(
+          session.inboxId,
+          session.sessionToken
+        );
+  
+        if (!mounted) return;
+  
+        const next = !!meta.pinRequired;
+  
+        setPinRequiredDb(next);
+  
+        // ✅ prevent feedback loop
+        setIsPinRequired?.((prev: boolean) =>
+          prev === next ? prev : next
+        );
+      } catch {
+        // ignore quietly
+      } finally {
+        if (mounted) setPinLoading(false);
+      }
+    })();
+  
+    return () => {
+      mounted = false;
+    };
+  }, [session.inboxId, session.sessionToken]); // ✅ removed setIsPinRequired
+  
 
   // Detect push support + current status on mount
   useEffect(() => {
@@ -177,68 +225,69 @@ export default function SettingsPage({
     resetPinForm();
   };
 
-  const handleSavePin = () => {
-    if (mode !== "remove") {
-      if (newPin.length !== 6) return toast.error(t.pinTooShort);
-      if (newPin !== confirmPin) return toast.error(t.pinsDontMatch);
-    }
-
-    if (mode === "create") {
-      onPinCodeChange(newPin);
-      toast.success(t.pinSaved);
-    }
-
-    if (mode === "change") {
-      if (!pinCode) return toast.error("No PIN set");
-      if (currentPin !== pinCode) return toast.error(language === "fr" ? "PIN actuel incorrect" : "Wrong current PIN");
-      onPinCodeChange(newPin);
-      toast.success(t.pinSaved);
-    }
-
-    if (mode === "remove") {
-      if (!pinCode) return toast.error("No PIN set");
-      if (currentPin !== pinCode) return toast.error(language === "fr" ? "PIN actuel incorrect" : "Wrong current PIN");
-      onPinCodeChange(null);
-      toast.success(t.pinRemoved);
-    }
-
-    setShowPinOptions(false);
-    resetPinForm();
-  };
-
-  const { logout } = useSession();
-
-const handleLogout = () => {
-  logout(); // ✅ efface localStorage + session state
-  onLogout?.(); // optionnel si tu veux quand même prévenir le parent
-  toast.success(language === "fr" ? "Déconnecté" : "Logged out");
-};
-
-
-  const onEnablePush = async () => {
-    if (!pushSupported) {
-      toast.error(t.pushNotSupported);
-      return;
-    }
-
-    // need a logged inbox to attach the subscription to
+  const handleSavePin = async () => {
     if (!session.inboxId || !session.sessionToken) {
       toast.error(language === "fr" ? "Pas connecté" : "Not logged in");
       return;
     }
 
-    // browser-level block
-    if (pushPermission === "denied") {
-      toast.error(t.pushPermissionDenied);
-      return;
+    // validate
+    if (mode !== "remove") {
+      if (!validatePin6(newPin)) return toast.error(t.pinTooShort);
+      if (newPin !== confirmPin) return toast.error(t.pinsDontMatch);
     }
+    if ((mode === "change" || mode === "remove") && !validatePin6(currentPin)) {
+      return toast.error(t.wrongPin);
+    }
+
+    setPinBusy(true);
+    try {
+      const res = await updateInboxPin({
+        inboxId: session.inboxId,
+        sessionToken: session.sessionToken,
+        action: mode,
+        currentPin: mode === "create" ? undefined : currentPin,
+        newPin: mode === "remove" ? undefined : newPin,
+      });
+
+      setPinRequiredDb(!!res.pinRequired);
+      setIsPinRequired?.(!!res.pinRequired);
+
+      // optional: keep your parent prop in sync too
+      onPinCodeChange(res.pinRequired ? newPin : null);
+
+      toast.success(mode === "remove" ? t.pinRemoved : t.pinSaved);
+
+      // If they removed PIN, inbox should not be "locked"
+      if (!res.pinRequired) setIsLocked?.(false);
+
+      setShowPinOptions(false);
+      resetPinForm();
+    } catch (e: any) {
+      const msg = String(e?.message || "");
+      if (msg.toLowerCase().includes("wrong")) toast.error(t.wrongPin);
+      else toast.error(msg || (language === "fr" ? "Erreur" : "Failed"));
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout(); // clears storage + session
+    onLogout?.();
+    toast.success(language === "fr" ? "Déconnecté" : "Logged out");
+  };
+
+  const onEnablePush = async () => {
+    if (!pushSupported) return toast.error(t.pushNotSupported);
+    if (!session.inboxId || !session.sessionToken) return toast.error(language === "fr" ? "Pas connecté" : "Not logged in");
+    if (pushPermission === "denied") return toast.error(t.pushPermissionDenied);
 
     setPushBusy(true);
     try {
       const sub = await enableNotifications();
       setPushPermission(Notification.permission);
 
-      // Save in backend (send JSON)
       await savePushSub({
         inboxId: session.inboxId,
         sessionToken: session.sessionToken,
@@ -248,9 +297,7 @@ const handleLogout = () => {
       setPushSubscribed(true);
       toast.success(language === "fr" ? "Notifications activées ✅" : "Notifications enabled ✅");
     } catch (e: any) {
-      const msg = String(e?.message || "");
-      toast.error(msg || (language === "fr" ? "Erreur" : "Failed"));
-      // refresh local status
+      toast.error(String(e?.message || (language === "fr" ? "Erreur" : "Failed")));
       const sub = await getExistingPushSub();
       setPushSubscribed(!!sub);
       setPushPermission((typeof Notification !== "undefined" ? Notification.permission : "default") as NotificationPermission);
@@ -259,7 +306,6 @@ const handleLogout = () => {
     }
   };
 
-  // small status label
   const pushStatus = useMemo(() => {
     if (!pushSupported) return { ok: false, text: t.pushNotSupported };
     if (pushPermission === "denied") return { ok: false, text: t.pushPermissionDenied };
@@ -267,26 +313,17 @@ const handleLogout = () => {
     return { ok: false, text: language === "fr" ? "Désactivées" : "Disabled" };
   }, [pushSupported, pushPermission, pushSubscribed, t, language]);
 
+  const hasPin = pinRequiredDb; // ✅ truth from DB
+
   return (
     <AppFrame>
       <div className="relative">
-        {/* Back */}
         <motion.button
           onClick={onBack}
-          className="
-            inline-flex items-center gap-3
-            text-[24px] italic
-            text-[color:var(--text-light)]
-            font-['Cormorant_Garamond',serif]
-            px-3 py-2
-            rounded-[14px]
-            bg-white/35 backdrop-blur
-            border border-white/50
-            shadow-[0_10px_30px_rgba(180,90,130,.10)]
-            hover:bg-white/45
-            active:scale-[0.99]
-            transition
-          "
+          className="inline-flex items-center gap-3 text-[24px] italic text-[color:var(--text-light)]
+                     font-['Cormorant_Garamond',serif] px-3 py-2 rounded-[14px] bg-white/35 backdrop-blur
+                     border border-white/50 shadow-[0_10px_30px_rgba(180,90,130,.10)] hover:bg-white/45
+                     active:scale-[0.99] transition"
           initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
           whileHover={{ x: -3 }}
@@ -296,16 +333,13 @@ const handleLogout = () => {
           <span className="leading-none">{t.back}</span>
         </motion.button>
 
-        {/* Header */}
         <div className="mt-4 text-center">
           <motion.div className="text-6xl" animate={{ rotate: [0, 8, -8, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}>
             ⚙️
           </motion.div>
-
           <h1 className="mt-2 font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)] drop-shadow-[0_2px_12px_rgba(200,90,130,.18)]">
             {t.title}
           </h1>
-
           <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">{t.subtitle}</p>
 
           <div className="mt-5 mb-4 flex items-center gap-3 w-full">
@@ -342,13 +376,11 @@ const handleLogout = () => {
               type="button"
               onClick={onEnablePush}
               disabled={pushBusy || !pushSupported || pushPermission === "denied"}
-              className="
-                mt-4 w-full rounded-[16px] px-5 py-4 text-left
-                shadow-[0_10px_30px_rgba(155,45,90,.18)]
-                bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45]
-                disabled:opacity-60 disabled:cursor-not-allowed
-                active:scale-[0.99]
-              "
+              className="mt-4 w-full rounded-[16px] px-5 py-4 text-left
+                         shadow-[0_10px_30px_rgba(155,45,90,.18)]
+                         bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45]
+                         disabled:opacity-60 disabled:cursor-not-allowed
+                         active:scale-[0.99]"
               whileHover={!pushBusy ? { y: -1 } : {}}
             >
               <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-white">
@@ -389,10 +421,15 @@ const handleLogout = () => {
 
             {!showPinOptions && (
               <div className="mt-4 grid grid-cols-1 gap-3">
-                {!pinCode ? (
+                {pinLoading ? (
+                  <div className="text-[14px] italic text-[color:var(--text-light)]">
+                    {language === "fr" ? "Chargement…" : "Loading…"}
+                  </div>
+                ) : !hasPin ? (
                   <button
                     onClick={() => handlePinAction("create")}
-                    className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)] bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] active:scale-[0.99]"
+                    className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
+                               bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] active:scale-[0.99]"
                   >
                     <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-white">{t.createPin}</div>
                     <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-white/80">
@@ -403,17 +440,19 @@ const handleLogout = () => {
                   <>
                     <button
                       onClick={() => handlePinAction("change")}
-                      className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(180,90,130,.14)] bg-white/60 border border-white/70 active:scale-[0.99]"
+                      className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(180,90,130,.14)]
+                                 bg-white/60 border border-white/70 active:scale-[0.99]"
                     >
                       <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-[#5a2d42]">{t.changePin}</div>
                       <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">
-                        {language === "fr" ? "Mettre à jour" : "Update your PIN"}
+                        {language === "fr" ? "Mettre à jour" : "Update your password"}
                       </div>
                     </button>
 
                     <button
                       onClick={() => handlePinAction("remove")}
-                      className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(180,90,130,.14)] bg-white/60 border border-white/70 active:scale-[0.99]"
+                      className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(180,90,130,.14)]
+                                 bg-white/60 border border-white/70 active:scale-[0.99]"
                     >
                       <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-[#5a2d42]">{t.removePin}</div>
                       <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">
@@ -435,11 +474,11 @@ const handleLogout = () => {
                         type="password"
                         maxLength={6}
                         value={currentPin}
-                        onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
+                        onChange={(e) => setCurrentPin(e.target.value)}
                         className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
                                    font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
                                    outline-none focus:ring-2 focus:ring-[#e8a0b4]"
-                        placeholder="••••"
+                        placeholder="••••••"
                       />
                     </div>
                   )}
@@ -452,11 +491,11 @@ const handleLogout = () => {
                           type="password"
                           maxLength={6}
                           value={newPin}
-                          onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+                          onChange={(e) => setNewPin(e.target.value)}
                           className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
                                      font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
                                      outline-none focus:ring-2 focus:ring-[#e8a0b4]"
-                          placeholder="••••"
+                          placeholder="••••••"
                         />
                       </div>
 
@@ -466,11 +505,11 @@ const handleLogout = () => {
                           type="password"
                           maxLength={6}
                           value={confirmPin}
-                          onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+                          onChange={(e) => setConfirmPin(e.target.value)}
                           className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
                                      font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
                                      outline-none focus:ring-2 focus:ring-[#e8a0b4]"
-                          placeholder="••••"
+                          placeholder="••••••"
                         />
                       </div>
                     </>
@@ -479,7 +518,8 @@ const handleLogout = () => {
                   <div className="flex gap-3 pt-2">
                     <motion.button
                       onClick={handleCancel}
-                      className="flex-1 rounded-[16px] px-5 py-4 text-left bg-white/60 border border-white/70 shadow active:scale-[0.99]"
+                      disabled={pinBusy}
+                      className="flex-1 rounded-[16px] px-5 py-4 text-left bg-white/60 border border-white/70 shadow active:scale-[0.99] disabled:opacity-60"
                       whileHover={{ y: -1 }}
                     >
                       <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-[#5a2d42]">{t.cancel}</div>
@@ -490,11 +530,17 @@ const handleLogout = () => {
 
                     <motion.button
                       onClick={handleSavePin}
-                      className="flex-1 rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.22)] bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] active:scale-[0.99]"
+                      disabled={pinBusy}
+                      className="flex-1 rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.22)]
+                                 bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] active:scale-[0.99] disabled:opacity-60"
                       whileHover={{ y: -1 }}
                     >
-                      <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-white">{mode === "remove" ? t.remove : t.save}</div>
-                      <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-white/80">{language === "fr" ? "Valider" : "Confirm"}</div>
+                      <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-white">
+                        {pinBusy ? (language === "fr" ? "…" : "…") : mode === "remove" ? t.remove : t.save}
+                      </div>
+                      <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-white/80">
+                        {language === "fr" ? "Valider" : "Confirm"}
+                      </div>
                     </motion.button>
                   </div>
                 </motion.div>
@@ -527,7 +573,6 @@ const handleLogout = () => {
           )}
         </div>
 
-        {/* Footer */}
         <button
           onClick={() => onNavigate?.("credits")}
           className="mt-7 w-full text-center text-[12px] italic text-[color:var(--text-light)] opacity-80 underline decoration-[color:var(--rose)] decoration-dotted underline-offset-4 hover:opacity-100 transition"

@@ -143,7 +143,7 @@ exports.handler = async (event) => {
     if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
     const inbox = inboxSnap.data() || {};
-    const pinRequired = !!(inbox.pinHash && inbox.pinSalt && inbox.pinIter);
+    const pinRequired = !!(inbox.passHash && inbox.passSalt && inbox.passIter);
 
     const okSession = await isValidSession(db, inboxId, sessionToken);
     if (!okSession) {

@@ -63,7 +63,7 @@ export default function ClaimInboxPage({
       weakPassword: "Password must be at least 6 characters",
 
       pinTitle: "Enter your PIN",
-      pinLabel: "Password (6 characters)",
+      pinLabel: "Password",
       pinPlaceholder: "••••",
       login: "Log in",
       forgot: "Forgot PIN?",
@@ -96,7 +96,7 @@ export default function ClaimInboxPage({
       weakPassword: "Le mot de passe doit faire au moins 6 caractères",
 
       pinTitle: "Entre ton PIN",
-      pinLabel: "Mot de passe (6 caractères)",
+      pinLabel: "Mot de passe",
       pinPlaceholder: "••••",
       login: "Se connecter",
       forgot: "Mot de passe oublié ?",
@@ -196,7 +196,7 @@ export default function ClaimInboxPage({
       toast.error(language === "fr" ? "Inbox introuvable. Réessaie." : "Inbox not found. Try again.");
       return;
     }
-    if (!/^\d{6}$/.test(password)) {
+    if (!/^\d{6}$/.test(pin)) {
       toast.error(language === "fr" ? "Le PIN doit faire 6 caractères" : "PIN must be 6 characters");
       return;
     }
@@ -378,8 +378,8 @@ export default function ClaimInboxPage({
               <input
                 type="password"
                 maxLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
                 placeholder={t.pinPlaceholder}
                 className="mt-2 w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow
                            font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest

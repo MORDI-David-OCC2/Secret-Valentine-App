@@ -88,7 +88,7 @@ exports.handler = async (event) => {
     if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
     const d = inboxSnap.data() || {};
-    const pinRequired = !!(d.pinHash && d.pinSalt && d.pinIter);
+    const pinRequired = !!(d.passHash && d.passSalt && d.passIter);
 
     return jsonResponse(200, { ok: true, pinRequired });
   } catch (err) {

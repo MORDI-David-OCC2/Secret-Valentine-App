@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner@2.0.3";
 import { useSession } from "../contexts/SessionContext";
 import AppFrame from "./ui/AppFrame";
-import { savePushSub } from "../services/api";
+import { savePushSub, getInboxMeta, updateInboxPin } from "../services/api";
 import { urlBase64ToUint8Array } from "../push/push";
 
 type PageName = "home" | "letters" | "compose" | "settings" | "credits" | "claim";
@@ -40,15 +40,13 @@ interface SettingsPageProps {
   language: "en" | "fr";
   onLanguageChange: (lang: "en" | "fr") => void;
 
-  // tu peux continuer à les passer depuis App si tu veux
+  // keep props but we no longer rely on them for truth
   pinCode: string | null;
   onPinCodeChange: (pin: string | null) => void;
 
   onLogout: () => void;
   onNavigate?: (page: PageName) => void;
 }
-
-const PIN_STORAGE_KEY = "sv_pin_v1";
 
 export default function SettingsPage({
   onBack,
@@ -59,16 +57,18 @@ export default function SettingsPage({
   onLogout,
   onNavigate,
 }: SettingsPageProps) {
-  const { session, logout } = useSession();
-
-  // ✅ source of truth locale, sync avec props
-  const [localPin, setLocalPin] = useState<string | null>(pinCode);
+  const { session, logout, setIsLocked, setIsPinRequired } = useSession();
 
   const [showPinOptions, setShowPinOptions] = useState(false);
   const [mode, setMode] = useState<"create" | "change" | "remove">("create");
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+
+  // ✅ Firestore truth
+  const [pinRequiredDb, setPinRequiredDb] = useState<boolean>(false);
+  const [pinLoading, setPinLoading] = useState<boolean>(true);
+  const [pinBusy, setPinBusy] = useState<boolean>(false);
 
   // PUSH UI STATE
   const [pushSupported, setPushSupported] = useState(true);
@@ -91,7 +91,7 @@ export default function SettingsPage({
       pushPermissionDenied: "Notifications are blocked in your browser settings.",
 
       pin: "Password Lock",
-      pinDescription: "Protect your inbox with a 6 characters password.",
+      pinDescription: "Protect your inbox with a 6 characters password (letters+numbers).",
       createPin: "Create password",
       changePin: "Change password",
       removePin: "Remove password",
@@ -102,9 +102,10 @@ export default function SettingsPage({
       save: "Save",
       remove: "Remove",
       pinsDontMatch: "Passwords don’t match",
-      pinTooShort: "Password must be 6 characters",
+      pinTooShort: "Password must be 6 characters (A-Z, 0-9)",
       pinSaved: "Password updated!",
       pinRemoved: "Password removed",
+      wrongPin: "Wrong password",
 
       account: "Account",
       logout: "Log out",
@@ -126,7 +127,7 @@ export default function SettingsPage({
       pushPermissionDenied: "Les notifications sont bloquées dans les réglages du navigateur.",
 
       pin: "Verrou Mot de passe",
-      pinDescription: "Protège ta boîte avec un mot de passe de 6 caractères.",
+      pinDescription: "Protège ta boîte avec un mot de passe de 6 caractères (lettres+chiffres).",
       createPin: "Créer un mot de passe",
       changePin: "Changer le mot de passe",
       removePin: "Supprimer le mot de passe",
@@ -137,9 +138,10 @@ export default function SettingsPage({
       save: "Enregistrer",
       remove: "Supprimer",
       pinsDontMatch: "Les mots de passe ne correspondent pas",
-      pinTooShort: "Le mot de passe doit faire 6 caractères.",
+      pinTooShort: "Le mot de passe doit faire 6 caractères (A-Z, 0-9)",
       pinSaved: "Mot de passe mis à jour !",
       pinRemoved: "Mot de passe supprimé",
+      wrongPin: "Mot de passe incorrect",
 
       account: "Compte",
       logout: "Se déconnecter",
@@ -147,30 +149,28 @@ export default function SettingsPage({
       currentInbox: "Boîte actuelle",
       footer: "créé par D&F avec",
     },
-  }[language];
+  };
 
-  const t = translations;
+  const t = translations[language];
 
-  // ✅ 1) Au montage : si pinCode prop vide, on tente localStorage
+  const validatePin6 = (v: string) => /^[A-Za-z0-9]{6}$/.test(v);
+
+  // ✅ load DB truth: pinRequired
   useEffect(() => {
-    if (pinCode) {
-      setLocalPin(pinCode);
-      return;
-    }
-    const stored = localStorage.getItem(PIN_STORAGE_KEY);
-    if (stored && stored.length === 6) {
-      setLocalPin(stored);
-      onPinCodeChange(stored);
-    } else {
-      setLocalPin(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ✅ 2) Si le parent met à jour pinCode, on sync
-  useEffect(() => {
-    setLocalPin(pinCode);
-  }, [pinCode]);
+    (async () => {
+      try {
+        setPinLoading(true);
+        if (!session.inboxId || !session.sessionToken) return;
+        const meta = await getInboxMeta(session.inboxId, session.sessionToken);
+        setPinRequiredDb(!!meta.pinRequired);
+        setIsPinRequired?.(!!meta.pinRequired);
+      } catch {
+        // ignore quietly; settings still usable
+      } finally {
+        setPinLoading(false);
+      }
+    })();
+  }, [session.inboxId, session.sessionToken, setIsPinRequired]);
 
   // Detect push support + current status on mount
   useEffect(() => {
@@ -205,48 +205,55 @@ export default function SettingsPage({
     resetPinForm();
   };
 
-  const savePinEverywhere = (pin: string | null) => {
-    if (pin) localStorage.setItem(PIN_STORAGE_KEY, pin);
-    else localStorage.removeItem(PIN_STORAGE_KEY);
+  const handleSavePin = async () => {
+    if (!session.inboxId || !session.sessionToken) {
+      toast.error(language === "fr" ? "Pas connecté" : "Not logged in");
+      return;
+    }
 
-    setLocalPin(pin);
-    onPinCodeChange(pin);
-  };
-
-  const handleSavePin = () => {
-    const existing = localPin;
-
+    // validate
     if (mode !== "remove") {
-      if (newPin.length !== 6) return toast.error(t.pinTooShort);
+      if (!validatePin6(newPin)) return toast.error(t.pinTooShort);
       if (newPin !== confirmPin) return toast.error(t.pinsDontMatch);
     }
-
-    if (mode === "create") {
-      savePinEverywhere(newPin);
-      toast.success(t.pinSaved);
+    if ((mode === "change" || mode === "remove") && !validatePin6(currentPin)) {
+      return toast.error(t.wrongPin);
     }
 
-    if (mode === "change") {
-      if (!existing) return toast.error(language === "fr" ? "Aucun mot de passe configuré" : "No password set");
-      if (currentPin !== existing) return toast.error(language === "fr" ? "Mot de passe actuel incorrect" : "Wrong current password");
-      savePinEverywhere(newPin);
-      toast.success(t.pinSaved);
-    }
+    setPinBusy(true);
+    try {
+      const res = await updateInboxPin({
+        inboxId: session.inboxId,
+        sessionToken: session.sessionToken,
+        action: mode,
+        currentPin: mode === "create" ? undefined : currentPin,
+        newPin: mode === "remove" ? undefined : newPin,
+      });
 
-    if (mode === "remove") {
-      if (!existing) return toast.error(language === "fr" ? "Aucun mot de passe configuré" : "No password set");
-      if (currentPin !== existing) return toast.error(language === "fr" ? "Mot de passe actuel incorrect" : "Wrong current password");
-      savePinEverywhere(null);
-      toast.success(t.pinRemoved);
-    }
+      setPinRequiredDb(!!res.pinRequired);
+      setIsPinRequired?.(!!res.pinRequired);
 
-    setShowPinOptions(false);
-    resetPinForm();
+      // optional: keep your parent prop in sync too
+      onPinCodeChange(res.pinRequired ? newPin : null);
+
+      toast.success(mode === "remove" ? t.pinRemoved : t.pinSaved);
+
+      // If they removed PIN, inbox should not be "locked"
+      if (!res.pinRequired) setIsLocked?.(false);
+
+      setShowPinOptions(false);
+      resetPinForm();
+    } catch (e: any) {
+      const msg = String(e?.message || "");
+      if (msg.toLowerCase().includes("wrong")) toast.error(t.wrongPin);
+      else toast.error(msg || (language === "fr" ? "Erreur" : "Failed"));
+    } finally {
+      setPinBusy(false);
+    }
   };
 
   const handleLogout = () => {
-    // ✅ logout context + cleanup pin local si tu veux garder ou non
-    logout();
+    logout(); // clears storage + session
     onLogout?.();
     toast.success(language === "fr" ? "Déconnecté" : "Logged out");
   };
@@ -286,25 +293,17 @@ export default function SettingsPage({
     return { ok: false, text: language === "fr" ? "Désactivées" : "Disabled" };
   }, [pushSupported, pushPermission, pushSubscribed, t, language]);
 
+  const hasPin = pinRequiredDb; // ✅ truth from DB
+
   return (
     <AppFrame>
       <div className="relative">
         <motion.button
           onClick={onBack}
-          className="
-            inline-flex items-center gap-3
-            text-[24px] italic
-            text-[color:var(--text-light)]
-            font-['Cormorant_Garamond',serif]
-            px-3 py-2
-            rounded-[14px]
-            bg-white/35 backdrop-blur
-            border border-white/50
-            shadow-[0_10px_30px_rgba(180,90,130,.10)]
-            hover:bg-white/45
-            active:scale-[0.99]
-            transition
-          "
+          className="inline-flex items-center gap-3 text-[24px] italic text-[color:var(--text-light)]
+                     font-['Cormorant_Garamond',serif] px-3 py-2 rounded-[14px] bg-white/35 backdrop-blur
+                     border border-white/50 shadow-[0_10px_30px_rgba(180,90,130,.10)] hover:bg-white/45
+                     active:scale-[0.99] transition"
           initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
           whileHover={{ x: -3 }}
@@ -318,11 +317,9 @@ export default function SettingsPage({
           <motion.div className="text-6xl" animate={{ rotate: [0, 8, -8, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}>
             ⚙️
           </motion.div>
-
           <h1 className="mt-2 font-['Playfair_Display',serif] italic font-bold text-[26px] text-[color:var(--rose-deep)] drop-shadow-[0_2px_12px_rgba(200,90,130,.18)]">
             {t.title}
           </h1>
-
           <p className="mt-3 font-['Cormorant_Garamond',serif] italic text-[16px] text-[color:var(--text-light)]">{t.subtitle}</p>
 
           <div className="mt-5 mb-4 flex items-center gap-3 w-full">
@@ -337,9 +334,14 @@ export default function SettingsPage({
           <div className="rounded-[18px] bg-white/55 border border-white/60 shadow-[0_10px_30px_rgba(180,90,130,.12)] px-5 py-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">{t.push}</div>
-                <p className="mt-1 font-['Cormorant_Garamond',serif] italic text-[15px] text-[color:var(--text-light)]">{t.pushDesc}</p>
+                <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">
+                  {t.push}
+                </div>
+                <p className="mt-1 font-['Cormorant_Garamond',serif] italic text-[15px] text-[color:var(--text-light)]">
+                  {t.pushDesc}
+                </p>
               </div>
+
               <div
                 className={[
                   "shrink-0 rounded-full px-3 py-1 text-[12px] italic border",
@@ -354,13 +356,11 @@ export default function SettingsPage({
               type="button"
               onClick={onEnablePush}
               disabled={pushBusy || !pushSupported || pushPermission === "denied"}
-              className="
-                mt-4 w-full rounded-[16px] px-5 py-4 text-left
-                shadow-[0_10px_30px_rgba(155,45,90,.18)]
-                bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45]
-                disabled:opacity-60 disabled:cursor-not-allowed
-                active:scale-[0.99]
-              "
+              className="mt-4 w-full rounded-[16px] px-5 py-4 text-left
+                         shadow-[0_10px_30px_rgba(155,45,90,.18)]
+                         bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45]
+                         disabled:opacity-60 disabled:cursor-not-allowed
+                         active:scale-[0.99]"
               whileHover={!pushBusy ? { y: -1 } : {}}
             >
               <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-white">
@@ -375,6 +375,7 @@ export default function SettingsPage({
           {/* Language */}
           <div className="rounded-[18px] bg-white/55 border border-white/60 shadow-[0_10px_30px_rgba(180,90,130,.12)] px-5 py-4">
             <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">{t.language}</div>
+
             <div className="mt-3 flex gap-3">
               <button
                 onClick={() => onLanguageChange("en")}
@@ -393,37 +394,50 @@ export default function SettingsPage({
             </div>
           </div>
 
-          {/* Password */}
+          {/* PIN */}
           <div className="rounded-[18px] bg-white/55 border border-white/60 shadow-[0_10px_30px_rgba(180,90,130,.12)] px-5 py-4">
             <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">{t.pin}</div>
             <p className="mt-1 font-['Cormorant_Garamond',serif] italic text-[15px] text-[color:var(--text-light)]">{t.pinDescription}</p>
 
             {!showPinOptions && (
               <div className="mt-4 grid grid-cols-1 gap-3">
-                {!localPin ? (
+                {pinLoading ? (
+                  <div className="text-[14px] italic text-[color:var(--text-light)]">
+                    {language === "fr" ? "Chargement…" : "Loading…"}
+                  </div>
+                ) : !hasPin ? (
                   <button
                     onClick={() => handlePinAction("create")}
-                    className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)] bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] active:scale-[0.99]"
+                    className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]
+                               bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] active:scale-[0.99]"
                   >
                     <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-white">{t.createPin}</div>
-                    <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-white/80">{language === "fr" ? "Active une protection" : "Enable protection"}</div>
+                    <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-white/80">
+                      {language === "fr" ? "Active une protection" : "Enable protection"}
+                    </div>
                   </button>
                 ) : (
                   <>
                     <button
                       onClick={() => handlePinAction("change")}
-                      className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(180,90,130,.14)] bg-white/60 border border-white/70 active:scale-[0.99]"
+                      className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(180,90,130,.14)]
+                                 bg-white/60 border border-white/70 active:scale-[0.99]"
                     >
                       <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-[#5a2d42]">{t.changePin}</div>
-                      <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">{language === "fr" ? "Mettre à jour" : "Update"}</div>
+                      <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">
+                        {language === "fr" ? "Mettre à jour" : "Update your password"}
+                      </div>
                     </button>
 
                     <button
                       onClick={() => handlePinAction("remove")}
-                      className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(180,90,130,.14)] bg-white/60 border border-white/70 active:scale-[0.99]"
+                      className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(180,90,130,.14)]
+                                 bg-white/60 border border-white/70 active:scale-[0.99]"
                     >
                       <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-[#5a2d42]">{t.removePin}</div>
-                      <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">{language === "fr" ? "Désactiver" : "Disable"}</div>
+                      <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">
+                        {language === "fr" ? "Désactiver la protection" : "Disable protection"}
+                      </div>
                     </button>
                   </>
                 )}
@@ -440,12 +454,11 @@ export default function SettingsPage({
                         type="password"
                         maxLength={6}
                         value={currentPin}
-                        onChange={(e) => setCurrentPin(e.target.value)} // ✅ pas de replace(/\D/g,"")
+                        onChange={(e) => setCurrentPin(e.target.value)}
                         className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
                                    font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
                                    outline-none focus:ring-2 focus:ring-[#e8a0b4]"
                         placeholder="••••••"
-                        autoComplete="current-password"
                       />
                     </div>
                   )}
@@ -463,7 +476,6 @@ export default function SettingsPage({
                                      font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
                                      outline-none focus:ring-2 focus:ring-[#e8a0b4]"
                           placeholder="••••••"
-                          autoComplete="new-password"
                         />
                       </div>
 
@@ -478,7 +490,6 @@ export default function SettingsPage({
                                      font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
                                      outline-none focus:ring-2 focus:ring-[#e8a0b4]"
                           placeholder="••••••"
-                          autoComplete="new-password"
                         />
                       </div>
                     </>
@@ -487,18 +498,29 @@ export default function SettingsPage({
                   <div className="flex gap-3 pt-2">
                     <motion.button
                       onClick={handleCancel}
-                      className="flex-1 rounded-[16px] px-5 py-4 text-left bg-white/60 border border-white/70 shadow active:scale-[0.99]"
+                      disabled={pinBusy}
+                      className="flex-1 rounded-[16px] px-5 py-4 text-left bg-white/60 border border-white/70 shadow active:scale-[0.99] disabled:opacity-60"
                       whileHover={{ y: -1 }}
                     >
                       <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-[#5a2d42]">{t.cancel}</div>
+                      <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">
+                        {language === "fr" ? "Annuler" : "Cancel"}
+                      </div>
                     </motion.button>
 
                     <motion.button
                       onClick={handleSavePin}
-                      className="flex-1 rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.22)] bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] active:scale-[0.99]"
+                      disabled={pinBusy}
+                      className="flex-1 rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.22)]
+                                 bg-gradient-to-br from-[#9b2d5a] to-[#7a1a45] active:scale-[0.99] disabled:opacity-60"
                       whileHover={{ y: -1 }}
                     >
-                      <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-white">{mode === "remove" ? t.remove : t.save}</div>
+                      <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-white">
+                        {pinBusy ? (language === "fr" ? "…" : "…") : mode === "remove" ? t.remove : t.save}
+                      </div>
+                      <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-white/80">
+                        {language === "fr" ? "Valider" : "Confirm"}
+                      </div>
                     </motion.button>
                   </div>
                 </motion.div>
@@ -519,10 +541,13 @@ export default function SettingsPage({
 
               <motion.button
                 onClick={handleLogout}
-                className="mt-4 w-full rounded-[16px] px-5 py-4 text-left shadow bg-white/60 border border-white/70 active:scale-[0_10px_30px_rgba(180,90,130,.12)]"
+                className="mt-4 w-full rounded-[16px] px-5 py-4 text-left shadow bg-white/60 border border-white/70 active:scale-[0.99]"
                 whileHover={{ y: -1 }}
               >
                 <div className="font-['Playfair_Display',serif] italic font-bold text-[16px] text-[#5a2d42]">🚪 {t.logout}</div>
+                <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)]">
+                  {language === "fr" ? "Quitter cette session" : "Leave this session"}
+                </div>
               </motion.button>
             </div>
           )}

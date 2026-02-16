@@ -375,10 +375,9 @@ export default function ClaimInboxPage({
 
               <input
                 type="pin"
-                inputMode="numeric"
-                maxLength={4}
+                maxLength={6}
                 value={password}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder={t.pinPlaceholder}
                 className="mt-2 w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow
                            font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest

@@ -248,7 +248,6 @@ exports.handler = async (event) => {
         seen.add(r.id);
         merged.push(r);
       }
-      console.log(merged);
     }
 
     // Sort by createdAt asc (nulls last)

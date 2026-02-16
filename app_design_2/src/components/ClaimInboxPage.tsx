@@ -63,7 +63,7 @@ export default function ClaimInboxPage({
       weakPassword: "Password must be at least 6 characters",
 
       pinTitle: "Enter your PIN",
-      pinLabel: "PIN (4 digits)",
+      pinLabel: "Password (6 characters)",
       pinPlaceholder: "••••",
       login: "Log in",
       forgot: "Forgot PIN?",
@@ -96,7 +96,7 @@ export default function ClaimInboxPage({
       weakPassword: "Le mot de passe doit faire au moins 6 caractères",
 
       pinTitle: "Entre ton PIN",
-      pinLabel: "PIN (4 chiffres)",
+      pinLabel: "Mot de passe (6 caractères)",
       pinPlaceholder: "••••",
       login: "Se connecter",
       forgot: "Mot de passe oublié ?",

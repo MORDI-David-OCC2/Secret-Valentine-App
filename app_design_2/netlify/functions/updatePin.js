@@ -166,7 +166,7 @@ const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
     if (!validatePin6(newPin)) return jsonResponse(400, { ok: false, error: "Password must be 6 alphanumeric chars" });
 
     const salt = crypto.randomBytes(16);
-    const iter = 120000;
+    const iter = 150000;
     const h = hashPin(newPin, salt, iter);
 
     await inboxRef.set(

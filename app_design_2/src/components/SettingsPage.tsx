@@ -157,20 +157,40 @@ export default function SettingsPage({
 
   // ✅ load DB truth: pinRequired
   useEffect(() => {
+    let mounted = true;
+  
     (async () => {
       try {
         setPinLoading(true);
         if (!session.inboxId || !session.sessionToken) return;
-        const meta = await getInboxMeta(session.inboxId, session.sessionToken);
-        setPinRequiredDb(!!meta.pinRequired);
-        setIsPinRequired?.(!!meta.pinRequired);
+  
+        const meta = await getInboxMeta(
+          session.inboxId,
+          session.sessionToken
+        );
+  
+        if (!mounted) return;
+  
+        const next = !!meta.pinRequired;
+  
+        setPinRequiredDb(next);
+  
+        // ✅ prevent feedback loop
+        setIsPinRequired?.((prev: boolean) =>
+          prev === next ? prev : next
+        );
       } catch {
-        // ignore quietly; settings still usable
+        // ignore quietly
       } finally {
-        setPinLoading(false);
+        if (mounted) setPinLoading(false);
       }
     })();
-  }, [session.inboxId, session.sessionToken, setIsPinRequired]);
+  
+    return () => {
+      mounted = false;
+    };
+  }, [session.inboxId, session.sessionToken]); // ✅ removed setIsPinRequired
+  
 
   // Detect push support + current status on mount
   useEffect(() => {

@@ -54,11 +54,11 @@ exports.handler = async (event) => {
     if (!snap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
     const inbox = snap.data() || {};
-    if (!inbox.pinHash || !inbox.pinSalt || !inbox.pinIter) {
+    if (!inbox.passHash || !inbox.passSalt || !inbox.passIter) {
       return jsonResponse(400, { ok: false, error: "PIN not set" });
     }
 
-    const computed = pbkdf2Hash(pinStr, inbox.pinSalt, inbox.pinIter);
+    const computed = pbkdf2Hash(pinStr, inbox.passSalt, inbox.passIter);
     if (computed !== inbox.pinHash) {
       return jsonResponse(401, { ok: false, error: "Wrong PIN" });
     }

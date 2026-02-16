@@ -28,9 +28,9 @@ function sha256Hex(input) {
 }
 
 function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
+  const xf = event.headers["x-forwarded-for"];
+  if (xf) return xf.split(",")[0].trim();
+  return event.headers["client-ip"] || "unknown";
 }
 
 async function requireValidSession(db, inboxId, sessionToken) {
@@ -41,6 +41,7 @@ async function requireValidSession(db, inboxId, sessionToken) {
     .collection("sessions")
     .doc(sha256Hex(sessionToken))
     .get();
+
   if (!snap.exists) return false;
   const s = snap.data() || {};
   if (s.expiresAt?.toMillis && s.expiresAt.toMillis() < Date.now()) return false;
@@ -77,20 +78,24 @@ exports.handler = async (event) => {
     }
 
     const inboxId = String(payload.inboxId || "").trim();
-    const sessionToken = String(payload.sessionToken || "").trim();
+    const sessionToken = payload.sessionToken ? String(payload.sessionToken).trim() : null;
 
     if (!inboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
 
-    const ok = await requireValidSession(db, inboxId, sessionToken);
-    if (!ok) return jsonResponse(401, { ok: false, error: "Unauthorized" });
+    const okSession = await requireValidSession(db, inboxId, sessionToken);
+    if (!okSession) return jsonResponse(401, { ok: false, error: "Unauthorized" });
 
     const inboxSnap = await db.collection("inboxes").doc(inboxId).get();
     if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
 
     const d = inboxSnap.data() || {};
-    const pinRequired = !!(d.passHash && d.passSalt && d.passIter);
+    const pinRequired = !!(d.pinHash && d.pinSalt && d.pinIter);
 
-    return jsonResponse(200, { ok: true, pinRequired });
+    return jsonResponse(200, {
+      ok: true,
+      inboxId,
+      pinRequired,
+    });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

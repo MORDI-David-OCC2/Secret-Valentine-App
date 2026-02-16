@@ -126,9 +126,17 @@ exports.handler = async (event) => {
     if ((action === "change" || action === "remove") && hasPin) {
       if (!validatePin6(currentPin)) return jsonResponse(400, { ok: false, error: "Invalid current password format" });
 
-      const saltBuf = Buffer.from(String(d.passSalt), "base64");
-      const iter = Number(d.passIter) || 0;
-      const storedHash = Buffer.from(String(d.passHash), "base64");
+      const saltHex = String(d.passSalt || "");
+const hashHex = String(d.passHash || "");
+const iter = Number(d.passIter) || 0;
+
+if (!/^[0-9a-f]{32}$/i.test(saltHex) || !/^[0-9a-f]{64}$/i.test(hashHex) || iter <= 0) {
+  return jsonResponse(500, { ok: false, error: "PIN data corrupted" });
+}
+
+const saltBuf = Buffer.from(saltHex, "hex");      // 16 bytes
+const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
+
       if (!saltBuf.length || iter <= 0 || storedHash.length !== 32) {
         return jsonResponse(500, { ok: false, error: "PIN data corrupted" });
       }
@@ -144,7 +152,7 @@ exports.handler = async (event) => {
     if (action === "remove") {
       await inboxRef.set(
         {
-          passHashHash: admin.firestore.FieldValue.delete(),
+          passHash: admin.firestore.FieldValue.delete(),
           passSalt: admin.firestore.FieldValue.delete(),
           passIter: admin.firestore.FieldValue.delete(),
           passUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),

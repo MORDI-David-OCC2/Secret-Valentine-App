@@ -84,7 +84,10 @@ exports.handler = async (event) => {
         body: "",
       };
     }
-    if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
+
+    if (event.httpMethod !== "POST") {
+      return jsonResponse(405, { ok: false, error: "Use POST" });
+    }
 
     initAdmin();
     const db = admin.firestore();
@@ -97,17 +100,20 @@ exports.handler = async (event) => {
     }
 
     const email = normalizeEmail(payload.email);
-    if (!email || !email.includes("@")) return jsonResponse(400, { ok: false, error: "Invalid email" });
+    if (!email || !email.includes("@")) {
+      return jsonResponse(400, { ok: false, error: "Invalid email" });
+    }
 
     const inboxId = await getInboxIdByEmail(db, email);
-    if (!inboxId) return jsonResponse(404, { ok: false, error: "No inbox for this email" });
+    if (!inboxId) {
+      return jsonResponse(404, { ok: false, error: "No inbox for this email" });
+    }
 
-    // token "pin_reset"
     const token = randomTokenBase64Url(32);
     const tokenHash = sha256Hex(token);
-    const expiresDays = 1; // reset plus court = mieux
+
     const expiresAt = admin.firestore.Timestamp.fromDate(
-      new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
+      new Date(Date.now() + 24 * 60 * 60 * 1000) // 24h
     );
 
     await db.collection("tokens").doc(tokenHash).set({

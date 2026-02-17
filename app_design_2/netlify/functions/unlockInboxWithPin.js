@@ -47,7 +47,7 @@ exports.handler = async (event) => {
     const pinStr = String(pin || "").trim();
 
     if (!id.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
-    if (!/^\d{4}$/.test(pinStr)) return jsonResponse(400, { ok: false, error: "Invalid PIN" });
+    if (!/^\d{6}$/.test(pinStr)) return jsonResponse(400, { ok: false, error: "Invalid PIN" });
 
     const inboxRef = db.collection("inboxes").doc(id);
     const snap = await inboxRef.get();

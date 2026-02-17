@@ -82,7 +82,7 @@ export default function FirstPinSetup({
   const showEmailField = requireEmail || needsEmailAssociation;
 
   const handleCreatePin = async () => {
-    if (!/^\d{4}$/.test(newPin)) return toast.error(t.pinInvalid);
+    if (!/^\d{6}$/.test(newPin)) return toast.error(t.pinInvalid);
     if (newPin !== confirmPin) return toast.error(t.pinMismatch);
     if (showEmailField && !validateEmail(email)) return toast.error(t.emailInvalid);
 

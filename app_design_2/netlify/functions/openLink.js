@@ -26,9 +26,11 @@ function initAdmin() {
 function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
+
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
+
 function isValidEmail(e) {
   return typeof e === "string" && e.includes("@") && e.includes(".");
 }
@@ -45,14 +47,13 @@ async function createSession(inboxRef, inboxId, { days, purpose }) {
     inboxId,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     expiresAt,
-    purpose, // "open" | "open_setup" | "pin_reset"
+    purpose,
   });
 
   return sessionToken;
 }
 
 async function attachInboxKeyToSession(db, inboxId, sessionToken) {
-  // 🔑 Make sure crypto exists and session can decrypt later (listInbox/getMessage/etc.)
   await ensureInboxCrypto(db, inboxId);
   const inboxKey = await getInboxKeyViaRecovery(db, inboxId);
   await storeInboxKeyInSession(db, inboxId, sessionToken, inboxKey);
@@ -79,47 +80,38 @@ exports.handler = async (event) => {
     initAdmin();
     const db = admin.firestore();
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
-
+    const payload = JSON.parse(event.body || "{}");
     const token = String(payload.token || "").trim();
     if (!token) return jsonResponse(400, { ok: false, error: "Missing token" });
 
     const tokenHash = sha256Hex(token);
     const tokenRef = db.collection("tokens").doc(tokenHash);
     const tokenSnap = await tokenRef.get();
+
     if (!tokenSnap.exists) {
       return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
     }
 
     const tokenData = tokenSnap.data() || {};
-    const deliveryMode = String(tokenData.deliveryMode || "email"); // "email" | "share" | "instagram"
     const purpose = String(tokenData.purpose || "open");
     const isPinReset = purpose === "pin_reset";
 
     const expiresAt = tokenData.expiresAt;
-    if (expiresAt && expiresAt.toDate && expiresAt.toDate() < new Date()) {
+    if (expiresAt?.toDate() < new Date()) {
       return jsonResponse(401, { ok: false, error: "Link expired" });
     }
 
     const inboxId = String(tokenData.inboxId || "").trim();
-    if (!inboxId) return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
-
     const inboxRef = db.collection("inboxes").doc(inboxId);
     const inboxSnap = await inboxRef.get();
-    if (!inboxSnap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });
+
+    if (!inboxSnap.exists) {
+      return jsonResponse(404, { ok: false, error: "Inbox not found" });
+    }
 
     const inbox = inboxSnap.data() || {};
-
     const pinRequired = !!(inbox.passHash && inbox.passSalt && inbox.passIter);
     const pinMustBeCreated = !pinRequired || isPinReset;
-
-    const hasPrimaryEmail = isValidEmail(inbox.primaryEmail);
-    const needsEmailAssociation = !hasPrimaryEmail;
 
     let sessionToken = null;
 
@@ -128,30 +120,21 @@ exports.handler = async (event) => {
         days: isPinReset ? 1 : 7,
         purpose: isPinReset ? "pin_reset" : "open_setup",
       });
-      // ✅ attach key for setup sessions too
-      await attachInboxKeyToSession(db, inboxId, sessionToken);
-    } else if (!pinRequired) {
-      sessionToken = await createSession(inboxRef, inboxId, { days: 7, purpose: "open" });
-      // ✅ critical for listInbox (no-PIN flow)
+
       await attachInboxKeyToSession(db, inboxId, sessionToken);
     }
-    // If pinRequired => sessionToken remains null (user must verify PIN)
 
-    await inboxRef.set(
-      { activatedAt: admin.firestore.FieldValue.serverTimestamp() },
-      { merge: true }
-    );
+    await tokenRef.delete(); // ✅ ONE-TIME USE TOKEN
 
     return jsonResponse(200, {
       ok: true,
       inboxId,
-      deliveryMode,
       pinRequired,
       pinMustBeCreated,
       sessionToken,
       isPinReset,
-      needsEmailAssociation,
     });
+
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

@@ -25,7 +25,7 @@ function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
 
-function pbkdf2Hash(pin, saltHex, iterations = 120000) {
+function pbkdf2Hash(pin, saltHex, iterations = 150000) {
   const salt = Buffer.from(saltHex, "hex");
   const dk = crypto.pbkdf2Sync(String(pin), salt, iterations, 32, "sha256");
   return dk.toString("hex");
@@ -166,7 +166,7 @@ exports.handler = async (event) => {
     if (!/^\d{4,8}$/.test(pinStr)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
 
     const saltHex = crypto.randomBytes(16).toString("hex");
-    const iterations = 120000;
+    const iterations = 150000;
     const pinHash = pbkdf2Hash(pinStr, saltHex, iterations);
 
     await inboxRef.set(

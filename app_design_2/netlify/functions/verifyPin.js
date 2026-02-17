@@ -30,7 +30,7 @@ function getClientIp(event) {
   return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
-function pbkdf2Hash(pin, saltHex, iterations = 150000) {
+function pbkdf2Hash(pin, saltHex, iterations = 120000) {
   const salt = Buffer.from(String(saltHex || ""), "hex");
   const dk = crypto.pbkdf2Sync(String(pin), salt, iterations, 32, "sha256");
   return dk.toString("hex");

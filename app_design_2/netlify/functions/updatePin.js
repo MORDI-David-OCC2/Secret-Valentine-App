@@ -130,7 +130,7 @@ exports.handler = async (event) => {
 const hashHex = String(d.passHash || "");
 const iter = Number(d.passIter) || 0;
 
-if (!/^[0-9a-f]{32}$/i.test(saltHex) || !/^[0-9a-f]{64}$/i.test(hashHex) || iter <= 0) {
+if (!/^[0-9a-f]{20,32}$/i.test(saltHex) || !/^[0-9a-f]{64}$/i.test(hashHex) || iter <= 0) {
   return jsonResponse(500, { ok: false, error: "PIN data corrupted" });
 }
 

@@ -114,7 +114,7 @@ exports.handler = async (event) => {
     console.log(pinRequired);
     console.log(isPinReset);
     const pinMustBeCreated = !pinRequired || isPinReset;
-
+    console.log(pinMustBeCreated);
     let sessionToken = null;
 
     if (pinMustBeCreated) {

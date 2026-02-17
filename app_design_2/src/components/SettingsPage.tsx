@@ -250,8 +250,8 @@ export default function SettingsPage({
         newPin: mode === "remove" ? undefined : newPin,
       });
 
-      setPinRequiredDb(!!res.pinRequired);
-      setIsPinRequired?.(!!res.pinRequired);
+      setPinRequiredDb(!res.pinRequired);
+      setIsPinRequired?.(!res.pinRequired);
 
       // optional: keep your parent prop in sync too
       onPinCodeChange(res.pinRequired ? newPin : null);
@@ -425,7 +425,7 @@ export default function SettingsPage({
                   <div className="text-[14px] italic text-[color:var(--text-light)]">
                     {language === "fr" ? "Chargement…" : "Loading…"}
                   </div>
-                ) : !hasPin ? (
+                ) : pinRequiredDb ? (
                   <button
                     onClick={() => handlePinAction("create")}
                     className="rounded-[16px] px-5 py-4 text-left shadow-[0_10px_30px_rgba(155,45,90,.18)]

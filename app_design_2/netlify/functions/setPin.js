@@ -167,11 +167,11 @@ exports.handler = async (event) => {
 
     const saltHex = crypto.randomBytes(16).toString("hex");
     const iterations = 150000;
-    const pinHash = pbkdf2Hash(pinStr, saltHex, iterations);
+    const passHash = pbkdf2Hash(pinStr, saltHex, iterations);
 
     await inboxRef.set(
       {
-        pinHash,
+        passHash,
         passSalt: saltHex,
         passIter: iterations,
         passSetAt: admin.firestore.FieldValue.serverTimestamp(),

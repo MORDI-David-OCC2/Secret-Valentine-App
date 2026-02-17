@@ -59,7 +59,7 @@ exports.handler = async (event) => {
     }
 
     const computed = pbkdf2Hash(pinStr, inbox.passSalt, inbox.passIter);
-    if (computed !== inbox.pinHash) {
+    if (computed !== inbox.passHash) {
       return jsonResponse(401, { ok: false, error: "Wrong PIN" });
     }
 

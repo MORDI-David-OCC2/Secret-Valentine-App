@@ -465,24 +465,22 @@ export default function SettingsPage({
             )}
 
             <AnimatePresence>
-              {showPinOptions && (
-                <motion.div className="mt-4 space-y-4" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}>
-                  {mode !== "create" && (
-                    <div>
-                      <div className="font-['Cormorant_Garamond',serif] italic text-[14px] text-[color:var(--text-light)] mb-2">{t.enterCurrentPin}</div>
-                      <input
-                        type="password"
-                        maxLength={6}
-                        value={currentPin}
-                        onChange={(e) => setCurrentPin(e.target.value)}
-                        className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
-                                   font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
-                                   outline-none focus:ring-2 focus:ring-[#e8a0b4]"
-                        placeholder="••••••"
-                      />
-                    </div>
-                  )}
-
+            {!showPinOptions && (
+  <div className="mt-4 grid grid-cols-1 gap-3">
+    {pinLoading ? (
+      <div>Loading…</div>
+    ) : pinRequiredDb ? (
+      // PIN required → show create
+      <button onClick={() => handlePinAction("create")}>Create PIN</button>
+    ) : (
+      // PIN not required → show change/remove
+      <>
+        <button onClick={() => handlePinAction("change")}>Change PIN</button>
+        <button onClick={() => handlePinAction("remove")}>Remove PIN</button>
+      </>
+    )}
+  </div>
+)}
                   {mode !== "remove" && (
                     <>
                       <div>

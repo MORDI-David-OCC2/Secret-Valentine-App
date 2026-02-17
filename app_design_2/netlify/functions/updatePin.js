@@ -171,8 +171,8 @@ const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
 
     await inboxRef.set(
       {
-        passHash: h.toString("base64"),
-        passSalt: salt.toString("base64"),
+        passHash: h.toString("hex"),
+        passSalt: salt.toString("hex"),
         passIter: iter,
         passUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },

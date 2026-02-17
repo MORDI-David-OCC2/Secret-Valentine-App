@@ -250,8 +250,8 @@ export default function SettingsPage({
         newPin: mode === "remove" ? undefined : newPin,
       });
 
-      setPinRequiredDb(!!res.pinRequired);
-      setIsPinRequired?.(!!res.pinRequired);
+      setPinRequiredDb(!res.pinRequired);
+      setIsPinRequired?.(!res.pinRequired);
 
       // optional: keep your parent prop in sync too
       onPinCodeChange(res.pinRequired ? newPin : null);

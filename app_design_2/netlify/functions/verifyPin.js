@@ -33,7 +33,7 @@ function getClientIp(event) {
 function pbkdf2Hash(pin, saltHex, iterations = 150000) {
   const salt = Buffer.from(String(saltHex || ""), "hex");
   const dk = crypto.pbkdf2Sync(String(pin), salt, iterations, 32, "sha256");
-  return dk.toString("base64");
+  return dk.toString("hex");
 }
 
 function timingSafeEqualHex(a, b) {

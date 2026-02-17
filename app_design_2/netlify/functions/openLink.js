@@ -111,6 +111,8 @@ exports.handler = async (event) => {
 
     const inbox = inboxSnap.data() || {};
     const pinRequired = !!(inbox.passHash && inbox.passSalt && inbox.passIter);
+    console.log(pinRequired);
+    console.log(isPinReset);
     const pinMustBeCreated = !pinRequired || isPinReset;
 
     let sessionToken = null;

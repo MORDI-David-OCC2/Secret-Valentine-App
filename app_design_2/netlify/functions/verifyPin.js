@@ -156,6 +156,9 @@ exports.handler = async (event) => {
 
     const computed = pbkdf2Hash(pin, d.passSalt, d.passIter);
     const ok = timingSafeEqualHex(computed, d.passHash);
+    console.log(d.passIter);
+    console.log(d.passHash);
+    console.log(computed);
     if (!ok) return jsonResponse(401, { ok: false, error: "Incorrect PIN", pinRequired: true });
 
     // Create unlock session token

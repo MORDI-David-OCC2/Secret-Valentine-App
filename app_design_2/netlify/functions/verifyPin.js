@@ -94,7 +94,6 @@ exports.handler = async (event) => {
     if (!rl.allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
 
     let payload;
-    console.log(payload);
     try {
       payload = JSON.parse(event.body || ",");
     } catch {

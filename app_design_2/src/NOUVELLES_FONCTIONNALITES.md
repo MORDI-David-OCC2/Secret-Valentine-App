@@ -3,20 +3,20 @@
 ## 🔐 Création Obligatoire de PIN lors de la Première Connexion
 
 ### Fonctionnalité
-Lorsqu'un utilisateur accède à sa boîte de réception pour la première fois via un lien email, il est maintenant **obligé de créer un code PIN à 4 chiffres** pour sécuriser sa boîte dès le début.
+Lorsqu'un utilisateur accède à sa boîte de réception pour la première fois via un lien email, il est maintenant **obligé de créer un code PIN à 6 chiffres** pour sécuriser sa boîte dès le début.
 
 ### Flux Utilisateur
 1. L'utilisateur clique sur le lien reçu par email
 2. Le système détecte que c'est la première connexion
 3. Un écran de création de PIN s'affiche obligatoirement
-4. L'utilisateur doit créer et confirmer un PIN à 4 chiffres
+4. L'utilisateur doit créer et confirmer un PIN à 6 chiffres
 5. Une fois le PIN créé, l'accès à la boîte est autorisé
 6. Les connexions suivantes nécessiteront la saisie du PIN
 
 ### Composants Créés
 - **`/components/FirstPinSetup.tsx`** : Nouvel écran de création obligatoire de PIN
   - Interface élégante avec animations
-  - Validation des champs (4 chiffres, confirmation)
+  - Validation des champs (6 chiffres, confirmation)
   - Messages d'erreur en français et anglais
   - Intégration avec l'API backend (fonction `setPin`)
 
@@ -104,7 +104,7 @@ Les utilisateurs peuvent maintenant se déconnecter de leur boîte de réception
 ### Sécurité
 - Le PIN est chiffré avec AES-GCM côté backend
 - Le `sessionToken` est temporaire et sécurisé
-- Validation stricte des données (4 chiffres uniquement)
+- Validation stricte des données (6 chiffres uniquement)
 - Rate limiting côté serveur pour éviter les attaques par force brute
 
 ---

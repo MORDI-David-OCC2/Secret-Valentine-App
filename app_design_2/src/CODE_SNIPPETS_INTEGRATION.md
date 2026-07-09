@@ -505,7 +505,7 @@ export default function PinEntryScreen({
     const pinCode = pin.join('');
     
     if (pinCode.length !== 4) {
-      setError(language === 'en' ? 'Enter 4 digits' : 'Entrez 4 chiffres');
+      setError(language === 'en' ? 'Enter 4 digits' : 'Entrez 6 chiffres');
       return;
     }
 

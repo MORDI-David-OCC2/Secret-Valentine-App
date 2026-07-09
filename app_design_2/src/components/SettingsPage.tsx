@@ -478,7 +478,7 @@ export default function SettingsPage({
                         className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
                                    font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
                                    outline-none focus:ring-2 focus:ring-[#e8a0b4]"
-                        placeholder="••••••"
+                        placeholder="6 ••••••••"
                       />
                     </div>
                   )}
@@ -495,7 +495,7 @@ export default function SettingsPage({
                           className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
                                      font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
                                      outline-none focus:ring-2 focus:ring-[#e8a0b4]"
-                          placeholder="••••••"
+                          placeholder="6 ••••••••"
                         />
                       </div>
 
@@ -509,7 +509,7 @@ export default function SettingsPage({
                           className="w-full rounded-[18px] px-5 py-4 bg-white/60 border border-white/70 shadow-[0_10px_30px_rgba(180,90,130,.12)]
                                      font-['Cormorant_Garamond',serif] italic text-[20px] text-[#5a2d42] text-center tracking-widest
                                      outline-none focus:ring-2 focus:ring-[#e8a0b4]"
-                          placeholder="••••••"
+                          placeholder="6 ••••••••"
                         />
                       </div>
                     </>

@@ -1,7 +1,7 @@
 // src/components/FirstPinSetup.tsx
 import { useState } from "react";
 import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { setPin, claimEmail, verifyPin } from "../services/api";
 import { useSession } from "../contexts/SessionContext";
 
@@ -45,7 +45,7 @@ export default function FirstPinSetup({
       description: "Your inbox needs a 4-digit PIN code for security.",
       emailLabel: "Your email (to attach this inbox)",
       emailHint: "So you can access future letters without the link again.",
-      enterNewPin: "Enter new PIN (4 digits)",
+      enterNewPin: "Enter new PIN (6 digits)",
       confirmNewPin: "Confirm new PIN",
       createButton: "Create PIN",
       creating: "Creating...",
@@ -60,15 +60,15 @@ export default function FirstPinSetup({
     fr: {
       title: "Sécurisez votre boîte",
       subtitle: "Créez un code PIN pour protéger vos lettres d'amour",
-      description: "Votre boîte nécessite un code PIN à 4 chiffres pour la sécurité.",
+      description: "Votre boîte nécessite un code PIN à 6 chiffres pour la sécurité.",
       emailLabel: "Ton email (pour rattacher cette boîte)",
       emailHint: "Comme ça, tu pourras ouvrir les prochaines lettres sans repasser par le lien.",
-      enterNewPin: "Entrez le nouveau PIN (4 chiffres)",
+      enterNewPin: "Entrez le nouveau PIN (6 chiffres)",
       confirmNewPin: "Confirmez le nouveau PIN",
       createButton: "Créer le PIN",
       creating: "Création...",
       pinMismatch: "Les codes PIN ne correspondent pas",
-      pinInvalid: "Le PIN doit contenir 4 chiffres",
+      pinInvalid: "Le PIN doit contenir 6 chiffres",
       emailInvalid: "Veuillez entrer un email valide",
       pinCreated: "PIN créé avec succès ! 🔐",
       errorCreating: "Erreur lors de la création du PIN",
@@ -167,7 +167,7 @@ export default function FirstPinSetup({
             onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
             className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[18px] text-[#2d1b1b]
                        text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
-            placeholder="••••"
+            placeholder="6 ••••••"
             disabled={isSubmitting}
           />
         </div>
@@ -181,7 +181,7 @@ export default function FirstPinSetup({
             onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
             className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[18px] text-[#2d1b1b]
                        text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
-            placeholder="••••"
+            placeholder="6 ••••••"
             disabled={isSubmitting}
             onKeyDown={(e) => e.key === "Enter" && handleCreatePin()}
           />
@@ -196,7 +196,7 @@ export default function FirstPinSetup({
           disabled={
             isSubmitting ||
             !/^\d{6}$/.test(newPin) ||
-            confirmPin.length !== 4 ||
+            !/^\d{6}$/.test(confirmPin) ||
             (showEmailField && !validateEmail(email))
           }
           className="w-full bg-[#a31e46] hover:bg-[#8b1838] text-white font-['Inter',sans-serif] font-bold text-[18px]

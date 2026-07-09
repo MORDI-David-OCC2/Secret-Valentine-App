@@ -64,7 +64,7 @@ export default function ClaimInboxPage({
 
       pinTitle: "Enter your PIN",
       pinLabel: "Password",
-      pinPlaceholder: "••••",
+      pinPlaceholder: "6 ••••••",
       login: "Log in",
       forgot: "Forgot PIN?",
       loginByLink: "Log in by link instead",
@@ -97,7 +97,7 @@ export default function ClaimInboxPage({
 
       pinTitle: "Entre ton PIN",
       pinLabel: "Mot de passe",
-      pinPlaceholder: "••••",
+      pinPlaceholder: "6 ••••••",
       login: "Se connecter",
       forgot: "Mot de passe oublié ?",
       loginByLink: "Me connecter par lien à la place",

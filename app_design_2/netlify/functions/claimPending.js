@@ -6,8 +6,7 @@ const { rateLimit } = require("./rateLimit");
 function corsHeaders() {
   return {
     "content-type": "application/json; charset=utf-8",
-    const { CORS_ORIGIN } = require('./utils/pinPolicy');
-"access-control-allow-origin": CORS_ORIGIN,
+     "access-control-allow-origin": CORS_ORIGIN,
     "access-control-allow-methods": "POST, OPTIONS",
     "access-control-allow-headers": "content-type",
   };

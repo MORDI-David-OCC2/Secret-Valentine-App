@@ -49,7 +49,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         },
         fr: {
           title: "Entrez le PIN",
-          subtitle: "Entrez votre code PIN à 4 chiffres pour accéder à vos lettres",
+          subtitle: "Entrez votre code PIN à 6 chiffres pour accéder à vos lettres",
           incorrectPin: "PIN incorrect. Réessayez.",
           missingInbox: "Inbox manquant. Ouvre un lien ou connecte-toi d’abord.",
           invalidInbox: "Inbox invalide. Rouvre le lien d’accès.",

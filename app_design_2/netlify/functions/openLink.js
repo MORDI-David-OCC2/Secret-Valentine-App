@@ -2,14 +2,14 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      const { CORS_ORIGIN } = require('./utils/pinPolicy');
-"access-control-allow-origin": CORS_ORIGIN,
+      "access-control-allow-origin": CORS_ORIGIN,
       "access-control-allow-methods": "POST, OPTIONS",
       "access-control-allow-headers": "content-type",
     },
@@ -66,8 +66,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 204,
         headers: {
-          const { CORS_ORIGIN } = require('./utils/pinPolicy');
-"access-control-allow-origin": CORS_ORIGIN,
+           "access-control-allow-origin": CORS_ORIGIN,
           "access-control-allow-methods": "POST, OPTIONS",
           "access-control-allow-headers": "content-type",
         },

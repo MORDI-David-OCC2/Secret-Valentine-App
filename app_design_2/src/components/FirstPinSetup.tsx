@@ -195,7 +195,7 @@ export default function FirstPinSetup({
           onClick={handleCreatePin}
           disabled={
             isSubmitting ||
-            newPin.length !== 4 ||
+            !/^\d{6}$/.test(newPin) ||
             confirmPin.length !== 4 ||
             (showEmailField && !validateEmail(email))
           }

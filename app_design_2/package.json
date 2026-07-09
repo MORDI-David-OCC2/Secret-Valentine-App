@@ -54,6 +54,8 @@
             "@tailwindcss/postcss": "^4.1.18",
             "@tailwindcss/vite": "^4.1.18",
             "@types/node": "^20.10.0",
+            "@types/react": "^19.2.17",
+            "@types/react-dom": "^19.2.3",
             "@vitejs/plugin-react-swc": "^3.10.2",
             "autoprefixer": "^10.4.24",
             "postcss": "^8.5.6",

@@ -4,6 +4,8 @@ const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { PIN_REGEX } = require('./utils/pinPolicy');
+
 
 function jsonResponse(statusCode, body) {
   return {
@@ -110,8 +112,7 @@ exports.handler = async (event) => {
     const mode = String(payload.mode || "verify").trim();
 
     if (mode !== "verify") return jsonResponse(400, { ok: false, error: "Invalid mode" });
-    const { PIN_REGEX } = require('./utils/pinPolicy');
-    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
+    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: "PIN must be 6 digits" });
 
     // ✅ if inboxId missing, try resolving from token
     if (!inboxId && token) {

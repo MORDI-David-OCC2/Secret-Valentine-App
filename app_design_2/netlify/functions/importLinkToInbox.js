@@ -3,6 +3,7 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { open } = require("./wrap");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { rateLimit } = require('./rateLimit');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -74,8 +75,9 @@ function decryptPreviewMaybe(inboxKeyBuf, doc) {
 }
 
 exports.handler = async (event) => {
-  const allowed = await rateLimit(event, { max: 20, windowMs: 60_000 });
-  if (!allowed) return { statusCode: 429, body: JSON.stringify({ error: 'Too many requests' }) };
+  const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
+  const { allowed } = await rateLimit(db, { action: 'importLink', key: ip, limit: 20, windowSec: 60 });
+  if (!allowed) return jsonResponse(429, { ok: false, error: 'Too many requests' });
   try {
     if (event.httpMethod === "OPTIONS") {
       return {
@@ -117,7 +119,7 @@ exports.handler = async (event) => {
     if (!tokenSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
 
     const tokenData = tokenSnap.data() || {};
-    if (tokenData.data().purpose !== 'import_link') {
+    if (tokenData.purpose !== 'import_link') {
       return { statusCode: 403, body: JSON.stringify({ error: 'Invalid token purpose' }) };
     }
     const sourceInboxId = String(tokenData.inboxId || "").trim();
@@ -159,8 +161,8 @@ exports.handler = async (event) => {
 
     await destMessagesRef.doc(importedMessageId).set({
       ...clean,
-      body: encryptWithKey(plainBody,    destInboxKey),
-      lastPreview: encryptWithKey(plainPreview, destInboxKey),
+      body: plainBody,
+      lastPreview: plainPreview,
       importedFromInboxId: sourceInboxId,
       importedAt: admin.firestore.FieldValue.serverTimestamp(),
       unread: true,

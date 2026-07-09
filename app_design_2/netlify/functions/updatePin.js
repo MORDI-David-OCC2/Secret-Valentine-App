@@ -3,6 +3,7 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { PIN_REGEX } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -34,9 +35,9 @@ function getClientIp(event) {
   return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
-// ✅ You can keep "6 characters" but allow alphanumeric
+// ✅ You must have 6 digits
 function validatePin6(v) {
-  return typeof v === "string" && /^[A-Za-z0-9]{6}$/.test(v);
+  return typeof v === "string" && PIN_REGEX.test(v);
 }
 
 function hashPin(pin, saltBuf, iter) {
@@ -164,7 +165,7 @@ const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
     }
 
     // create/change: validate new pin
-    if (!validatePin6(newPin)) return jsonResponse(400, { ok: false, error: "Password must be 6 alphanumeric chars" });
+    if (!validatePin6(newPin)) return jsonResponse(400, { ok: false, error: "PIN must be exactly 6 digits" });
 
     const salt = crypto.randomBytes(16);
     const iter = 150000;

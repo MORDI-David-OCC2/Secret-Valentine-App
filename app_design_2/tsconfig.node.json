@@ -7,8 +7,7 @@
     "composite": true,
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "noEmit": true
+    "strict": true
   },
   "include": ["vite.config.ts"]
 }

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { sendReply, MessageReply } from "../services/api";
 import { useSession } from "../contexts/SessionContext";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import svgPaths from "../imports/svg-01d0jglvrw";
 import type { Letter } from "../App";
 

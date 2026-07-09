@@ -1,6 +1,7 @@
 // netlify/functions/unlockInboxWithPin.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const { rateLimit } = require("./rateLimit");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -42,7 +43,16 @@ exports.handler = async (event) => {
     initAdmin();
     const db = admin.firestore();
 
-    const { inboxId, pin } = JSON.parse(event.body || "{}");
+    let payload;
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
+    }
+
+    const allowed = await rateLimit(event, { max: 10, windowMs: 60_000 });
+    if (!allowed) return { statusCode: 429, body: JSON.stringify({ error: 'Too many attempts' }) };
+    const { inboxId, pin } = payload;
     const id = String(inboxId || "").trim();
     const pinStr = String(pin || "").trim();
 
@@ -59,7 +69,9 @@ exports.handler = async (event) => {
     }
 
     const computed = pbkdf2Hash(pinStr, inbox.passSalt, inbox.passIter);
-    if (computed !== inbox.passHash) {
+    const a = Buffer.from(computed,      'hex');
+    const b = Buffer.from(inbox.passHash,'hex');
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       return jsonResponse(401, { ok: false, error: "Wrong PIN" });
     }
 

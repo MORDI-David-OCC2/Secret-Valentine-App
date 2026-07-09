@@ -6,7 +6,8 @@ function jsonResponse(statusCode, body) {
     statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
+      const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
       "access-control-allow-methods": "POST, OPTIONS",
       "access-control-allow-headers": "content-type",
     },
@@ -90,7 +91,6 @@ async function linkInboxToEmail(db, inboxId, email) {
     db.collection("inboxes").doc(inboxId),
     {
       linkedEmailHash: emailHash,
-      linkedEmail: norm, // optionnel; si tu veux éviter de stocker l’email en clair, supprime cette ligne
       linkedEmailAt: admin.firestore.FieldValue.serverTimestamp(),
     },
     { merge: true }
@@ -105,7 +105,8 @@ exports.handler = async (event) => {
       return {
         statusCode: 204,
         headers: {
-          "access-control-allow-origin": "*",
+          const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
           "access-control-allow-methods": "POST, OPTIONS",
           "access-control-allow-headers": "content-type",
         },
@@ -163,7 +164,8 @@ exports.handler = async (event) => {
 
     // Set / change PIN
     const pinStr = String(pin || "").trim();
-    if (!/^\d{4,8}$/.test(pinStr)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
+    const { PIN_REGEX } = require('./utils/pinPolicy');
+    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
 
     const saltHex = crypto.randomBytes(16).toString("hex");
     const iterations = 150000;

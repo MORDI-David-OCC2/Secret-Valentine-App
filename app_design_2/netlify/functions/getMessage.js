@@ -9,7 +9,8 @@ function jsonResponse(statusCode, body) {
     statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
+      const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
       "access-control-allow-methods": "POST, OPTIONS",
       "access-control-allow-headers": "content-type",
     },
@@ -135,7 +136,8 @@ exports.handler = async (event) => {
       return {
         statusCode: 204,
         headers: {
-          "access-control-allow-origin": "*",
+          const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
           "access-control-allow-methods": "POST, OPTIONS",
           "access-control-allow-headers": "content-type",
         },
@@ -185,14 +187,10 @@ exports.handler = async (event) => {
 
     // ---- Determine which thread IDs to load ----
     const idsToTry = [messageId];
-    console.log(idsToTry);
-    console.log(isImportedMessageId(messageId));
     const originalMessageId = extractOriginalMessageId(messageId);
-    console.log(originalMessageId)
     if (originalMessageId && originalMessageId !== messageId) {
       idsToTry.push(originalMessageId);
     }
-    console.log(idsToTry);
     // ---- Load main message doc (must exist for requested id) ----
     const msgRef = db.collection("inboxes").doc(inboxId).collection("messages").doc(messageId);
     const msgSnap = await msgRef.get();
@@ -229,12 +227,9 @@ exports.handler = async (event) => {
     // ---- Fetch replies from all relevant thread docs that exist ----
     const existingThreadIds = [];
     for (const id of idsToTry) {
-      console.log(id);
-      console.log(db.collection("inboxes").doc(inboxId).collection("messages"))
       const s = await db.collection("inboxes").doc(inboxId).collection("messages").doc(id).get();
       if (s.exists) existingThreadIds.push(id);
     }
-    console.log(existingThreadIds);
     const repliesArrays = await Promise.all(
       existingThreadIds.map((threadId) => fetchRepliesForThread({ db, inboxId, threadId, inboxKey }))
     );

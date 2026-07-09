@@ -9,7 +9,8 @@ function jsonResponse(statusCode, body) {
     statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
+      const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
       "access-control-allow-methods": "POST, OPTIONS",
       "access-control-allow-headers": "content-type",
     },
@@ -78,7 +79,8 @@ async function attachInboxKeyToSession(db, inboxId, sessionToken) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" }, body: "" };
+      return { statusCode: 204, headers: { const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN, "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" }, body: "" };
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });

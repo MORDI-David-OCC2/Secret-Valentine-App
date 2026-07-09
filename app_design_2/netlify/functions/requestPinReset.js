@@ -7,7 +7,8 @@ function jsonResponse(statusCode, body) {
     statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
+      const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
       "access-control-allow-methods": "POST, OPTIONS",
       "access-control-allow-headers": "content-type",
     },
@@ -37,10 +38,8 @@ function randomTokenBase64Url(bytes = 32) {
 function buildBaseUrl(event) {
   const env = process.env.URL_DE_BASE;
   if (env) return String(env).replace(/\/+$/, "");
-  const proto = event.headers["x-forwarded-proto"] || "https";
-  let host = event.headers["x-forwarded-host"] || event.headers.host || "";
-  if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
-  return `${proto}://${host}`.replace(/\/+$/, "");
+  const baseUrl = process.env.URL_DE_BASE;
+  if (!baseUrl) throw new Error('URL_DE_BASE env var is not set');
 }
 
 async function sendWithResend({ to, subject, html }) {
@@ -72,12 +71,15 @@ async function getInboxIdByEmail(db, email) {
 }
 
 exports.handler = async (event) => {
+  const allowed = await rateLimit(event, { max: 3, windowMs: 300_000 }); // 3 per 5min
+  if (!allowed) return { statusCode: 429, body: JSON.stringify({ error: 'Too many requests' }) };
   try {
     if (event.httpMethod === "OPTIONS") {
       return {
         statusCode: 204,
         headers: {
-          "access-control-allow-origin": "*",
+          const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
           "access-control-allow-methods": "POST, OPTIONS",
           "access-control-allow-headers": "content-type",
         },
@@ -106,7 +108,7 @@ exports.handler = async (event) => {
 
     const inboxId = await getInboxIdByEmail(db, email);
     if (!inboxId) {
-      return jsonResponse(404, { ok: false, error: "No inbox for this email" });
+      return { statusCode: 200, body: JSON.stringify({ message: 'If this email is registered, a reset link was sent.' }) };
     }
 
     const token = randomTokenBase64Url(32);

@@ -9,7 +9,8 @@ function jsonResponse(statusCode, body) {
     statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
+      const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
       "access-control-allow-methods": "POST, OPTIONS",
       "access-control-allow-headers": "content-type",
     },
@@ -76,7 +77,8 @@ exports.handler = async (event) => {
       return {
         statusCode: 204,
         headers: {
-          "access-control-allow-origin": "*",
+          const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
           "access-control-allow-methods": "POST, OPTIONS",
           "access-control-allow-headers": "content-type",
         },
@@ -95,7 +97,7 @@ exports.handler = async (event) => {
 
     let payload;
     try {
-      payload = JSON.parse(event.body || ",");
+      payload = JSON.parse(event.body || "{}");
     } catch {
       return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
     }
@@ -109,7 +111,8 @@ exports.handler = async (event) => {
     const mode = String(payload.mode || "verify").trim();
 
     if (mode !== "verify") return jsonResponse(400, { ok: false, error: "Invalid mode" });
-    if (!/^\d{4,8}$/.test(pin)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
+    const { PIN_REGEX } = require('./utils/pinPolicy');
+    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: "PIN must be 4–8 digits" });
 
     // ✅ if inboxId missing, try resolving from token
     if (!inboxId && token) {

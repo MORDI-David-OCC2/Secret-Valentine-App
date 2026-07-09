@@ -8,7 +8,8 @@ function jsonResponse(statusCode, body) {
     statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
+      const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
       "access-control-allow-methods": "POST, OPTIONS",
       "access-control-allow-headers": "content-type",
     },
@@ -73,12 +74,15 @@ function decryptPreviewMaybe(inboxKeyBuf, doc) {
 }
 
 exports.handler = async (event) => {
+  const allowed = await rateLimit(event, { max: 20, windowMs: 60_000 });
+  if (!allowed) return { statusCode: 429, body: JSON.stringify({ error: 'Too many requests' }) };
   try {
     if (event.httpMethod === "OPTIONS") {
       return {
         statusCode: 204,
         headers: {
-          "access-control-allow-origin": "*",
+          const { CORS_ORIGIN } = require('./utils/pinPolicy');
+"access-control-allow-origin": CORS_ORIGIN,
           "access-control-allow-methods": "POST, OPTIONS",
           "access-control-allow-headers": "content-type",
         },
@@ -114,6 +118,9 @@ exports.handler = async (event) => {
     if (!tokenSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
 
     const tokenData = tokenSnap.data() || {};
+    if (tokenData.data().purpose !== 'import_link') {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Invalid token purpose' }) };
+    }
     const sourceInboxId = String(tokenData.inboxId || "").trim();
     if (!sourceInboxId.startsWith("inbox_")) return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
 
@@ -153,8 +160,8 @@ exports.handler = async (event) => {
 
     await destMessagesRef.doc(importedMessageId).set({
       ...clean,
-      body: plainBody,
-      lastPreview: plainPreview,
+      body: encryptWithKey(plainBody,    destInboxKey),
+      lastPreview: encryptWithKey(plainPreview, destInboxKey),
       importedFromInboxId: sourceInboxId,
       importedAt: admin.firestore.FieldValue.serverTimestamp(),
       unread: true,

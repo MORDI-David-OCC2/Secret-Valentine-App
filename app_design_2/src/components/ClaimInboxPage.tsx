@@ -35,7 +35,7 @@ export default function ClaimInboxPage({
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); // create mode
-  const [pin, setPin] = useState(""); // login mode PIN step
+  const [pin, setPin] = useState(""); // login mode Passwordstep
 
   const [step, setStep] = useState<"email" | "pin" | "sent">("email");
   const [inboxId, setLocalInboxId] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export default function ClaimInboxPage({
       forgot: "Mot de passe oublié ?",
       loginByLink: "Me connecter par lien à la place",
       resetSent: "Lien de reset envoyé ✅",
-      wrongPin: "PIN incorrect",
+      wrongPin: "Passwordincorrect",
       footer: "créé par D&F avec",
 
       imported: "Lettre ajoutée à ta boîte ✅",
@@ -166,7 +166,7 @@ export default function ClaimInboxPage({
       return;
     }
 
-    // LOGIN MODE: prefer PIN if inbox has one
+    // LOGIN MODE: prefer Passwordif inbox has one
     setIsSubmitting(true);
     try {
       const res = await requestLoginLink(email.trim().toLowerCase(), { preferPin: true });
@@ -197,7 +197,7 @@ export default function ClaimInboxPage({
       return;
     }
     if (!/^\d{6}$/.test(pin)) {
-      toast.error(language === "fr" ? "Le PIN doit faire 6 caractères" : "PIN must be 6 characters");
+      toast.error(language === "fr" ? "Le Passworddoit faire 6 caractères" : "Passwordmust be 6 characters");
       return;
     }
 

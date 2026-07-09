@@ -112,7 +112,7 @@
                                    │
                         ┌──────────┴──────────┐
                         │                     │
-                    PIN requis?          Pas de PIN
+                    Passwordrequis?          Pas de PIN
                         │                     │
                         ▼                     ▼
                  PinEntryScreen      sessionToken direct
@@ -395,7 +395,7 @@ Frontend affiche message complet + replies
 └─────────────────────────────────────┘
 
 ┌─────────────────────────────────────┐
-│            PIN KEY (optionnel)      │
+│            PasswordKEY (optionnel)      │
 │   • Hashé avec PBKDF2               │
 │   • 150,000 iterations + pepper     │
 │   • Stocké: pinHash + pinSalt       │
@@ -523,13 +523,13 @@ Principe:
    ├─ isLocked: false
    └─ Action: Affiche LettersPage
 
-3. LIEN OUVERT (PIN requis)
+3. LIEN OUVERT (Passwordrequis)
    ├─ inboxId: inbox_abc
    ├─ sessionToken: null
    ├─ isLocked: true
    └─ Action: Affiche PinEntryScreen
 
-4. PIN VÉRIFIÉ
+4. PasswordVÉRIFIÉ
    ├─ inboxId: inbox_abc
    ├─ sessionToken: token_xyz
    ├─ isLocked: false
@@ -575,11 +575,11 @@ Email Link: /#/inbox?t=abc123
        │
        └─► openLink(token)
             │
-            ├─► PIN requis? ──► PinEntryScreen
+            ├─► Passwordrequis? ──► PinEntryScreen
             │                    │
             │                    └─► verifyPin() ─┐
             │                                     │
-            └─► Pas de PIN ───────────────────────┤
+            └─► Pas de Password───────────────────────┤
                                                   │
                                                   ▼
                                             LettersPage
@@ -605,8 +605,8 @@ Email Link: /#/inbox?t=abc123
 ### Authentification ✅
 - [x] SessionToken aléatoire (cryptographiquement sûr)
 - [x] Sessions limitées à 7 jours
-- [x] PIN hashé avec PBKDF2 (150k iterations)
-- [x] PIN + pepper (protection rainbow tables)
+- [x] Passwordhashé avec PBKDF2 (150k iterations)
+- [x] Password+ pepper (protection rainbow tables)
 - [x] Rate limiting sur verifyPin
 
 ### Rate Limiting ✅

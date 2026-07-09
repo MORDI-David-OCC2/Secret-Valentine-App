@@ -40,7 +40,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
       ({
         en: {
           title: "Enter PIN",
-          subtitle: "Enter your 4-digit PIN to access your letters",
+          subtitle: "Enter your 4-digit Passwordto access your letters",
           incorrectPin: "Incorrect PIN. Try again.",
           missingInbox: "Missing inbox id. Open a link or login first.",
           invalidInbox: "Invalid inbox id. Reopen the access link.",
@@ -49,8 +49,8 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         },
         fr: {
           title: "Entrez le PIN",
-          subtitle: "Entrez votre code PIN à 6 chiffres pour accéder à vos lettres",
-          incorrectPin: "PIN incorrect. Réessayez.",
+          subtitle: "Entrez votre code Passwordà 6 chiffres pour accéder à vos lettres",
+          incorrectPin: "Passwordincorrect. Réessayez.",
           missingInbox: "Inbox manquant. Ouvre un lien ou connecte-toi d’abord.",
           invalidInbox: "Inbox invalide. Rouvre le lien d’accès.",
           sessionExpired: "Session expirée, rouvre le lien.",
@@ -217,7 +217,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         </p>
       )}
 
-      {/* PIN Display */}
+      {/* PasswordDisplay */}
       <motion.div className="flex gap-4 mb-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
         {[0, 1, 2, 3].map((index) => (
           <motion.div
@@ -237,7 +237,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         ))}
       </motion.div>
 
-      {/* Wrong PIN Message */}
+      {/* Wrong PasswordMessage */}
       {wrongPin && (
         <motion.p className="font-['Inter',sans-serif] font-medium text-[14px] text-red-600 mb-4" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           {t.incorrectPin}

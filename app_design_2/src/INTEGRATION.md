@@ -183,7 +183,7 @@ rateLimits/{docId}
 
 ---
 
-#### 3. **verifyPin.js** - Vérifier PIN et créer session
+#### 3. **verifyPin.js** - Vérifier Passwordet créer session
 
 **Endpoint**: `POST /.netlify/functions/verifyPin`
 
@@ -225,7 +225,7 @@ rateLimits/{docId}
 {
   "inboxId": "inbox_xxx",
   "pin": "1234",  // ou null pour supprimer
-  "sessionToken": "..."  // requis si PIN déjà existant
+  "sessionToken": "..."  // requis si Passworddéjà existant
 }
 ```
 
@@ -238,8 +238,8 @@ rateLimits/{docId}
 ```
 
 **Sécurité**:
-- Si PIN existe déjà → exige `sessionToken` valide
-- Suppression du PIN → révoque toutes les sessions
+- Si Passwordexiste déjà → exige `sessionToken` valide
+- Suppression du Password→ révoque toutes les sessions
 
 ---
 
@@ -619,7 +619,7 @@ const handleVerify = async () => {
     if (error.message.includes('429')) {
       setError('Trop de tentatives. Réessaye plus tard.');
     } else {
-      setError('PIN incorrect');
+      setError('Passwordincorrect');
     }
   }
 };
@@ -644,7 +644,7 @@ const handleVerify = async () => {
    - `recoveryKeyPrivate` chiffré avec `recoveryKeyPublic`
    - Permet au serveur de recréer `inboxKey` pour nouvelles sessions
 
-4. **PIN protection** (optionnel):
+4. **Passwordprotection** (optionnel):
    - PBKDF2 avec 120,000 iterations
    - Salt unique par inbox
    - Rate limiting: 15 tentatives / 60s

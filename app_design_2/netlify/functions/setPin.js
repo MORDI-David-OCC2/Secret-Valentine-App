@@ -27,9 +27,9 @@ function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
 
-function pbkdf2Hash(pin, saltHex, iterations = 150000) {
+function pbkdf2Hash(password, saltHex, iterations = 150000) {
   const salt = Buffer.from(saltHex, "hex");
-  const dk = crypto.pbkdf2Sync(String(pin), salt, iterations, 32, "sha256");
+  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
   return dk.toString("hex");
 }
 
@@ -141,10 +141,10 @@ exports.handler = async (event) => {
     const d = inboxSnap.data() || {};
     const hasPin = !!(d.passHash && d.passSalt && d.passIter);
 
-    // If PIN already exists, require valid session to change/remove it (reset link will provide session)
+    // If Password already exists, require valid session to change/remove it (reset link will provide session)
     if (hasPin) {
       const ok = await requireValidSession(db, inboxId, sessionToken);
-      if (!ok) return jsonResponse(401, { ok: false, error: "Unlock inbox first (PIN required)." });
+      if (!ok) return jsonResponse(401, { ok: false, error: "Unlock inbox first (Password required)." });
     }
 
     // Remove PIN
@@ -164,7 +164,7 @@ exports.handler = async (event) => {
 
     // Set / change PIN
     const pinStr = String(pin || "").trim();
-    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: "PIN must be 6 digits" });
+    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: "Passwordmust be 6 digits" });
 
     const saltHex = crypto.randomBytes(16).toString("hex");
     const iterations = 150000;

@@ -71,7 +71,7 @@ export default function InboxLinkHandler({
           noActiveSession: "No active inbox on this device.",
 
           login: "Log in to my inbox",
-          loginHint: "Use my email / PIN to access my inbox.",
+          loginHint: "Use my email / Passwordto access my inbox.",
 
           create: "Create my inbox",
           createHint: "Create an inbox with email + password.",
@@ -102,7 +102,7 @@ export default function InboxLinkHandler({
   );
 
   // ✅ "connected session" = we can identify the inbox and we have a session token
-  // (even if PIN setup is pending, that's fine for import)
+  // (even if Passwordsetup is pending, that's fine for import)
   const hasConnectedSession = !!(session.inboxId && session.sessionToken);
   const sameInboxAsCurrent = !!(hasConnectedSession && inboxId && session.inboxId === inboxId);
 

@@ -4,9 +4,9 @@ interface SessionData {
   inboxId: string | null;
   sessionToken: string | null;
 
-  isLocked: boolean;       // true si PIN requis mais pas vérifié
-  isPinRequired: boolean;  // backend dit "PIN existe"
-  mustCreatePin: boolean;  // backend dit "PIN n'existe pas encore"
+  isLocked: boolean;       // true si Passwordrequis mais pas vérifié
+  isPinRequired: boolean;  // backend dit "Passwordexiste"
+  mustCreatePin: boolean;  // backend dit "Passwordn'existe pas encore"
 }
 
 interface SessionContextType {

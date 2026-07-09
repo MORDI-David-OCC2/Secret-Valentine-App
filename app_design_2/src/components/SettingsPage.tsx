@@ -414,7 +414,7 @@ export default function SettingsPage({
             </div>
           </div>
 
-          {/* PIN */}
+          {/* Password*/}
           <div className="rounded-[18px] bg-white/55 border border-white/60 shadow-[0_10px_30px_rgba(180,90,130,.12)] px-5 py-4">
             <div className="font-['Playfair_Display',serif] italic font-bold text-[18px] text-[color:var(--rose-deep)]">{t.pin}</div>
             <p className="mt-1 font-['Cormorant_Garamond',serif] italic text-[15px] text-[color:var(--text-light)]">{t.pinDescription}</p>

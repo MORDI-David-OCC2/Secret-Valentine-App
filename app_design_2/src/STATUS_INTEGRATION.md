@@ -229,7 +229,7 @@ const handleVerify = async () => {
     if (error.message.includes('429')) {
       setError('Trop de tentatives');
     } else {
-      setError('PIN incorrect');
+      setError('Passwordincorrect');
       setPin(['', '', '', '']);
     }
   } finally {
@@ -240,8 +240,8 @@ const handleVerify = async () => {
 
 ---
 
-### 6. SettingsPage.tsx - Gérer PIN via API (OPTIONNEL) 🟡
-**Statut**: Gère PIN en local pour l'instant  
+### 6. SettingsPage.tsx - Gérer Passwordvia API (OPTIONNEL) 🟡
+**Statut**: Gère Passworden local pour l'instant  
 **Si tu veux l'intégrer API**:
 
 ```tsx
@@ -262,9 +262,9 @@ const handleSetPin = async (newPin: string | null) => {
     );
 
     if (response.updated) {
-      toast.success('PIN défini! 🔒');
+      toast.success('Passworddéfini! 🔒');
     } else if (response.removed) {
-      toast.success('PIN supprimé');
+      toast.success('Passwordsupprimé');
     }
 
     onPinCodeChange(newPin);
@@ -287,8 +287,8 @@ const handleSetPin = async (newPin: string | null) => {
 **Temps estimé**: 30-45 minutes
 
 ### Priorité 2 - OPTIONNEL 🟡
-5. **PinEntryScreen.tsx** - Vérifier PIN via API
-6. **SettingsPage.tsx** - Set/Remove PIN via API
+5. **PinEntryScreen.tsx** - Vérifier Passwordvia API
+6. **SettingsPage.tsx** - Set/Remove Passwordvia API
 
 **Temps estimé**: 15-20 minutes
 
@@ -313,7 +313,7 @@ const handleSetPin = async (newPin: string | null) => {
    - ✅ App détecte token
    - ✅ `InboxLinkHandler` affiche loading
    - ✅ `openLink()` API appelée
-   - ✅ Si PIN requis → écran PIN
+   - ✅ Si Passwordrequis → écran PIN
    - ✅ Sinon → LettersPage
 
 5. **LettersPage**:

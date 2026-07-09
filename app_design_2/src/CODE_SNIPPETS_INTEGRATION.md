@@ -526,14 +526,14 @@ export default function PinEntryScreen({
         toast.success(language === 'en' ? 'Unlocked! ✅' : 'Déverrouillé! ✅');
         onSuccess();
       } else {
-        setError(language === 'en' ? 'Incorrect PIN' : 'PIN incorrect');
+        setError(language === 'en' ? 'Incorrect PIN' : 'Passwordincorrect');
         setPin(['', '', '', '']);
       }
     } catch (error: any) {
       if (error.message.includes('429')) {
         setError(language === 'en' ? 'Too many attempts. Wait a moment.' : 'Trop de tentatives. Attendez.');
       } else if (error.message.includes('401')) {
-        setError(language === 'en' ? 'Incorrect PIN' : 'PIN incorrect');
+        setError(language === 'en' ? 'Incorrect PIN' : 'Passwordincorrect');
         setPin(['', '', '', '']);
       } else {
         setError(error.message || (language === 'en' ? 'Verification failed' : 'Vérification échouée'));
@@ -570,12 +570,12 @@ export default function SettingsPage({ /* ... */ }: Props) {
   const handleSetPin = async () => {
     // Validation
     if (newPin.length < 4 || newPin.length > 8) {
-      toast.error(language === 'en' ? 'PIN must be 4-8 digits' : 'PIN doit faire 4-8 chiffres');
+      toast.error(language === 'en' ? 'Passwordmust be 4-8 digits' : 'Passworddoit faire 4-8 chiffres');
       return;
     }
 
     if (!/^\d+$/.test(newPin)) {
-      toast.error(language === 'en' ? 'PIN must contain only digits' : 'PIN doit contenir que des chiffres');
+      toast.error(language === 'en' ? 'Passwordmust contain only digits' : 'Passworddoit contenir que des chiffres');
       return;
     }
 
@@ -594,7 +594,7 @@ export default function SettingsPage({ /* ... */ }: Props) {
     try {
       await setPin(session.inboxId, newPin, session.sessionToken);
       
-      toast.success(language === 'en' ? 'PIN set! 🔒' : 'PIN défini! 🔒');
+      toast.success(language === 'en' ? 'Passwordset! 🔒' : 'Passworddéfini! 🔒');
       onPinCodeChange(newPin);
       setNewPin('');
       setConfirmPin('');
@@ -624,7 +624,7 @@ export default function SettingsPage({ /* ... */ }: Props) {
     try {
       await setPin(session.inboxId, null, session.sessionToken);
       
-      toast.success(language === 'en' ? 'PIN removed' : 'PIN supprimé');
+      toast.success(language === 'en' ? 'Passwordremoved' : 'Passwordsupprimé');
       onPinCodeChange(null);
     } catch (error: any) {
       toast.error(error.message || (language === 'en' ? 'Failed to remove PIN' : 'Échec suppression PIN'));
@@ -637,9 +637,9 @@ export default function SettingsPage({ /* ... */ }: Props) {
 }
 ```
 
-### Ajouter UI pour PIN dans Settings
+### Ajouter UI pour Passworddans Settings
 ```tsx
-{/* PIN Security Section */}
+{/* PasswordSecurity Section */}
 <motion.div className="mb-8">
   <h2 className="font-['Inter',sans-serif] font-bold text-[20px] text-[#a31e46] mb-4">
     {language === 'en' ? 'Security' : 'Sécurité'}
@@ -648,7 +648,7 @@ export default function SettingsPage({ /* ... */ }: Props) {
   {pinCode ? (
     <div>
       <p className="text-sm text-gray-600 mb-4">
-        {language === 'en' ? 'PIN is currently set' : 'PIN actuellement défini'}
+        {language === 'en' ? 'Passwordis currently set' : 'Passwordactuellement défini'}
       </p>
       <button
         onClick={handleRemovePin}
@@ -666,7 +666,7 @@ export default function SettingsPage({ /* ... */ }: Props) {
         pattern="[0-9]*"
         value={newPin}
         onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
-        placeholder={language === 'en' ? 'New PIN (4-8 digits)' : 'Nouveau PIN (4-8 chiffres)'}
+        placeholder={language === 'en' ? 'New Password(4-8 digits)' : 'Nouveau Password(4-8 chiffres)'}
         className="w-full border-2 rounded-lg p-2 mb-2"
         maxLength={8}
       />
@@ -733,7 +733,7 @@ export default function SettingsPage({ /* ... */ }: Props) {
 ### SettingsPage ✅
 - [ ] Import: `setPin`, `useSession`
 - [ ] handleSetPin / handleRemovePin
-- [ ] UI: inputs PIN + confirm + boutons
+- [ ] UI: inputs Password+ confirm + boutons
 - [ ] Validation 4-8 digits
 - [ ] Gestion erreurs 401
 

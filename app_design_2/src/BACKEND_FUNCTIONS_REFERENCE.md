@@ -142,7 +142,7 @@ Primitives de génération/dérivation des clés.
 ### 📦 Fonctions
 
 #### `pbkdf2Key(pin, saltB64)`
-Dérive clé PIN avec PBKDF2.
+Dérive clé Passwordavec PBKDF2.
 - **Iterations**: 150,000
 - **Hash**: SHA-256
 - **Output**: 32 bytes
@@ -227,7 +227,7 @@ Ouvre un lien token → retourne inboxId + pinRequired + sessionToken (si pas de
   "ok": true,
   "inboxId": "inbox_abc123",
   "pinRequired": true,
-  "sessionToken": "base64url..." // null si PIN requis
+  "sessionToken": "base64url..." // null si Passwordrequis
 }
 ```
 
@@ -270,7 +270,7 @@ Aucun (mais protection via token unique).
 ## 7) verifyPin.js
 
 ### 🎯 Rôle
-Vérifie le PIN et crée une session valable 7 jours.
+Vérifie le Passwordet crée une session valable 7 jours.
 
 ### 🌐 Endpoint
 `POST /.netlify/functions/verifyPin`
@@ -312,7 +312,7 @@ Vérifie le PIN et crée une session valable 7 jours.
 
 ### ❌ Erreurs
 - `400`: Validation
-- `401`: PIN incorrect
+- `401`: Passwordincorrect
 - `404`: Inbox introuvable
 - `429`: Trop de tentatives
 
@@ -328,7 +328,7 @@ Vérifie le PIN et crée une session valable 7 jours.
 ## 8) setPin.js
 
 ### 🎯 Rôle
-Définir/modifier/supprimer le PIN d'une inbox.
+Définir/modifier/supprimer le Passwordd'une inbox.
 
 ### 🌐 Endpoint
 `POST /.netlify/functions/setPin`
@@ -351,7 +351,7 @@ Définir/modifier/supprimer le PIN d'une inbox.
 ```
 
 ### 🔍 Sécurité
-- Si PIN existe déjà → exige `sessionToken` valide
+- Si Passwordexiste déjà → exige `sessionToken` valide
 
 ### 🔥 Firestore
 **Écrit**:
@@ -366,14 +366,14 @@ Définir/modifier/supprimer le PIN d'une inbox.
 - Toutes les sessions (`inboxes/{inboxId}/sessions/*`)
 
 ### ❌ Erreurs
-- `400`: Format PIN invalide
-- `401`: Session requise si PIN déjà existant
+- `400`: Format Passwordinvalide
+- `401`: Session requise si Passworddéjà existant
 - `404`: Inbox introuvable
 
 ### 🎨 UI/React
 **Composant**: `SettingsPage.tsx`
 - Section "Security"
-- Input PIN (4-8 digits) + confirmer
+- Input Password(4-8 digits) + confirmer
 - Bouton "Set PIN" / "Remove PIN"
 - Appelle `setPin()` avec `sessionToken`
 
@@ -796,7 +796,7 @@ Si erreur 429:
 - ✅ Frontend ne manipule jamais les clés
 - ✅ InboxKey wrappée par recovery key
 - ✅ Sessions limitées à 7 jours
-- ✅ PIN hashé avec PBKDF2 150k iterations
+- ✅ Passwordhashé avec PBKDF2 150k iterations
 
 ---
 
@@ -806,8 +806,8 @@ Si erreur 429:
 |--------|----------|-----------|
 | Réclamer ma boîte | `claimPending` | ClaimInboxPage |
 | Ouvrir lien email | `openLink` | InboxLinkHandler |
-| Déverrouiller avec PIN | `verifyPin` | PinEntryScreen |
-| Définir/changer PIN | `setPin` | SettingsPage |
+| Déverrouiller avec Password| `verifyPin` | PinEntryScreen |
+| Définir/changer Password| `setPin` | SettingsPage |
 | Liste mes messages | `listInbox` | LettersPage |
 | Lire message complet | `getMessage` | LetterDetailView |
 | Envoyer message | `sendMessage` | ComposePage |

@@ -108,7 +108,7 @@ await sendReply({
 ---
 
 ### 5. PinEntryScreen.tsx (~8 min)
-**But**: Vérifier PIN via API
+**But**: Vérifier Passwordvia API
 
 **Changes**:
 ```tsx
@@ -218,7 +218,7 @@ App: http://localhost:8888
 - [ ] Local: `netlify dev`
 - [ ] sendMessage curl test
 - [ ] Open link via email
-- [ ] PIN verify
+- [ ] Passwordverify
 - [ ] List inbox
 - [ ] Read message
 - [ ] Send reply
@@ -315,7 +315,7 @@ Frontend (React)
 - ✅ Chiffrement E2E (AES-256-GCM)
 
 ### Security
-- ✅ PIN code protection (PBKDF2)
+- ✅ Passwordcode protection (PBKDF2)
 - ✅ Session tokens (7 jours)
 - ✅ Rate limiting
 - ✅ Modération contenu

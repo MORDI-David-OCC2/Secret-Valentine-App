@@ -41,39 +41,39 @@ export default function FirstPinSetup({
   const translations = {
     en: {
       title: "Secure Your Inbox",
-      subtitle: "Create a PIN code to protect your love letters",
-      description: "Your inbox needs a 4-digit PIN code for security.",
+      subtitle: "Create a Passwordcode to protect your love letters",
+      description: "Your inbox needs a 4-digit Passwordcode for security.",
       emailLabel: "Your email (to attach this inbox)",
       emailHint: "So you can access future letters without the link again.",
-      enterNewPin: "Enter new PIN (6 digits)",
+      enterNewPin: "Enter new Password(6 digits)",
       confirmNewPin: "Confirm new PIN",
       createButton: "Create PIN",
       creating: "Creating...",
       pinMismatch: "PINs do not match",
-      pinInvalid: "PIN must be 4 digits",
+      pinInvalid: "Passwordmust be 4 digits",
       emailInvalid: "Please enter a valid email",
-      pinCreated: "PIN created successfully! 🔐",
+      pinCreated: "Passwordcreated successfully! 🔐",
       errorCreating: "Error creating PIN",
       back: "Back",
-      securityNote: "🔒 Your PIN is encrypted and secure",
+      securityNote: "🔒 Your Passwordis encrypted and secure",
     },
     fr: {
       title: "Sécurisez votre boîte",
-      subtitle: "Créez un code PIN pour protéger vos lettres d'amour",
-      description: "Votre boîte nécessite un code PIN à 6 chiffres pour la sécurité.",
+      subtitle: "Créez un code Passwordpour protéger vos lettres d'amour",
+      description: "Votre boîte nécessite un code Passwordà 6 chiffres pour la sécurité.",
       emailLabel: "Ton email (pour rattacher cette boîte)",
       emailHint: "Comme ça, tu pourras ouvrir les prochaines lettres sans repasser par le lien.",
-      enterNewPin: "Entrez le nouveau PIN (6 chiffres)",
+      enterNewPin: "Entrez le nouveau Password(6 chiffres)",
       confirmNewPin: "Confirmez le nouveau PIN",
       createButton: "Créer le PIN",
       creating: "Création...",
-      pinMismatch: "Les codes PIN ne correspondent pas",
-      pinInvalid: "Le PIN doit contenir 6 chiffres",
+      pinMismatch: "Les codes Passwordne correspondent pas",
+      pinInvalid: "Le Passworddoit contenir 6 chiffres",
       emailInvalid: "Veuillez entrer un email valide",
-      pinCreated: "PIN créé avec succès ! 🔐",
+      pinCreated: "Passwordcréé avec succès ! 🔐",
       errorCreating: "Erreur lors de la création du PIN",
       back: "Retour",
-      securityNote: "🔒 Votre PIN est crypté et sécurisé",
+      securityNote: "🔒 Votre Passwordest crypté et sécurisé",
     },
   };
 
@@ -95,10 +95,10 @@ export default function FirstPinSetup({
         onEmailLinked?.(normalized);
       }
 
-      // 2) Set PIN (⚠️ backend revokes all sessions)
+      // 2) Set Password(⚠️ backend revokes all sessions)
       await setPin(inboxId, newPin, sessionToken);
 
-      // 3) Re-verify PIN to obtain a NEW session token
+      // 3) Re-verify Passwordto obtain a NEW session token
       const verified = await verifyPin(inboxId, newPin);
       if (!verified?.sessionToken) throw new Error("No sessionToken after verifyPin");
 

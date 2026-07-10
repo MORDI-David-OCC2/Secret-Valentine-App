@@ -1,9 +1,9 @@
 // netlify/functions/importLinkToInbox.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
-const { open } = require("./wrap");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require('./rateLimit');
+const { seal, open } = require("./wrap");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -16,6 +16,12 @@ function jsonResponse(statusCode, body) {
     },
     body: JSON.stringify(body),
   };
+}
+
+function getClientIp(event) {
+  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
+  if (xf) return String(xf).split(",")[0].trim();
+  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
 function initAdmin() {
@@ -92,8 +98,8 @@ exports.handler = async (event) => {
     initAdmin();
     const db = admin.firestore();
     const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
-    const { allowed } = await rateLimit(db, { action: 'importLink', key: ip, limit: 20, windowSec: 60 });
-    if (!allowed) return jsonResponse(429, { ok: false, error: 'Too many requests' });
+    const { allowed } = await rateLimit(db, { action: "importLinkToInbox", key: getClientIp(event), limit: 20, windowSec: 60 });
+    if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
     let payload = {};
     try {
       payload = JSON.parse(event.body || "{}");
@@ -150,7 +156,7 @@ exports.handler = async (event) => {
     const importedMessageId = `imp_${sourceInboxId}_${doc.id}`.slice(0, 150);
 
     const clean = { ...data };
-
+    const destInboxKey = await getInboxKeyViaRecovery(db, destInboxId);
     // remove encrypted fields so DEST will use plaintext fallback safely
     delete clean.bodyEnc;
     delete clean.dekWrapped;
@@ -160,8 +166,8 @@ exports.handler = async (event) => {
 
     await destMessagesRef.doc(importedMessageId).set({
       ...clean,
-      body: plainBody,
-      lastPreview: plainPreview,
+      body: seal(destInboxKey, Buffer.from(plainBody, "utf8")),
+      lastPreview: seal(destInboxKey, Buffer.from(plainPreview, "utf8")),
       importedFromInboxId: sourceInboxId,
       importedAt: admin.firestore.FieldValue.serverTimestamp(),
       unread: true,

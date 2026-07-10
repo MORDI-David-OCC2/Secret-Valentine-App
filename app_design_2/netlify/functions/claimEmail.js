@@ -1,6 +1,7 @@
 // netlify/functions/claimEmail.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {

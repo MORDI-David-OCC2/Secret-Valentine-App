@@ -3,6 +3,7 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys"); // ✅ IMPORTANT: use same derivation as cryptageInbox.js
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -147,7 +148,7 @@ exports.handler = async (event) => {
 
     const okSession = await isValidSession(db, inboxId, sessionToken);
     if (!okSession) {
-      return jsonResponse(401, { ok: false, error: "Locked. Verify PIN to unlock.", pinRequired: true });
+      return jsonResponse(401, { ok: false, error: "Locked. Verify Password to unlock.", pinRequired: true });
     }
 
     // Load inbox key (session first, then recovery)

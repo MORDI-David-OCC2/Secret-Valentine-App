@@ -75,9 +75,6 @@ function decryptPreviewMaybe(inboxKeyBuf, doc) {
 }
 
 exports.handler = async (event) => {
-  const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
-  const { allowed } = await rateLimit(db, { action: 'importLink', key: ip, limit: 20, windowSec: 60 });
-  if (!allowed) return jsonResponse(429, { ok: false, error: 'Too many requests' });
   try {
     if (event.httpMethod === "OPTIONS") {
       return {
@@ -94,7 +91,9 @@ exports.handler = async (event) => {
 
     initAdmin();
     const db = admin.firestore();
-
+    const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
+    const { allowed } = await rateLimit(db, { action: 'importLink', key: ip, limit: 20, windowSec: 60 });
+    if (!allowed) return jsonResponse(429, { ok: false, error: 'Too many requests' });
     let payload = {};
     try {
       payload = JSON.parse(event.body || "{}");

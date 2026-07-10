@@ -1,6 +1,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const webpush = require("web-push");
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 const { rateLimit } = require("./rateLimit");
 const { moderateText } = require("./moderation");

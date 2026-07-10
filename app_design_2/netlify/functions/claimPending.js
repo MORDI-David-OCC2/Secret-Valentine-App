@@ -1,6 +1,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 // ---------- helpers ----------
 function corsHeaders() {

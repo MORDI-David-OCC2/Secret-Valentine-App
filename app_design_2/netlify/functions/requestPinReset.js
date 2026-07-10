@@ -2,6 +2,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { rateLimit } = require('./rateLimit');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -71,8 +72,6 @@ async function getInboxIdByEmail(db, email) {
 }
 
 exports.handler = async (event) => {
-  const allowed = await rateLimit(event, { max: 3, windowMs: 300_000 }); // 3 per 5min
-  if (!allowed) return { statusCode: 429, body: JSON.stringify({ error: 'Too many requests' }) };
   try {
     if (event.httpMethod === "OPTIONS") {
       return {
@@ -92,7 +91,9 @@ exports.handler = async (event) => {
 
     initAdmin();
     const db = admin.firestore();
-
+    const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
+    const { allowed } = await rateLimit(db, { action: 'pinReset', key: ip, limit: 3, windowSec: 300 });
+    if (!allowed) return jsonResponse(429, { ok: false, error: 'Too many requests' });
     let payload;
     try {
       payload = JSON.parse(event.body || "{}");
@@ -129,12 +130,12 @@ exports.handler = async (event) => {
 
     await sendWithResend({
       to: email,
-      subject: "🔐 Reset your inbox PIN",
+      subject: "🔐 Reset your inbox Password",
       html: `
         <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto;line-height:1.5">
-          <h2>Reset your inbox PIN 🔐</h2>
+          <h2>Reset your inbox Password 🔐</h2>
           <p>This link is valid for 24 hours.</p>
-          <p><a href="${link}">Reset my PIN</a></p>
+          <p><a href="${link}">Reset my password</a></p>
         </div>
       `,
     });

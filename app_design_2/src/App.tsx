@@ -155,7 +155,7 @@ function AppContent() {
       return;
     }
 
-    // if need create pin
+    // if need create password
     if (session.mustCreatePin) {
       // If you have temp setup tokens, go first-pin, else user must reopen link or login
       if (tempInboxId && tempSessionToken) setPage("first-pin");
@@ -163,7 +163,7 @@ function AppContent() {
       return;
     }
 
-    // if locked => ask PIN
+    // if locked => ask Password
     if (session.isLocked) {
       setPage("pin");
       return;
@@ -225,7 +225,7 @@ function AppContent() {
         onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
           setLinkToken(null);
 
-          // needs pin => go pin
+          // needs password => go password
           if (needsPin) {
             setInboxId(inboxId);          // ✅ obligatoire
             setIsPinRequired(true);       // ✅ cohérent avec ton système

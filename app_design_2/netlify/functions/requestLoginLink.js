@@ -1,6 +1,7 @@
 // netlify/functions/requestLoginLink.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -114,12 +115,12 @@ exports.handler = async (event) => {
     const inbox = inboxSnap.data() || {};
     const hasPin = !!(inbox.passHash && inbox.passSalt && inbox.passIter);
 
-    // ✅ If PIN exists => do NOT send a link; UI should ask for PIN
+    // ✅ If Password exists => do NOT send a link; UI should ask for Password
     if (hasPin) {
       return jsonResponse(200, { ok: true, action: "PIN_REQUIRED", inboxId });
     }
 
-    // ✅ Otherwise send link (no pin yet)
+    // ✅ Otherwise send link (no password yet)
     const token = randomTokenBase64Url(32);
     const tokenHash = sha256Hex(token);
     const expiresDays = 7;

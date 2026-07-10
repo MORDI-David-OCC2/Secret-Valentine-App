@@ -1,6 +1,7 @@
 // netlify/functions/savePushSub.js
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");

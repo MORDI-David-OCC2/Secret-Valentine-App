@@ -2,7 +2,8 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
+const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");4
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {

@@ -31,9 +31,9 @@ function sha256Hex(input) {
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
-function pbkdf2Hash(pin, saltHex, iterations) {
+function pbkdf2Hash(password, saltHex, iterations) {
   const salt = Buffer.from(saltHex, "hex");
-  const dk = crypto.pbkdf2Sync(String(pin), salt, iterations, 32, "sha256");
+  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
   return dk.toString("hex");
 }
 
@@ -59,7 +59,7 @@ exports.handler = async (event) => {
     const pinStr = String(pin || "").trim();
 
     if (!id.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
-    if (!/^\d{6}$/.test(pinStr)) return jsonResponse(400, { ok: false, error: "Invalid PIN" });
+    if (!/^\d{6}$/.test(pinStr)) return jsonResponse(400, { ok: false, error: "Invalid Password" });
 
     const inboxRef = db.collection("inboxes").doc(id);
     const snap = await inboxRef.get();
@@ -67,14 +67,14 @@ exports.handler = async (event) => {
 
     const inbox = snap.data() || {};
     if (!inbox.passHash || !inbox.passSalt || !inbox.passIter) {
-      return jsonResponse(400, { ok: false, error: "PIN not set" });
+      return jsonResponse(400, { ok: false, error: "Password not set" });
     }
 
     const computed = pbkdf2Hash(pinStr, inbox.passSalt, inbox.passIter);
     const a = Buffer.from(computed,      'hex');
     const b = Buffer.from(inbox.passHash,'hex');
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      return jsonResponse(401, { ok: false, error: "Wrong PIN" });
+      return jsonResponse(401, { ok: false, error: "Wrong Password" });
     }
 
     // create session

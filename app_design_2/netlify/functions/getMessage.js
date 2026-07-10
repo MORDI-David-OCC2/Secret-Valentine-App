@@ -179,7 +179,7 @@ exports.handler = async (event) => {
     const pinRequired = !!(inboxData.passHash && inboxData.passSalt && inboxData.passIter);
 
     const okSession = await requireValidSession(db, inboxId, sessionToken);
-    if (!okSession) return jsonResponse(401, { ok: false, error: "Locked. Verify PIN to unlock.", pinRequired });
+    if (!okSession) return jsonResponse(401, { ok: false, error: "Locked. Verify Password to unlock.", pinRequired });
 
     let inboxKey = await getInboxKeyFromSession(db, inboxId, sessionToken);
     if (!inboxKey) inboxKey = await getInboxKeyViaRecovery(db, inboxId);

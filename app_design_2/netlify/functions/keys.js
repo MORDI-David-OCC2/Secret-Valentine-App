@@ -5,14 +5,14 @@ function sha256(bufOrStr) {
   return crypto.createHash("sha256").update(bufOrStr).digest();
 }
 
-function pbkdf2Key(pin, saltB64) {
+function pbkdf2Key(password, saltB64) {
   const pepper = process.env.PIN_PEPPER || "";
   if (!pepper) throw new Error("Missing PIN_PEPPER env var");
 
   const salt = Buffer.from(saltB64, "base64");
   // Choose sane iterations (fast enough for server, still strong)
   const iterations = 150_000;
-  return crypto.pbkdf2Sync(String(pin) + pepper, salt, iterations, 32, "sha256");
+  return crypto.pbkdf2Sync(String(password) + pepper, salt, iterations, 32, "sha256");
 }
 
 function recoveryKey() {

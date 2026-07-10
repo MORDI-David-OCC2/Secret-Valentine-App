@@ -5,6 +5,7 @@ const { rateLimit } = require("./rateLimit");
 const { seal, open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys");
 const { moderateText } = require("./moderation");
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {

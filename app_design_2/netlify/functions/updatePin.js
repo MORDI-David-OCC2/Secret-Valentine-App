@@ -40,9 +40,9 @@ function validatePin6(v) {
   return typeof v === "string" && PIN_REGEX.test(v);
 }
 
-function hashPin(pin, saltBuf, iter) {
+function hashPin(password, saltBuf, iter) {
   // pbkdf2 -> sha256
-  return crypto.pbkdf2Sync(pin, saltBuf, iter, 32, "sha256"); // 32 bytes
+  return crypto.pbkdf2Sync(password, saltBuf, iter, 32, "sha256"); // 32 bytes
 }
 
 async function requireValidSession(db, inboxId, sessionToken) {
@@ -124,7 +124,7 @@ exports.handler = async (event) => {
     const d = snap.data() || {};
     const hasPin = !!(d.passHash && d.passSalt && d.passIter);
 
-    // For change/remove, verify current pin against stored hash
+    // For change/remove, verify current password against stored hash
     if ((action === "change" || action === "remove") && hasPin) {
       if (!validatePin6(currentPin)) return jsonResponse(400, { ok: false, error: "Invalid current password format" });
 
@@ -133,21 +133,21 @@ const hashHex = String(d.passHash || "");
 const iter = Number(d.passIter) || 0;
 
 if (!/^[0-9a-f]{20,32}$/i.test(saltHex) || !/^[0-9a-f]{64}$/i.test(hashHex) || iter <= 0) {
-  return jsonResponse(500, { ok: false, error: "PIN data corrupted" });
+  return jsonResponse(500, { ok: false, error: "Password data corrupted" });
 }
 
 const saltBuf = Buffer.from(saltHex, "hex");      // 16 bytes
 const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
 
       if (!saltBuf.length || iter <= 0 || storedHash.length !== 32) {
-        return jsonResponse(500, { ok: false, error: "PIN data corrupted" });
+        return jsonResponse(500, { ok: false, error: "Password data corrupted" });
       }
 
       const testHash = hashPin(currentPin, saltBuf, iter);
       const ok = crypto.timingSafeEqual(storedHash, testHash);
       if (!ok) return jsonResponse(403, { ok: false, error: "Wrong password" });
     } else if (action === "change" || action === "remove") {
-      // change/remove requested but no PIN in DB
+      // change/remove requested but no Password in DB
       return jsonResponse(400, { ok: false, error: "No password set" });
     }
 
@@ -164,8 +164,8 @@ const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
       return jsonResponse(200, { ok: true, pinRequired: false });
     }
 
-    // create/change: validate new pin
-    if (!validatePin6(newPin)) return jsonResponse(400, { ok: false, error: "PIN must be exactly 6 digits" });
+    // create/change: validate new password
+    if (!validatePin6(newPin)) return jsonResponse(400, { ok: false, error: "Password must be exactly 6 digits" });
 
     const salt = crypto.randomBytes(16);
     const iter = 150000;

@@ -1,4 +1,5 @@
 const admin = require("firebase-admin");
+const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {

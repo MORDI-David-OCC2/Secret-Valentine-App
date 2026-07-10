@@ -2,6 +2,7 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX } = require('./utils/pinPolicy');
+const { PIN_LABEL } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -164,7 +165,7 @@ exports.handler = async (event) => {
 
     // Set / change PIN
     const pinStr = String(pin || "").trim();
-    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: "Passwordmust be 6 digits" });
+    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
     const saltHex = crypto.randomBytes(16).toString("hex");
     const iterations = 150000;

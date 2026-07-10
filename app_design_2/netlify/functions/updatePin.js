@@ -3,7 +3,7 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
-const { PIN_REGEX } = require('./utils/pinPolicy');
+const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -36,9 +36,7 @@ function getClientIp(event) {
 }
 
 // ✅ You must have 6 digits
-function validatePin6(v) {
-  return typeof v === "string" && PIN_REGEX.test(v);
-}
+
 
 function hashPin(password, saltBuf, iter) {
   // pbkdf2 -> sha256
@@ -126,7 +124,7 @@ exports.handler = async (event) => {
 
     // For change/remove, verify current password against stored hash
     if ((action === "change" || action === "remove") && hasPin) {
-      if (!validatePin6(currentPin)) return jsonResponse(400, { ok: false, error: "Invalid current password format" });
+      if (!PIN_REGEX.test(currentPin)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
       const saltHex = String(d.passSalt || "");
 const hashHex = String(d.passHash || "");
@@ -165,7 +163,7 @@ const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
     }
 
     // create/change: validate new password
-    if (!validatePin6(newPin)) return jsonResponse(400, { ok: false, error: "Password must be exactly 6 digits" });
+    if (!PIN_REGEX.test(newPin)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
     const salt = crypto.randomBytes(16);
     const iter = 150000;

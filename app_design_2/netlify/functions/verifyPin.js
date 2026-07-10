@@ -5,7 +5,7 @@ const { rateLimit } = require("./rateLimit");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX } = require('./utils/pinPolicy');
-
+const { PIN_LABEL } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -112,7 +112,7 @@ exports.handler = async (event) => {
     const mode = String(payload.mode || "verify").trim();
 
     if (mode !== "verify") return jsonResponse(400, { ok: false, error: "Invalid mode" });
-    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: "Password must be 6 digits" });
+    if (!PIN_REGEX.test(pin)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
     // ✅ if inboxId missing, try resolving from token
     if (!inboxId && token) {

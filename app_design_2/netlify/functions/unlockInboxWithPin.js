@@ -3,7 +3,7 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
-
+const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -16,6 +16,12 @@ function jsonResponse(statusCode, body) {
     },
     body: JSON.stringify(body),
   };
+}
+
+function getClientIp(event) {
+  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
+  if (xf) return String(xf).split(",")[0].trim();
+  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
 function initAdmin() {
@@ -52,15 +58,14 @@ exports.handler = async (event) => {
       return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
     }
 
-    const allowed = await rateLimit(event, { max: 10, windowMs: 60_000 });
-    if (!allowed) return { statusCode: 429, body: JSON.stringify({ error: 'Too many attempts' }) };
+    const { allowed } = await rateLimit(db, { action: "unlockInboxWithPin", key: getClientIp(event), limit: 10, windowSec: 60 });
+    if (!allowed) return jsonResponse(429, { ok: false, error: "Too many attempts" });
     const { inboxId, pin } = payload;
     const id = String(inboxId || "").trim();
     const pinStr = String(pin || "").trim();
 
     if (!id.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
-    if (!/^\d{6}$/.test(pinStr)) return jsonResponse(400, { ok: false, error: "Invalid Password" });
-
+    if (!PIN_REGEX.test(pinStr)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
     const inboxRef = db.collection("inboxes").doc(id);
     const snap = await inboxRef.get();
     if (!snap.exists) return jsonResponse(404, { ok: false, error: "Inbox not found" });

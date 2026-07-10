@@ -2,6 +2,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { rateLimit } = require("./rateLimit");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -31,6 +32,42 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
+function getClientIp(event) {
+  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
+  if (xf) return String(xf).split(",")[0].trim();
+  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
+}
+
+function buildBaseUrl(event) {
+  const env = process.env.URL_DE_BASE;
+  if (env) return String(env).replace(/\/+$/, "");
+  const proto = event.headers["x-forwarded-proto"] || "https";
+  let host = event.headers["x-forwarded-host"] || event.headers.host || "";
+  if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
+  return `${proto}://${host}`.replace(/\/+$/, "");
+}
+
+async function sendWithResend({ to, subject, html }) {
+  const apiKey = process.env.API_EMAIL_KEY;
+  const from = process.env.EMAIL_VALENTINE;
+
+  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
+  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from, to, subject, html }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
+  return data;
+}
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
@@ -50,6 +87,10 @@ exports.handler = async (event) => {
     initAdmin();
     const db = admin.firestore();
 
+    const ip = getClientIp(event);
+    const { allowed } = await rateLimit(db, { action: "claimEmail", key: ip, limit: 5, windowSec: 300 });
+    if (!allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
+
     let payload;
     try {
       payload = JSON.parse(event.body || "{}");
@@ -65,7 +106,7 @@ exports.handler = async (event) => {
     if (!sessionToken) return jsonResponse(401, { ok: false, error: "Missing sessionToken" });
     if (!email || !email.includes("@")) return jsonResponse(400, { ok: false, error: "Invalid email" });
 
-    // validate session
+    // validate session (unchanged — proves caller owns THIS inbox)
     const sessionHash = sha256Hex(sessionToken);
     const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
     const sessionSnap = await sessionRef.get();
@@ -77,34 +118,36 @@ exports.handler = async (event) => {
       return jsonResponse(401, { ok: false, error: "Session expired" });
     }
 
-    // create email index if not already taken
-    const emailHash = sha256Hex(email);
-    const emailIndexRef = db.collection("emailIndex").doc(emailHash);
+    // NOTE: no emailIndex write here anymore. Binding only happens once
+    // the recipient clicks the confirmation link (see openLink.js, purpose "claim_email").
+    const token = crypto.randomBytes(32).toString("base64url");
+    const tokenHash = sha256Hex(token);
+    const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
 
-    await db.runTransaction(async (tx) => {
-      const existing = await tx.get(emailIndexRef);
-      if (existing.exists) {
-        const existingInboxId = existing.data()?.inboxId;
-        // If same inbox, allow idempotent
-        if (existingInboxId !== inboxId) {
-          throw new Error("Email already linked to another inbox");
-        }
-      } else {
-        tx.set(emailIndexRef, {
-          inboxId,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
-
-      // store on inbox doc too
-      tx.set(
-        db.collection("inboxes").doc(inboxId),
-        { email, emailLinkedAt: admin.firestore.FieldValue.serverTimestamp() },
-        { merge: true }
-      );
+    await db.collection("tokens").doc(tokenHash).set({
+      inboxId, email, purpose: "claim_email",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt,
     });
 
-    return jsonResponse(200, { ok: true, inboxId, email });
+    const baseUrl = buildBaseUrl(event);
+    const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
+
+    await sendWithResend({
+      to: email,
+      subject: "Confirm this email for your Secret Valentine inbox",
+      html: `
+        <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto;line-height:1.5">
+          <h2>Confirm your email</h2>
+          <p>Someone requested to link this email address to a Secret Valentine inbox.</p>
+          <p>If this was you, click below to confirm. This link is valid for 24 hours.</p>
+          <p><a href="${link}">Confirm this email</a></p>
+          <p style="color:#888;font-size:12px">If you didn't request this, you can ignore this email — nothing will be linked.</p>
+        </div>
+      `,
+    });
+
+    return jsonResponse(200, { ok: true, message: "Confirmation email sent" });
   } catch (err) {
     console.error(err);
     return jsonResponse(500, { ok: false, error: err.message || "Server error" });

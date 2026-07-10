@@ -2,7 +2,7 @@
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
-const { rateLimit } = require('./rateLimit');
+const { rateLimit } = require("./rateLimit");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -15,6 +15,12 @@ function jsonResponse(statusCode, body) {
     },
     body: JSON.stringify(body),
   };
+}
+
+function getClientIp(event) {
+  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
+  if (xf) return String(xf).split(",")[0].trim();
+  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
 function initAdmin() {
@@ -92,8 +98,8 @@ exports.handler = async (event) => {
     initAdmin();
     const db = admin.firestore();
     const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
-    const { allowed } = await rateLimit(db, { action: 'pinReset', key: ip, limit: 3, windowSec: 300 });
-    if (!allowed) return jsonResponse(429, { ok: false, error: 'Too many requests' });
+    const { allowed } = await rateLimit(db, { action: "requestPinReset", key: getClientIp(event), limit: 3, windowSec: 300 });
+    if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
     let payload;
     try {
       payload = JSON.parse(event.body || "{}");

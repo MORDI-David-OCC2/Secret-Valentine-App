@@ -36,6 +36,10 @@ exports.handler = async (event) => {
     if (!inboxId.startsWith("inbox_")) return jsonResponse(400, { ok: false, error: "Invalid inboxId" });
     if (!subscription || !subscription.endpoint) return jsonResponse(400, { ok: false, error: "Invalid subscription" });
 
+    const sha256Hex = (s) => require("crypto").createHash("sha256").update(String(s)).digest("hex");
+    const sessionToken = String(payload.sessionToken || "").trim();
+    const sessSnap = await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sha256Hex(sessionToken)).get();
+    if (!sessSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid session" });
     // Stockage : 1 subscription par inbox (simple)
     await db.collection("pushSubscriptions").doc(inboxId).set(
       {

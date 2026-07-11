@@ -16,14 +16,6 @@ function isValidEmail(email) {
   return email.includes("@") && email.includes(".");
 }
 
-async function revokeAllSessions(db, inboxId) {
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions");
-  const snap = await sessionRef.get();
-  const batch = db.batch();
-  snap.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
-}
-
 async function linkInboxToEmail(db, inboxId, email) {
   const norm = normalizeEmail(email);
   if (!norm) return;

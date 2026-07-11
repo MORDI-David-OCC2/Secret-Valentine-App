@@ -44,12 +44,8 @@ exports.handler = async (event) => {
     const { allowed } = await rateLimit(db, { action: "getInboxMeta", key: ip, limit: 60, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const inboxId = String(payload.inboxId || "").trim();
     const sessionToken = payload.sessionToken ? String(payload.sessionToken).trim() : null;

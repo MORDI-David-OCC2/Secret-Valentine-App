@@ -342,12 +342,8 @@ exports.handler = async (event) => {
     const { allowed } = await rateLimit(db, { action: "sendReply", key: ip, limit: 20, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many replies. Try again later." });
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const inboxId = String(payload.inboxId || "").trim();
     const messageId = String(payload.messageId || "").trim();

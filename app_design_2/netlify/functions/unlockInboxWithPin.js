@@ -31,12 +31,8 @@ exports.handler = async (event) => {
     initAdmin();
     const db = getDb();
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const { allowed } = await rateLimit(db, { action: "unlockInboxWithPin", key: getClientIp(event), limit: 10, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many attempts" });

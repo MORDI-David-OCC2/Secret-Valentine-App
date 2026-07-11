@@ -68,12 +68,8 @@ exports.handler = async (event) => {
     const rl = await rateLimit(db, { action: "verifyPin", key: ip, limit: 15, windowSec: 60 });
     if (!rl.allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     // ✅ accepte plusieurs clés côté client (au cas où)
     let inboxId =

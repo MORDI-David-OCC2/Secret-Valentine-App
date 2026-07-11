@@ -73,12 +73,8 @@ exports.handler = async (event) => {
     const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
     const { allowed } = await rateLimit(db, { action: "requestPinReset", key: getClientIp(event), limit: 3, windowSec: 300 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const email = normalizeEmail(payload.email);
     if (!email || !email.includes("@")) {

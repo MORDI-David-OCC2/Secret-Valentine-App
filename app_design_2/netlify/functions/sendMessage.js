@@ -389,12 +389,8 @@ exports.handler = async (event) => {
       });
     }
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     // ✅ NEW: deliveryMode
     const deliveryMode = String(payload.deliveryMode || "email").trim(); // "email" | "share" | "instagram"

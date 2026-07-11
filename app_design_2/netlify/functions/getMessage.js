@@ -133,12 +133,8 @@ exports.handler = async (event) => {
     });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const inboxId = String(payload.inboxId || "").trim();
     const messageId = String(payload.messageId || "").trim();

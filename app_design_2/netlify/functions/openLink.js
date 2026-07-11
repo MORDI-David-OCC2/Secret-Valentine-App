@@ -51,7 +51,8 @@ exports.handler = async (event) => {
     initAdmin();
     const db = getDb();
 
-    const payload = JSON.parse(event.body || "{}");
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
     const token = String(payload.token || "").trim();
     if (!token) return jsonResponse(400, { ok: false, error: "Missing token" });
 

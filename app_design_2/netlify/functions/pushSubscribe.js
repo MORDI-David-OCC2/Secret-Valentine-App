@@ -9,7 +9,8 @@ exports.handler = async (event) => {
     initAdmin();
     const db = getDb();
 
-    const payload = JSON.parse(event.body || "{}");
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
     const inboxId = String(payload.inboxId || "").trim();
     const subscription = payload.subscription;
 

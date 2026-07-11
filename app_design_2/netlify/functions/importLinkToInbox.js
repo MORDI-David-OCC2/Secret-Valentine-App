@@ -73,13 +73,8 @@ exports.handler = async (event) => {
     const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
     const { allowed } = await rateLimit(db, { action: "importLinkToInbox", key: getClientIp(event), limit: 20, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
-    let payload = {};
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
-
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
     const token = String(payload.token || "").trim();
     const destInboxId = String(payload.destInboxId || "").trim();
     const destSessionToken = String(payload.destSessionToken || "").trim();

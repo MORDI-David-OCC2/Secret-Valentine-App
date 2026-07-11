@@ -1,8 +1,9 @@
 // netlify/functions/openLink.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { sha256Hex } = require("./utils/auth");
 
 function jsonResponse(statusCode, body) {
   return {
@@ -15,13 +16,6 @@ function jsonResponse(statusCode, body) {
     },
     body: JSON.stringify(body),
   };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
 }
 
 function sha256Hex(input) {
@@ -79,7 +73,7 @@ exports.handler = async (event) => {
     }
 
     initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const payload = JSON.parse(event.body || "{}");
     const token = String(payload.token || "").trim();
@@ -96,6 +90,33 @@ exports.handler = async (event) => {
     const tokenData = tokenSnap.data() || {};
     const purpose = String(tokenData.purpose || "open");
     const isPinReset = purpose === "pin_reset";
+
+    if (purpose === "claim_email") {
+      const emailToClaim = String(tokenData.email || "").trim().toLowerCase();
+      if (emailToClaim && emailToClaim.includes("@")) {
+        const emailHash = sha256Hex(emailToClaim);
+        const emailIndexRef = db.collection("emailIndex").doc(emailHash);
+        await db.runTransaction(async (tx) => {
+          const existing = await tx.get(emailIndexRef);
+          if (!existing.exists) {
+            tx.set(emailIndexRef, {
+              inboxId,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          }
+          tx.set(
+            inboxRef,
+            { linkedEmailHash: emailHash, linkedEmailAt: admin.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+        });
+      }
+      await tokenRef.delete();
+      return jsonResponse(200, {
+        ok: true, inboxId, emailClaimed: true,
+        pinRequired, pinMustBeCreated: false, sessionToken: null, isPinReset: false,
+      });
+    }
 
     const expiresAt = tokenData.expiresAt;
     if (!expiresAt || expiresAt.toDate() < new Date()){

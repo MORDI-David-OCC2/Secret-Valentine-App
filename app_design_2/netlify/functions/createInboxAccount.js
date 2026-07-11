@@ -1,5 +1,5 @@
 // netlify/functions/createInboxAccount.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");4
@@ -18,16 +18,7 @@ function jsonResponse(statusCode, body) {
   };
 }
 
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
 
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
@@ -45,11 +36,7 @@ function isValidEmail(e) {
   return typeof e === "string" && e.includes("@") && e.includes(".");
 }
 
-function pbkdf2Hash(password, saltHex, iterations = 150000) {
-  const salt = Buffer.from(saltHex, "hex");
-  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
-  return dk.toString("hex");
-}
+
 
 async function createSession(db, inboxId, days = 7, purpose = "open") {
   const inboxRef = db.collection("inboxes").doc(inboxId);
@@ -85,7 +72,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const rl = await rateLimit(db, { action: "createInboxAccount", key: ip, limit: 10, windowSec: 60 });

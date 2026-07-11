@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 
 // Create a stable hash for long keys (Firestore doc IDs have limits)

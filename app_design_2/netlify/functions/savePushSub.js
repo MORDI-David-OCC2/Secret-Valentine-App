@@ -1,5 +1,5 @@
 // netlify/functions/savePushSub.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
@@ -18,12 +18,6 @@ function jsonResponse(statusCode, body) {
     body: JSON.stringify(body),
   };
 }
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
 
 exports.handler = async (event) => {
   try {
@@ -31,7 +25,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
     const { inboxId, sessionToken, subscription } = JSON.parse(event.body || "{}");
 
     if (!inboxId || !sessionToken || !subscription?.endpoint) {

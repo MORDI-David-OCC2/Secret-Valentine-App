@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
@@ -21,22 +21,7 @@ function jsonResponse(statusCode, body) {
   };
 }
 
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
 
-  let creds;
-  try {
-    creds = JSON.parse(raw);
-  } catch {
-    throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON");
-  }
-
-  admin.initializeApp({
-    credential: admin.credential.cert(creds),
-  });
-}
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -143,7 +128,7 @@ exports.handler = async (event) => {
     }
 
     initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     // Rate limit by IP
     const ip = getClientIp(event);

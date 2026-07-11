@@ -1,9 +1,11 @@
 // netlify/functions/updatePin.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
+const { revokeAllSessions } = require("./utils/auth");
+
 
 function jsonResponse(statusCode, body) {
   return {
@@ -16,13 +18,6 @@ function jsonResponse(statusCode, body) {
     },
     body: JSON.stringify(body),
   };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
 }
 
 function sha256Hex(input) {
@@ -88,7 +83,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const { allowed } = await rateLimit(db, { action: "updatePin", key: ip, limit: 30, windowSec: 60 });
@@ -159,6 +154,7 @@ const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
         },
         { merge: true }
       );
+      await revokeAllSessions(db, inboxId);
       return jsonResponse(200, { ok: true, pinRequired: false });
     }
 
@@ -178,7 +174,7 @@ const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
       },
       { merge: true }
     );
-
+    await revokeAllSessions(db, inboxId);
     return jsonResponse(200, { ok: true, pinRequired: true });
   } catch (err) {
     console.error(err);

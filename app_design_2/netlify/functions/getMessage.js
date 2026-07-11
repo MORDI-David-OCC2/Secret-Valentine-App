@@ -1,5 +1,5 @@
 // netlify/functions/getMessage.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { open } = require("./wrap");
@@ -16,13 +16,6 @@ function jsonResponse(statusCode, body) {
     },
     body: JSON.stringify(body),
   };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
 }
 
 function sha256Hex(input) {
@@ -149,7 +142,7 @@ exports.handler = async (event) => {
     }
 
     initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const { allowed } = await rateLimit(db, {

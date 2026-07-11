@@ -1,5 +1,5 @@
 // netlify/functions/importLinkToInbox.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require('./rateLimit');
@@ -22,13 +22,6 @@ function getClientIp(event) {
   const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
   if (xf) return String(xf).split(",")[0].trim();
   return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
 }
 
 function sha256Hex(input) {
@@ -96,7 +89,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
     const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
     const { allowed } = await rateLimit(db, { action: "importLinkToInbox", key: getClientIp(event), limit: 20, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
@@ -122,8 +115,12 @@ exports.handler = async (event) => {
     const tokenRef = db.collection("tokens").doc(tokenHash);
     const tokenSnap = await tokenRef.get();
     if (!tokenSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
-
+    
     const tokenData = tokenSnap.data() || {};
+    const tokenExpiresAt = tokenData.expiresAt;
+    if (!tokenExpiresAt || tokenExpiresAt.toDate() < new Date()) {
+      return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
+    }
     if (tokenData.purpose !== 'import_link') {
       return { statusCode: 403, body: JSON.stringify({ error: 'Invalid token purpose' }) };
     }
@@ -174,14 +171,7 @@ exports.handler = async (event) => {
       lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    await tokenRef.set(
-      {
-        importedTo: destInboxId,
-        importedMessageId,
-        importedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+    await tokenRef.delete();
 
     return jsonResponse(200, { ok: true, imported: 1, importedMessageId });
   } catch (err) {

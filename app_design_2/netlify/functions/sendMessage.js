@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const webpush = require("web-push");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
@@ -35,13 +35,6 @@ function randomTokenBase64Url(bytes = 32) {
 
 function mustBeOneOf(val, allowed) {
   return allowed.includes(val);
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
 }
 
 function buildBaseUrl(event) {
@@ -405,7 +398,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const rl = await rateLimit(db, { action: "sendMessage", key: ip, limit: 10, windowSec: 60 });

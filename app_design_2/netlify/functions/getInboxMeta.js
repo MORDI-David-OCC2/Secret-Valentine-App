@@ -5,20 +5,6 @@ const { rateLimit } = require("./rateLimit");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) return false;
-  const snap = await db
-    .collection("inboxes")
-    .doc(inboxId)
-    .collection("sessions")
-    .doc(sha256Hex(sessionToken))
-    .get();
-
-  if (!snap.exists) return false;
-  const s = snap.data() || {};
-  if (s.expiresAt?.toMillis && s.expiresAt.toMillis() < Date.now()) return false;
-  return true;
-}
 
 exports.handler = async (event) => {
   try {

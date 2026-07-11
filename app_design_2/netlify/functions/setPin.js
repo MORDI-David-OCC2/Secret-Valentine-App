@@ -24,17 +24,6 @@ async function revokeAllSessions(db, inboxId) {
   await batch.commit();
 }
 
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) return false;
-  const sessionHash = sha256Hex(sessionToken);
-  const ref = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await ref.get();
-  if (!snap.exists) return false;
-  const d = snap.data() || {};
-  if (!d.expiresAt || !d.expiresAt.toDate) return false;
-  return d.expiresAt.toDate() > new Date();
-}
-
 async function linkInboxToEmail(db, inboxId, email) {
   const norm = normalizeEmail(email);
   if (!norm) return;

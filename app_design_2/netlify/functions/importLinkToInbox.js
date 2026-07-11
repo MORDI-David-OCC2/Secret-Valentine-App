@@ -7,17 +7,6 @@ const { seal, open } = require("./wrap");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) return false;
-  const sessionHash = sha256Hex(sessionToken);
-  const ref = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await ref.get();
-  if (!snap.exists) return false;
-  const d = snap.data() || {};
-  if (!d.expiresAt || !d.expiresAt.toDate) return false;
-  return d.expiresAt.toDate() > new Date();
-}
-
 // --- crypto helpers (same as listInbox) ---
 function recoveryKey() {
   const b64 = process.env.RECOVERY_KEY_B64;

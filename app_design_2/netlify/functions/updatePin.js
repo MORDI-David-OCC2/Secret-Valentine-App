@@ -18,35 +18,6 @@ function hashPin(password, saltBuf, iter) {
   return crypto.pbkdf2Sync(password, saltBuf, iter, 32, "sha256"); // 32 bytes
 }
 
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) {
-    const err = new Error("Missing sessionToken");
-    err.code = 401;
-    throw err;
-  }
-  const sessionSnap = await db
-    .collection("inboxes")
-    .doc(inboxId)
-    .collection("sessions")
-    .doc(sha256Hex(sessionToken))
-    .get();
-
-  if (!sessionSnap.exists) {
-    const err = new Error("Invalid session");
-    err.code = 401;
-    throw err;
-  }
-
-  const s = sessionSnap.data() || {};
-  if (s.expiresAt?.toMillis && s.expiresAt.toMillis() < Date.now()) {
-    const err = new Error("Session expired");
-    err.code = 401;
-    throw err;
-  }
-
-  return true;
-}
-
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {

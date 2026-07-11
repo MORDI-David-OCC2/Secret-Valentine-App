@@ -39,19 +39,6 @@ async function getInboxKeyViaRecovery(db, inboxId) {
   return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
 }
 
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) return false;
-  const sessionSnap = await db
-    .collection("inboxes").doc(inboxId)
-    .collection("sessions").doc(sha256Hex(sessionToken))
-    .get();
-
-  if (!sessionSnap.exists) return false;
-  const s = sessionSnap.data() || {};
-  if (s.expiresAt?.toMillis && s.expiresAt.toMillis() < Date.now()) return false;
-  return true;
-}
-
 function toMillisMaybe(ts) {
   if (!ts) return null;
   if (typeof ts.toMillis === "function") return ts.toMillis();

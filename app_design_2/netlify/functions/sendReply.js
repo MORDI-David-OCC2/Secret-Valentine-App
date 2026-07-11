@@ -44,44 +44,6 @@ function encryptTextForInbox(inboxKeyBuf, text) {
   return { bodyEnc, dekWrapped, cryptoVersion: 1 };
 }
 
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) {
-    const err = new Error("Missing sessionToken");
-    err.code = 401;
-    throw err;
-  }
-
-  const sessionHash = sha256Hex(sessionToken);
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await sessionRef.get();
-
-  if (!snap.exists) {
-    const err = new Error("Invalid session");
-    err.code = 401;
-    throw err;
-  }
-
-  const s = snap.data() || {};
-  const sessionInboxId =
-    (typeof s.inboxId === "string" && s.inboxId) ||
-    (typeof s.inboxId1 === "string" && s.inboxId1) ||
-    null;
-
-  if (sessionInboxId && sessionInboxId !== inboxId) {
-    const err = new Error(`Session does not match inbox: ${sessionInboxId} =/= ${inboxId}`);
-    err.code = 401;
-    throw err;
-  }
-
-  if (s.expiresAt && typeof s.expiresAt.toMillis === "function" && s.expiresAt.toMillis() < Date.now()) {
-    const err = new Error("Session expired");
-    err.code = 401;
-    throw err;
-  }
-
-  return true;
-}
-
 function buildBaseUrl(event) {
   const env = process.env.URL_DE_BASE;
   if (env) return String(env).replace(/\/+$/, "");

@@ -48,7 +48,6 @@ exports.handler = async (event) => {
     }
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
     const db = getDb();
     const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
     const { allowed } = await rateLimit(db, { action: "importLinkToInbox", key: getClientIp(event), limit: 20, windowSec: 60 });

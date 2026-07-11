@@ -98,7 +98,6 @@ exports.handler = async (event) => {
       return jsonResponse(405, { ok: false, error: "Use POST" });
     }
 
-    initAdmin();
     const db = getDb();
 
     const ip = getClientIp(event);

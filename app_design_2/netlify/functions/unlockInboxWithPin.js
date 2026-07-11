@@ -12,7 +12,6 @@ exports.handler = async (event) => {
     if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: jsonResponse(204, {}).headers, body: "" };
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
     const db = getDb();
 
     const payload = parseBody(event);

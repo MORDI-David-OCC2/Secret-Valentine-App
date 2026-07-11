@@ -95,7 +95,6 @@ exports.handler = async (event) => {
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
     const db = getDb();
 
     const payload = parseBody(event);

@@ -8,7 +8,6 @@ exports.handler = async (event) => {
     if (event.httpMethod === "OPTIONS") return jsonResponse(204, {});
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
     const db = getDb();
     const { inboxId, sessionToken, subscription } = JSON.parse(event.body || "{}");
 

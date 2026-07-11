@@ -53,7 +53,6 @@ exports.handler = async (event) => {
       return jsonResponse(405, { ok: false, error: "Use POST" });
     }
 
-    initAdmin();
     const db = getDb();
     const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
     const { allowed } = await rateLimit(db, { action: "requestPinReset", key: getClientIp(event), limit: 3, windowSec: 300 });

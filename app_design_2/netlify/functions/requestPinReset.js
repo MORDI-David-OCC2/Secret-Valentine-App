@@ -5,13 +5,6 @@ const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require("./rateLimit");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }

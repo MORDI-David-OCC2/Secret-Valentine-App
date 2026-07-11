@@ -10,12 +10,6 @@ const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revok
 const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
 
 
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
 // ✅ You must have 6 digits
 
 

@@ -6,12 +6,7 @@ const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
+const { getClientIp } = require("./utils/auth");
 
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");

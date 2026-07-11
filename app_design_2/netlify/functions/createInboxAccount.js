@@ -6,16 +6,10 @@ const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = re
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { optionsResponse } = require("./utils/response");
 const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
-
+const { getClientIp } = require("./utils/auth");
 
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
 function normalizeEmail(email) {
@@ -81,7 +75,7 @@ exports.handler = async (event) => {
     const emailIndexRef = db.collection("emailIndex").doc(emailHash);
     const emailIndexSnap = await emailIndexRef.get();
     if (emailIndexSnap.exists) return jsonResponse(409, { ok: false, error: "Email already has an inbox" });
-    
+
     const passSalt = crypto.randomBytes(16).toString("hex");
     const passIter = 150000;
     const passHash = pbkdf2Hash(password, passSalt, passIter);

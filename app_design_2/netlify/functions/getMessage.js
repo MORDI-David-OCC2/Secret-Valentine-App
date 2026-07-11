@@ -6,14 +6,6 @@ const { open } = require("./wrap");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
-
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"];
-  if (xf) return xf.split(",")[0].trim();
-  return event.headers["client-ip"] || "unknown";
-}
-
 function sessionKey(sessionToken) {
   return crypto.createHash("sha256").update(String(sessionToken || "")).digest(); // 32 bytes
 }

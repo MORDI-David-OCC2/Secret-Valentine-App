@@ -7,13 +7,6 @@ const { seal, open } = require("./wrap");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
-
 async function requireValidSession(db, inboxId, sessionToken) {
   if (!sessionToken) return false;
   const sessionHash = sha256Hex(sessionToken);

@@ -19,12 +19,6 @@ function normalizeThreadId(messageId, msg) {
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
 async function getInboxKeyFromSession(db, inboxId, sessionToken) {
   if (!sessionToken) return null;
   const sessionHash = sha256Hex(sessionToken);

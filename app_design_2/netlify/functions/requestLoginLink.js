@@ -11,10 +11,6 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-
 function buildBaseUrl(event) {
   const env = process.env.URL_DE_BASE;
   if (env) return String(env).replace(/\/+$/, "");

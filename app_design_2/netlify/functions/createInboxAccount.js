@@ -6,11 +6,7 @@ const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = re
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { optionsResponse } = require("./utils/response");
 const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
-const { getClientIp } = require("./utils/auth");
-
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
+const { getClientIp, randomTokenBase64Url } = require("./utils/auth");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();

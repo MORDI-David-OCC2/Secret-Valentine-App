@@ -8,10 +8,6 @@ const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revok
 const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
 const { getClientIp } = require("./utils/auth");
 
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: jsonResponse(204, {}).headers, body: "" };

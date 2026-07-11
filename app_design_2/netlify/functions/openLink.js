@@ -3,12 +3,8 @@ const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
-const { sha256Hex } = require("./utils/auth");
+const { sha256Hex, randomTokenBase64Url } = require("./utils/auth");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
-
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
 
 function isValidEmail(e) {
   return typeof e === "string" && e.includes("@") && e.includes(".");

@@ -9,10 +9,6 @@ const { jsonResponse, optionsResponse, parseBody } = require("./utils/response")
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
 
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-
 async function resolveInboxIdFromToken(db, token) {
   const tokenHash = sha256Hex(token);
   const tokenRef = db.collection("tokens").doc(tokenHash);

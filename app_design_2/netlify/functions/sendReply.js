@@ -16,9 +16,6 @@ function normalizeThreadId(messageId, msg) {
   const m = /^imp_inbox_[^_]+_(.+)$/.exec(String(messageId || ""));
   return m ? m[1] : messageId;
 }
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
 async function getInboxKeyFromSession(db, inboxId, sessionToken) {
   if (!sessionToken) return null;
   const sessionHash = sha256Hex(sessionToken);

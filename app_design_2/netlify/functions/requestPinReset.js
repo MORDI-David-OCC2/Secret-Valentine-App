@@ -9,10 +9,6 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-
 function buildBaseUrl() {
   const base = process.env.URL_DE_BASE;
   if (!base) throw new Error("URL_DE_BASE env var is required for password reset emails");

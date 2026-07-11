@@ -20,6 +20,10 @@ exports.handler = async (event) => {
     const sessionHash = sha256Hex(sessionToken);
     const sessSnap = await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).get();
     if (!sessSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid session" });
+    const sessData = sessSnap.data() || {};
+    if (sessData.expiresAt?.toDate && sessData.expiresAt.toDate() < new Date()) {
+      return jsonResponse(401, { ok: false, error: "Session expired" });
+}
 
     // Store by endpoint hash (so it's unique)
     const subId = sha256Hex(subscription.endpoint);

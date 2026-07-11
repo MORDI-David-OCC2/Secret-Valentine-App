@@ -8,7 +8,6 @@ const { moderateText } = require("./moderation");
 const { seal } = require("./wrap");
 const { ensureInboxCrypto, getInboxKeyViaRecovery } = require("./cryptageInbox");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
-const { getClientIp } = require("./utils/auth");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();

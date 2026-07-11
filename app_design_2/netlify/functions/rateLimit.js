@@ -1,10 +1,7 @@
 const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
-// Create a stable hash for long keys (Firestore doc IDs have limits)
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
 
 /**
  * Rate limit helper.

@@ -4,17 +4,9 @@ const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX } = require('./utils/pinPolicy');
 const { PIN_LABEL } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
 
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
-function pbkdf2Hash(password, saltHex, iterations = 150000) {
-  const salt = Buffer.from(saltHex, "hex");
-  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
-  return dk.toString("hex");
-}
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();

@@ -5,6 +5,7 @@ const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require('./rateLimit');
 const { seal, open } = require("./wrap");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
 function getClientIp(event) {
   const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
@@ -12,9 +13,6 @@ function getClientIp(event) {
   return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
 
 async function requireValidSession(db, inboxId, sessionToken) {
   if (!sessionToken) return false;

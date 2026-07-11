@@ -5,10 +5,8 @@ const { open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys"); // ✅ IMPORTANT: use same derivation as cryptageInbox.js
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
 
 async function isValidSession(db, inboxId, sessionToken) {
   if (!sessionToken) return false;

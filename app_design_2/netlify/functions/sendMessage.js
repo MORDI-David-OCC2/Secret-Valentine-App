@@ -7,13 +7,10 @@ const { rateLimit } = require("./rateLimit");
 const { moderateText } = require("./moderation");
 const { seal } = require("./wrap");
 const { ensureInboxCrypto, getInboxKeyViaRecovery } = require("./cryptageInbox");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
 
 function randomTokenBase64Url(bytes = 32) {
@@ -335,28 +332,16 @@ async function createStandaloneInbox(db) {
 async function getOrCreateInboxIdForEmail(db, email) {
   const emailHash = sha256Hex(email);
   const emailIndexRef = db.collection("emailIndex").doc(emailHash);
-  const emailIndexSnap = await emailIndexRef.get();
-
-  if (emailIndexSnap.exists) return emailIndexSnap.data().inboxId;
-
-  const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
-  const inboxRef = db.collection("inboxes").doc(inboxId);
-
-  const batch = db.batch();
-  batch.set(inboxRef, {
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    pinHash: null,
-    pinSalt: null,
-    pinIter: null,
-    pinSetAt: null,
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(emailIndexRef);
+    if (snap.exists) return snap.data().inboxId;
+    const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
+    tx.set(db.collection("inboxes").doc(inboxId), {
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    tx.set(emailIndexRef, { inboxId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    return inboxId;
   });
-  batch.set(emailIndexRef, {
-    inboxId,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  await batch.commit();
-  return inboxId;
 }
 
 function encryptTextForInbox(inboxKeyBuf, text) {
@@ -593,16 +578,9 @@ exports.handler = async (event) => {
     // share mode: no send, just return link
 
     return jsonResponse(200, {
-      ok: true,
-      inboxId,
-      messageId: msgRef.id,
-      deliveryMode,
-      link, // ✅ IMPORTANT: returned for share + instagram tracking
-      emailed,
-      relayedToAdmin,
-      push,
-      quarantined,
-      moderationStatus: mod?.status ?? "allow",
+      ok: true, inboxId, messageId: msgRef.id, deliveryMode,
+      ...(deliveryMode !== "email" ? { link } : {}), // only share/instagram get the link
+      emailed, push, quarantined, moderationStatus: mod?.status ?? "allow",
     });
   } catch (err) {
     console.error(err);

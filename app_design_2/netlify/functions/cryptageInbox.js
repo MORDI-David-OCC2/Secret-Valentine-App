@@ -2,10 +2,8 @@
 const crypto = require("crypto");
 const { seal, open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
 
 /**
  * Ensure the inbox has an encryption key wrapped by the recovery key.

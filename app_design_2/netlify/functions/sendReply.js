@@ -7,6 +7,7 @@ const { sessionKey, recoveryKey } = require("./keys");
 const { moderateText } = require("./moderation");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
 function normalizeThreadId(messageId, msg) {
   if (msg && typeof msg.originalMessageId === "string" && msg.originalMessageId.trim()) {
@@ -14,10 +15,6 @@ function normalizeThreadId(messageId, msg) {
   }
   const m = /^imp_inbox_[^_]+_(.+)$/.exec(String(messageId || ""));
   return m ? m[1] : messageId;
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");

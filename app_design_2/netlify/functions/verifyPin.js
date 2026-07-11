@@ -6,28 +6,13 @@ const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = re
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
 
 function getClientIp(event) {
   const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
   if (xf) return String(xf).split(",")[0].trim();
   return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
-function pbkdf2Hash(password, saltHex, iterations = 150000) {
-  const salt = Buffer.from(String(saltHex || ""), "hex");
-  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
-  return dk.toString("hex");
-}
-
-function timingSafeEqualHex(a, b) {
-  const ba = Buffer.from(String(a || ""), "hex");
-  const bb = Buffer.from(String(b || ""), "hex");
-  if (ba.length !== bb.length) return false;
-  return crypto.timingSafeEqual(ba, bb);
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
 
 function randomTokenBase64Url(bytes = 32) {

@@ -5,10 +5,8 @@ const { rateLimit } = require("./rateLimit");
 const { open } = require("./wrap");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
 
 function getClientIp(event) {
   const xf = event.headers["x-forwarded-for"];

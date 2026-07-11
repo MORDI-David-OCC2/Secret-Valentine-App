@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require("./rateLimit");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
 function getClientIp(event) {
   const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
@@ -15,19 +16,14 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
 function randomTokenBase64Url(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
 
-function buildBaseUrl(event) {
-  const env = process.env.URL_DE_BASE;
-  if (env) return String(env).replace(/\/+$/, "");
-  const baseUrl = process.env.URL_DE_BASE;
-  if (!baseUrl) throw new Error('URL_DE_BASE env var is not set');
+function buildBaseUrl() {
+  const base = process.env.URL_DE_BASE;
+  if (!base) throw new Error("URL_DE_BASE env var is required for password reset emails");
+  return String(base).replace(/\/+$/, "");
 }
 
 async function sendWithResend({ to, subject, html }) {
@@ -100,7 +96,7 @@ exports.handler = async (event) => {
       purpose: "pin_reset",
     });
 
-    const baseUrl = buildBaseUrl(event);
+    const baseUrl = buildBaseUrl();
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
     await sendWithResend({

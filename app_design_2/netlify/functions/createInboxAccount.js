@@ -2,9 +2,10 @@
 const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");4
+const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { optionsResponse } = require("./utils/response");
+const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
 
 
 function randomTokenBase64Url(bytes = 32) {
@@ -80,13 +81,26 @@ exports.handler = async (event) => {
     const emailIndexRef = db.collection("emailIndex").doc(emailHash);
     const emailIndexSnap = await emailIndexRef.get();
     if (emailIndexSnap.exists) return jsonResponse(409, { ok: false, error: "Email already has an inbox" });
-
-    const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
-    const inboxRef = db.collection("inboxes").doc(inboxId);
-
+    
     const passSalt = crypto.randomBytes(16).toString("hex");
     const passIter = 150000;
     const passHash = pbkdf2Hash(password, passSalt, passIter);
+
+    const inboxId = await db.runTransaction(async (tx) => {
+      const emailIndexSnap = await tx.get(emailIndexRef);
+      if (emailIndexSnap.exists) return null;
+      const newId = "inbox_" + crypto.randomBytes(9).toString("hex");
+      tx.set(db.collection("inboxes").doc(newId), {
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        primaryEmail: email, passHash, passSalt, passIter,
+        passSetAt: admin.firestore.FieldValue.serverTimestamp(),
+        standalone: false,
+      });
+      tx.set(emailIndexRef, { inboxId: newId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+      return newId;
+    });
+    if (!inboxId) return jsonResponse(409, { ok: false, error: "Email already has an inbox" });
+    const inboxRef = db.collection("inboxes").doc(inboxId);
 
     const batch = db.batch();
     batch.set(inboxRef, {
@@ -137,6 +151,10 @@ exports.handler = async (event) => {
 async function importLinkToInbox(db, { token, destInboxId, destSessionToken }) {
   const importFn = require("./importLinkToInbox"); // reuse existing function
   // simulate a POST payload as if it came from event.body
-  const fakeEvent = { httpMethod: "POST", body: JSON.stringify({ token, destInboxId, destSessionToken }) };
+  const fakeEvent = {
+    httpMethod: "POST",
+    body: JSON.stringify({ token, destInboxId, destSessionToken }),
+    headers: {}, 
+  };
   return importFn.handler(fakeEvent);
 }

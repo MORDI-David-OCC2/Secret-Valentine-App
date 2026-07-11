@@ -4,11 +4,8 @@ const crypto = require("crypto");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require("./rateLimit");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();

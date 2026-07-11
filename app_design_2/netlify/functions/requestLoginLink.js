@@ -5,13 +5,10 @@ const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require("./rateLimit");
 const { getClientIp } = require("./utils/auth");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
 }
 
 function randomTokenBase64Url(bytes = 32) {
@@ -64,6 +61,11 @@ exports.handler = async (event) => {
 
     initAdmin();
     const db = getDb();
+    const ip = getClientIp(event);
+    const { allowed } = await rateLimit(db, {
+      action: "requestLoginLink", key: ip, limit: 5, windowSec: 300,
+    });
+    if (!allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
 
     const payload = parseBody(event);
     if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
@@ -74,13 +76,13 @@ exports.handler = async (event) => {
     }
 
     const inboxId = await getInboxIdByEmail(db, email);
-    if (!inboxId) return jsonResponse(404, { ok: false, error: "No inbox for this email" });
+    if (!inboxId) return jsonResponse(200, { ok: true, action: "LINK_SENT" });
 
     const inboxRef = db.collection("inboxes").doc(inboxId);
     const inboxSnap = await inboxRef.get();
     if (!inboxSnap.exists) {
       // This is exactly the "inbox id not found" symptom: index is stale.
-      return jsonResponse(404, { ok: false, error: "Inbox id not found (stale email index)" });
+      return jsonResponse(200, { ok: true, action: "LINK_SENT" });
     }
 
     const inbox = inboxSnap.data() || {};

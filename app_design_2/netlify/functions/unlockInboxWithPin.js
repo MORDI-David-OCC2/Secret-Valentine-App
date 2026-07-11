@@ -6,7 +6,6 @@ const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
-const { getClientIp } = require("./utils/auth");
 
 exports.handler = async (event) => {
   try {

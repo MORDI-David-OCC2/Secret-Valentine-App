@@ -3,7 +3,6 @@ const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require("./rateLimit");
-const { getClientIp } = require("./utils/auth");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 

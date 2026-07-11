@@ -1,13 +1,14 @@
 // src/components/LetterDetailView.tsx
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { useSession } from "../contexts/SessionContext";
 import { getMessage, MessageDetail, MessageReply } from "../services/api";
 import svgPaths from "../imports/svg-01d0jglvrw";
 import type { Letter } from "../App";
 import ReplyToLetterView from "./ReplyToLetterView";
 import FlowerIcon from "./Fleurs";
+import type { ApiError } from "../services/api";
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -107,7 +108,8 @@ export default function LetterDetailView({
         }
       } catch (error: any) {
         const msg = String(error?.message || "");
-        if (msg.includes("401")) toast.error(language === "en" ? "Session expired" : "Session expirée");
+        const apiError = error as ApiError;
+        if (apiError.statusCode === 401) toast.error(language === "en" ? "Session expired" : "Session expirée");
         else if (msg.includes("404")) toast.error(language === "en" ? "Message not found" : "Message introuvable");
         else toast.error(language === "en" ? "Failed to load message" : "Échec du chargement");
         onClose();

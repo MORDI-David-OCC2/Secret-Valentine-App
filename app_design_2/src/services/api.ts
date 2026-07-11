@@ -12,6 +12,11 @@ async function postJSON<T>(fnName: string, body: any): Promise<T> {
     body: JSON.stringify(body),
   });
 
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, data.error || res.statusText);
+  }
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
   return data as T;
@@ -257,4 +262,11 @@ export async function updateInboxPin(input: {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(String(data?.error || res.status));
   return data as { ok: true; pinRequired: boolean };
+}
+
+export class ApiError extends Error {
+  constructor(public statusCode: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+  }
 }

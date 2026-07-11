@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import svgPaths from "../imports/svg-kcw2rymt7y";
 import { sendMessage } from "../services/api";
 import FlowerIcon from "./Fleurs";
 import AppFrame from "./ui/AppFrame";
+import type { ApiError } from "../services/api";
 
 function EnvelopeIcon() {
   return (
@@ -239,7 +240,7 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
         toEmail: deliveryMode === "email" ? toEmail.trim().toLowerCase() : undefined,
 
         // sender identity
-        fromName: isAnonymous ? "Secret Admirer" : (from || "Anonymous"),
+        fromName: isAnonymous ? "Anonymous" : (from.trim() || "Someone"),
         replyAllowed,
         fromEmail: replyAllowed ? fromEmail.trim().toLowerCase() : undefined,
 
@@ -279,7 +280,8 @@ export default function ComposePage({ onBack, language, onNavigate }: ComposePag
       setTimeout(() => onBack(), 1200);
     } catch (error: any) {
       const msg = String(error?.message || "");
-      if (msg.includes("429")) {
+      const apiError= error as ApiError;
+      if (apiError.statusCode === 429) {
         toast.error(language === "en" ? "Too many messages. Please wait a moment." : "Trop de messages. Attendez un moment.");
       } else if (msg.includes("block")) {
         toast.error(language === "en" ? "Message blocked by moderation" : "Message bloqué par la modération");

@@ -169,7 +169,7 @@ export default function ClaimInboxPage({
     // LOGIN MODE: prefer Passwordif inbox has one
     setIsSubmitting(true);
     try {
-      const res = await requestLoginLink(email.trim().toLowerCase(), { preferPin: true });
+      const res = await requestLoginLink(email.trim().toLowerCase());
 
       if (res.action === "PIN_REQUIRED") {
         setLocalInboxId(res.inboxId);

@@ -1,19 +1,6 @@
 const { getDb, admin } = require("./utils/admin");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") return jsonResponse(204, {});

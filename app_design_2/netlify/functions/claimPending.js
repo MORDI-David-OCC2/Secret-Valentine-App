@@ -2,6 +2,7 @@ const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 
 // ---------- helpers ----------
 function corsHeaders() {
@@ -10,14 +11,6 @@ function corsHeaders() {
      "access-control-allow-origin": CORS_ORIGIN,
     "access-control-allow-methods": "POST, OPTIONS",
     "access-control-allow-headers": "content-type",
-  };
-}
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: corsHeaders(),
-    body: JSON.stringify(body),
   };
 }
 
@@ -121,7 +114,7 @@ exports.handler = async (event) => {
   try {
     // CORS preflight
     if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: corsHeaders(), body: "" };
+      return optionsResponse();
     }
     if (event.httpMethod !== "POST") {
       return jsonResponse(405, { ok: false, error: "Use POST" });
@@ -149,12 +142,8 @@ exports.handler = async (event) => {
     }
 
     // Parse body
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const email = normalizeEmail(payload.email);
     if (!email || !email.includes("@")) {

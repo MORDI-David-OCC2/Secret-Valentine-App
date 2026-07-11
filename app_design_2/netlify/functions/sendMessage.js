@@ -2,24 +2,11 @@ const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const webpush = require("web-push");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
-
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { rateLimit } = require("./rateLimit");
 const { moderateText } = require("./moderation");
 const { seal } = require("./wrap");
 const { ensureInboxCrypto, getInboxKeyViaRecovery } = require("./cryptageInbox");
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -384,15 +371,7 @@ function encryptTextForInbox(inboxKeyBuf, text) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });

@@ -6,19 +6,7 @@ const { seal, open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys");
 const { moderateText } = require("./moderation");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 
 function normalizeThreadId(messageId, msg) {
   if (msg && typeof msg.originalMessageId === "string" && msg.originalMessageId.trim()) {
@@ -342,15 +330,7 @@ function replyEmailHtml({ link, baseUrl }) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });

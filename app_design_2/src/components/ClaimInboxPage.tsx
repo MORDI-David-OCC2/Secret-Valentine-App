@@ -1,7 +1,7 @@
 // src/components/ClaimInboxPage.tsx
 import { useState } from "react";
 import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import AppFrame from "./ui/AppFrame";
 import {
   requestLoginLink,
@@ -196,7 +196,7 @@ export default function ClaimInboxPage({
       toast.error(language === "fr" ? "Inbox introuvable. Réessaie." : "Inbox not found. Try again.");
       return;
     }
-    if (!/^\d{6}$/.test(pin)) {
+    if (!/^[A-Za-z0-9]{6}$/.test(pin)) {
       toast.error(language === "fr" ? "Le Passworddoit faire 6 caractères" : "Passwordmust be 6 characters");
       return;
     }

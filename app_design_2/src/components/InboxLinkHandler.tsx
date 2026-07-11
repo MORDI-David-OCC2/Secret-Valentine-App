@@ -1,7 +1,7 @@
 // src/components/InboxLinkHandler.tsx
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { useInboxLink } from "../hooks/useInboxLink";
 import { useSession } from "../contexts/SessionContext";
 import { importLinkToInbox } from "../services/api";

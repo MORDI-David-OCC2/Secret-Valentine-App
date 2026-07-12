@@ -15,11 +15,6 @@ function buildBaseUrl() {
   return String(base).replace(/\/+$/, "");
 }
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
-  return data;
-}
-
 async function getInboxIdByEmail(db, email) {
   const emailHash = sha256Hex(email);
   const snap = await db.collection("emailIndex").doc(emailHash).get();
@@ -38,7 +33,6 @@ exports.handler = async (event) => {
     }
 
     const db = getDb();
-    const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
     const { allowed } = await rateLimit(db, { action: "requestPinReset", key: getClientIp(event), limit: 3, windowSec: 300 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
     const payload = parseBody(event);

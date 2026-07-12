@@ -18,11 +18,6 @@ function buildBaseUrl(event) {
   return `${proto}://${host}`.replace(/\/+$/, "");
 }
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
-  return data;
-}
-
 async function getInboxIdByEmail(db, email) {
   const emailHash = sha256Hex(email);
   const snap = await db.collection("emailIndex").doc(emailHash).get();

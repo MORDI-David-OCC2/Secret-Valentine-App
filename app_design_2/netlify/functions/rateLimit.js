@@ -1,10 +1,6 @@
-const admin = require("firebase-admin");
-const crypto = require("crypto");
+const { admin } = require("./utils/admin");
+const { sha256Hex } = require("./utils/auth");
 
-// Create a stable hash for long keys (Firestore doc IDs have limits)
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
 
 /**
  * Rate limit helper.

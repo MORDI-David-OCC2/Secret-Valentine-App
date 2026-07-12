@@ -1,40 +1,8 @@
 // netlify/functions/openLink.js
-const admin = require("firebase-admin");
-const crypto = require("crypto");
+const { getDb, admin } = require("./utils/admin");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-
-function isValidEmail(e) {
-  return typeof e === "string" && e.includes("@") && e.includes(".");
-}
+const { sha256Hex, randomTokenBase64Url } = require("./utils/auth");
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 
 async function createSession(inboxRef, inboxId, { days, purpose }) {
   const sessionToken = randomTokenBase64Url(32);
@@ -63,25 +31,17 @@ async function attachInboxKeyToSession(db, inboxId, sessionToken) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
 
     if (event.httpMethod !== "POST") {
       return jsonResponse(405, { ok: false, error: "Use POST" });
     }
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
-    const payload = JSON.parse(event.body || "{}");
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
     const token = String(payload.token || "").trim();
     if (!token) return jsonResponse(400, { ok: false, error: "Missing token" });
 
@@ -112,6 +72,34 @@ exports.handler = async (event) => {
 
     const inbox = inboxSnap.data() || {};
     const pinRequired = !!(inbox.passHash && inbox.passSalt && inbox.passIter);
+
+    if (purpose === "claim_email") {
+      const emailToClaim = String(tokenData.email || "").trim().toLowerCase();
+      if (emailToClaim && emailToClaim.includes("@")) {
+        const emailHash = sha256Hex(emailToClaim);
+        const emailIndexRef = db.collection("emailIndex").doc(emailHash);
+        await db.runTransaction(async (tx) => {
+          const existing = await tx.get(emailIndexRef);
+          if (!existing.exists) {
+            tx.set(emailIndexRef, {
+              inboxId,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          }
+          tx.set(
+            inboxRef,
+            { linkedEmailHash: emailHash, linkedEmailAt: admin.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+        });
+      }
+      await tokenRef.delete();
+      return jsonResponse(200, {
+        ok: true, inboxId, emailClaimed: true,
+        pinRequired, pinMustBeCreated: false, sessionToken: null, isPinReset: false,
+      });
+    }
+    
     const pinMustBeCreated = !pinRequired || isPinReset;
     let sessionToken = null;
 

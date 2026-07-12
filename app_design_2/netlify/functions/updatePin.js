@@ -1,105 +1,28 @@
 // netlify/functions/updatePin.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { getClientIp, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto")
 // ✅ You must have 6 digits
-
-
-function hashPin(password, saltBuf, iter) {
-  // pbkdf2 -> sha256
-  return crypto.pbkdf2Sync(password, saltBuf, iter, 32, "sha256"); // 32 bytes
-}
-
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) {
-    const err = new Error("Missing sessionToken");
-    err.code = 401;
-    throw err;
-  }
-  const sessionSnap = await db
-    .collection("inboxes")
-    .doc(inboxId)
-    .collection("sessions")
-    .doc(sha256Hex(sessionToken))
-    .get();
-
-  if (!sessionSnap.exists) {
-    const err = new Error("Invalid session");
-    err.code = 401;
-    throw err;
-  }
-
-  const s = sessionSnap.data() || {};
-  if (s.expiresAt?.toMillis && s.expiresAt.toMillis() < Date.now()) {
-    const err = new Error("Session expired");
-    err.code = 401;
-    throw err;
-  }
-
-  return true;
-}
 
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const { allowed } = await rateLimit(db, { action: "updatePin", key: ip, limit: 30, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const inboxId = String(payload.inboxId || "").trim();
     const sessionToken = String(payload.sessionToken || "").trim();
@@ -111,7 +34,8 @@ exports.handler = async (event) => {
     if (!["create", "change", "remove"].includes(action))
       return jsonResponse(400, { ok: false, error: "Invalid action" });
 
-    await requireValidSession(db, inboxId, sessionToken);
+    const sessionOk = await requireValidSession(db, inboxId, sessionToken);
+    if (!sessionOk) return jsonResponse(401, { ok: false, error: "Unauthorized"});
 
     const inboxRef = db.collection("inboxes").doc(inboxId);
 
@@ -127,22 +51,15 @@ exports.handler = async (event) => {
       if (!PIN_REGEX.test(currentPin)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
       const saltHex = String(d.passSalt || "");
-const hashHex = String(d.passHash || "");
-const iter = Number(d.passIter) || 0;
+    const hashHex = String(d.passHash || "");
+    const iter = Number(d.passIter) || 0;
 
 if (!/^[0-9a-f]{20,32}$/i.test(saltHex) || !/^[0-9a-f]{64}$/i.test(hashHex) || iter <= 0) {
   return jsonResponse(500, { ok: false, error: "Password data corrupted" });
 }
 
-const saltBuf = Buffer.from(saltHex, "hex");      // 16 bytes
-const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
-
-      if (!saltBuf.length || iter <= 0 || storedHash.length !== 32) {
-        return jsonResponse(500, { ok: false, error: "Password data corrupted" });
-      }
-
-      const testHash = hashPin(currentPin, saltBuf, iter);
-      const ok = crypto.timingSafeEqual(storedHash, testHash);
+const computed = pbkdf2Hash(currentPin, saltHex, iter);
+      const ok = timingSafeEqualHex(computed, hashHex);
       if (!ok) return jsonResponse(403, { ok: false, error: "Wrong password" });
     } else if (action === "change" || action === "remove") {
       // change/remove requested but no Password in DB
@@ -159,26 +76,22 @@ const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
         },
         { merge: true }
       );
+      await revokeAllSessions(db, inboxId);
       return jsonResponse(200, { ok: true, pinRequired: false });
     }
 
     // create/change: validate new password
     if (!PIN_REGEX.test(newPin)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
-    const salt = crypto.randomBytes(16);
-    const iter = 150000;
-    const h = hashPin(newPin, salt, iter);
-
-    await inboxRef.set(
-      {
-        passHash: h.toString("hex"),
-        passSalt: salt.toString("hex"),
-        passIter: iter,
+    const newSaltHex = crypto.randomBytes(16).toString("hex");
+    const newIter = 150_000;
+    const newHash = pbkdf2Hash(newPin, newSaltHex, newIter);
+    await inboxRef.set({ passHash: newHash, passSalt: newSaltHex, passIter: newIter,
         passUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
-
+    await revokeAllSessions(db, inboxId);
     return jsonResponse(200, { ok: true, pinRequired: true });
   } catch (err) {
     console.error(err);

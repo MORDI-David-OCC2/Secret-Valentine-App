@@ -1,24 +1,14 @@
 // netlify/functions/sendReply.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { seal, open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys");
 const { moderateText } = require("./moderation");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession } = require("./utils/auth");
+const { getInboxKeyFromSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
+const { sendWithResend } = require("./utils/email");
 
 function normalizeThreadId(messageId, msg) {
   if (msg && typeof msg.originalMessageId === "string" && msg.originalMessageId.trim()) {
@@ -28,89 +18,11 @@ function normalizeThreadId(messageId, msg) {
   return m ? m[1] : messageId;
 }
 
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
-async function getInboxKeyFromSession(db, inboxId, sessionToken) {
-  if (!sessionToken) return null;
-  const sessionHash = sha256Hex(sessionToken);
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await sessionRef.get();
-  if (!snap.exists) return null;
-  const s = snap.data() || {};
-  if (!s.inboxKeyEnc) return null;
-  const sk = sessionKey(sessionToken);
-  return open(sk, s.inboxKeyEnc);
-}
-
-async function getInboxKeyViaRecovery(db, inboxId) {
-  const inboxRef = db.collection("inboxes").doc(inboxId);
-  const snap = await inboxRef.get();
-  if (!snap.exists) throw new Error("Inbox not found");
-  const d = snap.data() || {};
-  if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
-  return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
-}
-
 function encryptTextForInbox(inboxKeyBuf, text) {
   const dek = crypto.randomBytes(32);
   const bodyEnc = seal(dek, Buffer.from(String(text), "utf8"));
   const dekWrapped = seal(inboxKeyBuf, dek);
   return { bodyEnc, dekWrapped, cryptoVersion: 1 };
-}
-
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) {
-    const err = new Error("Missing sessionToken");
-    err.code = 401;
-    throw err;
-  }
-
-  const sessionHash = sha256Hex(sessionToken);
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await sessionRef.get();
-
-  if (!snap.exists) {
-    const err = new Error("Invalid session");
-    err.code = 401;
-    throw err;
-  }
-
-  const s = snap.data() || {};
-  const sessionInboxId =
-    (typeof s.inboxId === "string" && s.inboxId) ||
-    (typeof s.inboxId1 === "string" && s.inboxId1) ||
-    null;
-
-  if (sessionInboxId && sessionInboxId !== inboxId) {
-    const err = new Error(`Session does not match inbox: ${sessionInboxId} =/= ${inboxId}`);
-    err.code = 401;
-    throw err;
-  }
-
-  if (s.expiresAt && typeof s.expiresAt.toMillis === "function" && s.expiresAt.toMillis() < Date.now()) {
-    const err = new Error("Session expired");
-    err.code = 401;
-    throw err;
-  }
-
-  return true;
 }
 
 function buildBaseUrl(event) {
@@ -120,27 +32,6 @@ function buildBaseUrl(event) {
   let host = event.headers["x-forwarded-host"] || event.headers.host || "";
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
   return `${proto}://${host}`.replace(/\/+$/, "");
-}
-
-async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY_2;
-  const from = process.env.EMAIL_VALENTINE_2;
-
-  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
-  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
-  return data;
 }
 
 function escapeHtml(str) {
@@ -349,32 +240,19 @@ function replyEmailHtml({ link, baseUrl }) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const { allowed } = await rateLimit(db, { action: "sendReply", key: ip, limit: 20, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many replies. Try again later." });
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const inboxId = String(payload.inboxId || "").trim();
     const messageId = String(payload.messageId || "").trim();

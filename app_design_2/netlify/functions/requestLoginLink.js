@@ -1,38 +1,12 @@
 // netlify/functions/requestLoginLink.js
-const admin = require("firebase-admin");
-const crypto = require("crypto");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
+const { getDb, admin } = require("./utils/admin");
+const { rateLimit } = require("./rateLimit");
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url } = require("./utils/auth");
+const { sendWithResend } = require("./utils/email");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
 }
 
 function buildBaseUrl(event) {
@@ -42,27 +16,6 @@ function buildBaseUrl(event) {
   let host = event.headers["x-forwarded-host"] || event.headers.host || "";
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
   return `${proto}://${host}`.replace(/\/+$/, "");
-}
-
-async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY;
-  const from = process.env.EMAIL_VALENTINE;
-
-  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
-  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
-  return data;
 }
 
 async function getInboxIdByEmail(db, email) {
@@ -75,27 +28,19 @@ async function getInboxIdByEmail(db, email) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
+    const ip = getClientIp(event);
+    const { allowed } = await rateLimit(db, {
+      action: "requestLoginLink", key: ip, limit: 5, windowSec: 300,
+    });
+    if (!allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const email = normalizeEmail(payload.email);
     if (!email || !email.includes("@") || !email.includes(".")) {
@@ -103,13 +48,13 @@ exports.handler = async (event) => {
     }
 
     const inboxId = await getInboxIdByEmail(db, email);
-    if (!inboxId) return jsonResponse(404, { ok: false, error: "No inbox for this email" });
+    if (!inboxId) return jsonResponse(200, { ok: true, action: "LINK_SENT" });
 
     const inboxRef = db.collection("inboxes").doc(inboxId);
     const inboxSnap = await inboxRef.get();
     if (!inboxSnap.exists) {
       // This is exactly the "inbox id not found" symptom: index is stale.
-      return jsonResponse(404, { ok: false, error: "Inbox id not found (stale email index)" });
+      return jsonResponse(200, { ok: true, action: "LINK_SENT" });
     }
 
     const inbox = inboxSnap.data() || {};

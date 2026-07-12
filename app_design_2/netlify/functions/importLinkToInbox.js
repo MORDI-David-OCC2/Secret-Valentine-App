@@ -1,68 +1,10 @@
 // netlify/functions/importLinkToInbox.js
-const admin = require("firebase-admin");
-const crypto = require("crypto");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { getDb, admin } = require("./utils/admin");
 const { rateLimit } = require('./rateLimit');
 const { seal, open } = require("./wrap");
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) return false;
-  const sessionHash = sha256Hex(sessionToken);
-  const ref = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await ref.get();
-  if (!snap.exists) return false;
-  const d = snap.data() || {};
-  if (!d.expiresAt || !d.expiresAt.toDate) return false;
-  return d.expiresAt.toDate() > new Date();
-}
-
-// --- crypto helpers (same as listInbox) ---
-function recoveryKey() {
-  const b64 = process.env.RECOVERY_KEY_B64;
-  if (!b64) throw new Error("Missing RECOVERY_KEY_B64 env var");
-  const k = Buffer.from(b64, "base64");
-  if (k.length !== 32) throw new Error("RECOVERY_KEY_B64 must be 32 bytes (base64)");
-  return k;
-}
-
-async function getInboxKeyViaRecovery(db, inboxId) {
-  const inboxRef = db.collection("inboxes").doc(inboxId);
-  const snap = await inboxRef.get();
-  if (!snap.exists) throw new Error("Inbox not found");
-  const d = snap.data() || {};
-  if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
-  return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
-}
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, requireValidSession } = require("./utils/auth");
+const { getInboxKeyViaRecovery } = require("./cryptageInbox");
 
 function decryptBodyMaybe(inboxKeyBuf, doc) {
   if (doc?.bodyEnc && doc?.dekWrapped) {
@@ -83,30 +25,15 @@ function decryptPreviewMaybe(inboxKeyBuf, doc) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
-    const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
+    const db = getDb();
     const { allowed } = await rateLimit(db, { action: "importLinkToInbox", key: getClientIp(event), limit: 20, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
-    let payload = {};
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
-
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
     const token = String(payload.token || "").trim();
     const destInboxId = String(payload.destInboxId || "").trim();
     const destSessionToken = String(payload.destSessionToken || "").trim();
@@ -122,10 +49,14 @@ exports.handler = async (event) => {
     const tokenRef = db.collection("tokens").doc(tokenHash);
     const tokenSnap = await tokenRef.get();
     if (!tokenSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
-
+    
     const tokenData = tokenSnap.data() || {};
+    const tokenExpiresAt = tokenData.expiresAt;
+    if (!tokenExpiresAt || tokenExpiresAt.toDate() < new Date()) {
+      return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
+    }
     if (tokenData.purpose !== 'import_link') {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Invalid token purpose' }) };
+      return jsonResponse(403, { ok: false, error: "Invalid token purpose" });
     }
     const sourceInboxId = String(tokenData.inboxId || "").trim();
     if (!sourceInboxId.startsWith("inbox_")) return jsonResponse(500, { ok: false, error: "Token missing inboxId" });
@@ -174,14 +105,7 @@ exports.handler = async (event) => {
       lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    await tokenRef.set(
-      {
-        importedTo: destInboxId,
-        importedMessageId,
-        importedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+    await tokenRef.delete();
 
     return jsonResponse(200, { ok: true, imported: 1, importedMessageId });
   } catch (err) {

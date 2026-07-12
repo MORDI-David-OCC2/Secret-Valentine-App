@@ -6,6 +6,7 @@ import { useSession } from "../contexts/SessionContext";
 import { toast } from "sonner";
 import svgPaths from "../imports/svg-01d0jglvrw";
 import type { Letter } from "../App";
+import type { ApiError } from "../services/api";
 
 function MdiHeart({ className }: { className?: string }) {
   return (
@@ -133,9 +134,10 @@ export default function ReplyToLetterView({
       onSent?.(reply);
     } catch (error: any) {
       const msg = String(error?.message || "");
+      const apiError= error as ApiError;
       if (msg.includes("403")) toast.error(t.disabled);
-      else if (msg.includes("429")) toast.error(t.tooMany);
-      else if (msg.includes("401")) toast.error(t.expired);
+      else if (apiError.statusCode === 429) toast.error(t.tooMany);
+      else if (apiError.statusCode === 401) toast.error(t.expired);
       else if (msg.toLowerCase().includes("block")) toast.error(t.blocked);
       else toast.error(error?.message || t.failed);
     } finally {

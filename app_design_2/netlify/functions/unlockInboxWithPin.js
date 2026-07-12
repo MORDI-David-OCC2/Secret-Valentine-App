@@ -1,62 +1,21 @@
 // netlify/functions/unlockInboxWithPin.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-function pbkdf2Hash(password, saltHex, iterations) {
-  const salt = Buffer.from(saltHex, "hex");
-  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
-  return dk.toString("hex");
-}
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { pbkdf2Hash } = require("./utils/pinCrypto");
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: jsonResponse(204, {}).headers, body: "" };
+    if (event.httpMethod === "OPTIONS") return optionsResponse();
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const { allowed } = await rateLimit(db, { action: "unlockInboxWithPin", key: getClientIp(event), limit: 10, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many attempts" });

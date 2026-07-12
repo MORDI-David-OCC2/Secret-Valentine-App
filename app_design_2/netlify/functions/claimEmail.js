@@ -1,41 +1,13 @@
 // netlify/functions/claimEmail.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require("./rateLimit");
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp } = require("./utils/auth");
+const { sendWithResend } = require("./utils/email");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
 }
 
 function buildBaseUrl(event) {
@@ -46,57 +18,22 @@ function buildBaseUrl(event) {
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
   return `${proto}://${host}`.replace(/\/+$/, "");
 }
-
-async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY;
-  const from = process.env.EMAIL_VALENTINE;
-
-  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
-  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
-  return data;
-}
-
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const { allowed } = await rateLimit(db, { action: "claimEmail", key: ip, limit: 5, windowSec: 300 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const inboxId = String(payload.inboxId || "").trim();
     const sessionToken = String(payload.sessionToken || "").trim();

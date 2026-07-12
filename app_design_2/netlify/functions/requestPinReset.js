@@ -1,73 +1,18 @@
 // netlify/functions/requestPinReset.js
-const admin = require("firebase-admin");
-const crypto = require("crypto");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { getDb, admin } = require("./utils/admin");
 const { rateLimit } = require("./rateLimit");
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url } = require("./utils/auth");
+const { sendWithResend } = require("./utils/email");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-
-function buildBaseUrl(event) {
-  const env = process.env.URL_DE_BASE;
-  if (env) return String(env).replace(/\/+$/, "");
-  const baseUrl = process.env.URL_DE_BASE;
-  if (!baseUrl) throw new Error('URL_DE_BASE env var is not set');
-}
-
-async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY;
-  const from = process.env.EMAIL_VALENTINE;
-
-  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
-  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
-  return data;
+function buildBaseUrl() {
+  const base = process.env.URL_DE_BASE;
+  if (!base) throw new Error("URL_DE_BASE env var is required for password reset emails");
+  return String(base).replace(/\/+$/, "");
 }
 
 async function getInboxIdByEmail(db, email) {
@@ -80,32 +25,18 @@ async function getInboxIdByEmail(db, email) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
 
     if (event.httpMethod !== "POST") {
       return jsonResponse(405, { ok: false, error: "Use POST" });
     }
 
-    initAdmin();
-    const db = admin.firestore();
-    const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
+    const db = getDb();
     const { allowed } = await rateLimit(db, { action: "requestPinReset", key: getClientIp(event), limit: 3, windowSec: 300 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const email = normalizeEmail(payload.email);
     if (!email || !email.includes("@")) {
@@ -131,7 +62,7 @@ exports.handler = async (event) => {
       purpose: "pin_reset",
     });
 
-    const baseUrl = buildBaseUrl(event);
+    const baseUrl = buildBaseUrl();
     const link = `${baseUrl}/#/inbox?t=${encodeURIComponent(token)}`;
 
     await sendWithResend({

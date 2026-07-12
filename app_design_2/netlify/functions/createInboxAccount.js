@@ -1,42 +1,12 @@
 // netlify/functions/createInboxAccount.js
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");4
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
+const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
+const { pbkdf2Hash } = require("./utils/pinCrypto");
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url } = require("./utils/auth");
+const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -45,11 +15,7 @@ function isValidEmail(e) {
   return typeof e === "string" && e.includes("@") && e.includes(".");
 }
 
-function pbkdf2Hash(password, saltHex, iterations = 150000) {
-  const salt = Buffer.from(saltHex, "hex");
-  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
-  return dk.toString("hex");
-}
+
 
 async function createSession(db, inboxId, days = 7, purpose = "open") {
   const inboxRef = db.collection("inboxes").doc(inboxId);
@@ -79,53 +45,50 @@ async function attachInboxKeyToSession(db, inboxId, sessionToken) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: {  "access-control-allow-origin": CORS_ORIGIN, "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" }, body: "" };
+      return optionsResponse();
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const rl = await rateLimit(db, { action: "createInboxAccount", key: ip, limit: 10, windowSec: 60 });
     if (!rl.allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
 
-    let payload = {};
-    try { payload = JSON.parse(event.body || "{}"); } catch { return jsonResponse(400, { ok: false, error: "Invalid JSON body" }); }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const email = normalizeEmail(payload.email);
     const password = String(payload.password || "").trim();
     const sharedToken = String(payload.sharedToken || "").trim(); // <--- NEW: optional token from shared link
 
     if (!isValidEmail(email)) return jsonResponse(400, { ok: false, error: "Invalid email" });
-    if (password.length < 6) return jsonResponse(400, { ok: false, error: "Password must be at least 6 characters" });
+    if (!PIN_REGEX.test(password)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
     const emailHash = sha256Hex(email);
     const emailIndexRef = db.collection("emailIndex").doc(emailHash);
     const emailIndexSnap = await emailIndexRef.get();
     if (emailIndexSnap.exists) return jsonResponse(409, { ok: false, error: "Email already has an inbox" });
 
-    const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
-    const inboxRef = db.collection("inboxes").doc(inboxId);
-
     const passSalt = crypto.randomBytes(16).toString("hex");
     const passIter = 150000;
     const passHash = pbkdf2Hash(password, passSalt, passIter);
 
-    const batch = db.batch();
-    batch.set(inboxRef, {
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      activatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      primaryEmail: email,
-      passHash,
-      passSalt,
-      passIter,
-      passSetAt: admin.firestore.FieldValue.serverTimestamp(),
-      standalone: false,
+    const inboxId = await db.runTransaction(async (tx) => {
+      const emailIndexSnap = await tx.get(emailIndexRef);
+      if (emailIndexSnap.exists) return null;
+      const newId = "inbox_" + crypto.randomBytes(9).toString("hex");
+      tx.set(db.collection("inboxes").doc(newId), {
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        primaryEmail: email, passHash, passSalt, passIter,
+        passSetAt: admin.firestore.FieldValue.serverTimestamp(),
+        standalone: false,
+      });
+      tx.set(emailIndexRef, { inboxId: newId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+      return newId;
     });
-    batch.set(emailIndexRef, { inboxId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
-    await batch.commit();
+    if (!inboxId) return jsonResponse(409, { ok: false, error: "Email already has an inbox" });
 
     // ✅ crypto init + create session + attach key
     const sessionToken = await createSession(db, inboxId, 7, "open");
@@ -162,6 +125,10 @@ exports.handler = async (event) => {
 async function importLinkToInbox(db, { token, destInboxId, destSessionToken }) {
   const importFn = require("./importLinkToInbox"); // reuse existing function
   // simulate a POST payload as if it came from event.body
-  const fakeEvent = { httpMethod: "POST", body: JSON.stringify({ token, destInboxId, destSessionToken }) };
+  const fakeEvent = {
+    httpMethod: "POST",
+    body: JSON.stringify({ token, destInboxId, destSessionToken }),
+    headers: {}, 
+  };
   return importFn.handler(fakeEvent);
 }

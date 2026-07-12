@@ -1,58 +1,11 @@
 // netlify/functions/verifyPin.js
-const admin = require("firebase-admin");
-const crypto = require("crypto");
+const { getDb, admin } = require("./utils/admin");
 const { rateLimit } = require("./rateLimit");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
-const { PIN_REGEX } = require('./utils/pinPolicy');
-const { PIN_LABEL } = require('./utils/pinPolicy');
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
-function pbkdf2Hash(password, saltHex, iterations = 150000) {
-  const salt = Buffer.from(String(saltHex || ""), "hex");
-  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
-  return dk.toString("hex");
-}
-
-function timingSafeEqualHex(a, b) {
-  const ba = Buffer.from(String(a || ""), "hex");
-  const bb = Buffer.from(String(b || ""), "hex");
-  if (ba.length !== bb.length) return false;
-  return crypto.timingSafeEqual(ba, bb);
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
+const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
 
 async function resolveInboxIdFromToken(db, token) {
   const tokenHash = sha256Hex(token);
@@ -76,32 +29,19 @@ async function resolveInboxIdFromToken(db, token) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const rl = await rateLimit(db, { action: "verifyPin", key: ip, limit: 15, windowSec: 60 });
     if (!rl.allowed) return jsonResponse(429, { ok: false, error: "Too many attempts. Try again later." });
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     // ✅ accepte plusieurs clés côté client (au cas où)
     let inboxId =

@@ -1,9 +1,10 @@
 // src/components/PinEntryScreen.tsx
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { useSession } from "../contexts/SessionContext";
 import { verifyPin } from "../services/api";
+import type { ApiError } from "../services/api";
 
 function LockIcon() {
   return (
@@ -65,14 +66,14 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
 
   const handlePinChange = (value: string) => {
     if (busy) return;
-    const next = value.replace(/\D/g, "").slice(0, 4);
+    const next = value.replace(/\D/g, "").slice(0, 6);
     setPin(next);
     setWrongPin(false);
   };
 
   const handleNumberPad = (num: string) => {
     if (busy) return;
-    if (pin.length < 4) handlePinChange(pin + num);
+    if (pin.length < 6) handlePinChange(pin + num);
   };
 
   const handleDelete = () => {
@@ -115,7 +116,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
         const msg = String(e?.message || "").toLowerCase();
 
         // ✅ wrong pin
-        if (msg.includes("incorrect") || msg.includes("pin") || msg.includes("401")) {
+        if (msg.includes("incorrect") || msg.includes("pin") || ((e as ApiError).statusCode === 401)) {
           toast.error(t.incorrectPin);
           resetAfterWrongPin();
           return;
@@ -158,7 +159,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
 
   // ✅ Auto-submit only if we have a valid inboxId
   useEffect(() => {
-    if (pin.length !== 4) return;
+    if (pin.length !== 6) return;
     if (!hasValidInbox) {
       toast.error(t.missingInbox);
       setPin("");
@@ -219,7 +220,7 @@ export default function PinEntryScreen({ onSuccess, onBack, language }: PinEntry
 
       {/* PasswordDisplay */}
       <motion.div className="flex gap-4 mb-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-        {[0, 1, 2, 3].map((index) => (
+        {[0, 1, 2, 3, 4, 5].map((index) => (
           <motion.div
             key={index}
             className={`size-[60px] rounded-[15px] border-3 flex items-center justify-center font-['Inter',sans-serif] font-bold text-[32px] ${

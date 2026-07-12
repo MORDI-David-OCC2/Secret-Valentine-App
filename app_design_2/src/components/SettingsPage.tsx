@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { useSession } from "../contexts/SessionContext";
 import AppFrame from "./ui/AppFrame";
 import { savePushSub, getInboxMeta, updateInboxPin } from "../services/api";
-import { urlBase64ToUint8Array } from "../push/push";
+import { urlBase64ToUint8Array } from "../services/push";
 
 type PageName = "home" | "letters" | "compose" | "settings" | "credits" | "claim";
 

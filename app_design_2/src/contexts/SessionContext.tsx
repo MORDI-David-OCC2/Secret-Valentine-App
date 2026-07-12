@@ -39,7 +39,7 @@ const DEFAULT_SESSION: SessionData = {
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionData>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = sessionStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         return {
@@ -56,7 +56,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     } catch (error) {
       console.error("Error saving session:", error);
     }
@@ -79,7 +79,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setSession(DEFAULT_SESSION);
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   };
 
   const isAuthenticated = !!(

@@ -1,47 +1,20 @@
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const webpush = require("web-push");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
-
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { rateLimit } = require("./rateLimit");
 const { moderateText } = require("./moderation");
 const { seal } = require("./wrap");
 const { ensureInboxCrypto, getInboxKeyViaRecovery } = require("./cryptageInbox");
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
+const { sha256Hex, getClientIp, randomTokenBase64Url } = require("./utils/auth");
+const { sendWithResend } = require("./utils/email");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
-function randomTokenBase64Url(bytes = 32) {
-  return crypto.randomBytes(bytes).toString("base64url");
-}
-
 function mustBeOneOf(val, allowed) {
   return allowed.includes(val);
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
 }
 
 function buildBaseUrl(event) {
@@ -52,35 +25,6 @@ function buildBaseUrl(event) {
   let host = event.headers["x-forwarded-host"] || event.headers.host || "";
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
   return `${proto}://${host}`.replace(/\/+$/, "");
-}
-
-function getClientIp(event) {
-  const xf = event.headers["x-forwarded-for"] || event.headers["X-Forwarded-For"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return event.headers["client-ip"] || event.headers["x-real-ip"] || "unknown";
-}
-
-/** ---------------- EMAIL (Resend) ---------------- */
-
-async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY_2;
-  const from = process.env.EMAIL_VALENTINE_2;
-
-  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
-  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
-  return data;
 }
 
 function subjectGeneric() {
@@ -355,28 +299,16 @@ async function createStandaloneInbox(db) {
 async function getOrCreateInboxIdForEmail(db, email) {
   const emailHash = sha256Hex(email);
   const emailIndexRef = db.collection("emailIndex").doc(emailHash);
-  const emailIndexSnap = await emailIndexRef.get();
-
-  if (emailIndexSnap.exists) return emailIndexSnap.data().inboxId;
-
-  const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
-  const inboxRef = db.collection("inboxes").doc(inboxId);
-
-  const batch = db.batch();
-  batch.set(inboxRef, {
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    pinHash: null,
-    pinSalt: null,
-    pinIter: null,
-    pinSetAt: null,
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(emailIndexRef);
+    if (snap.exists) return snap.data().inboxId;
+    const inboxId = "inbox_" + crypto.randomBytes(9).toString("hex");
+    tx.set(db.collection("inboxes").doc(inboxId), {
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    tx.set(emailIndexRef, { inboxId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    return inboxId;
   });
-  batch.set(emailIndexRef, {
-    inboxId,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  await batch.commit();
-  return inboxId;
 }
 
 function encryptTextForInbox(inboxKeyBuf, text) {
@@ -391,21 +323,12 @@ function encryptTextForInbox(inboxKeyBuf, text) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
 
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
     const ip = getClientIp(event);
     const rl = await rateLimit(db, { action: "sendMessage", key: ip, limit: 10, windowSec: 60 });
@@ -417,12 +340,8 @@ exports.handler = async (event) => {
       });
     }
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     // ✅ NEW: deliveryMode
     const deliveryMode = String(payload.deliveryMode || "email").trim(); // "email" | "share" | "instagram"
@@ -625,16 +544,9 @@ exports.handler = async (event) => {
     // share mode: no send, just return link
 
     return jsonResponse(200, {
-      ok: true,
-      inboxId,
-      messageId: msgRef.id,
-      deliveryMode,
-      link, // ✅ IMPORTANT: returned for share + instagram tracking
-      emailed,
-      relayedToAdmin,
-      push,
-      quarantined,
-      moderationStatus: mod?.status ?? "allow",
+      ok: true, inboxId, messageId: msgRef.id, deliveryMode,
+      ...(deliveryMode !== "email" ? { link } : {}), // only share/instagram get the link
+      emailed, push, quarantined, moderationStatus: mod?.status ?? "allow",
     });
   } catch (err) {
     console.error(err);

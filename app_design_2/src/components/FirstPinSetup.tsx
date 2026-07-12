@@ -82,7 +82,7 @@ export default function FirstPinSetup({
   const showEmailField = requireEmail || needsEmailAssociation;
 
   const handleCreatePin = async () => {
-    if (!/^\d{6}$/.test(newPin)) return toast.error(t.pinInvalid);
+    if (!/^[A-Za-z0-9]{6}$/.test(newPin)) return toast.error(t.pinInvalid);
     if (newPin !== confirmPin) return toast.error(t.pinMismatch);
     if (showEmailField && !validateEmail(email)) return toast.error(t.emailInvalid);
 
@@ -164,7 +164,7 @@ export default function FirstPinSetup({
             type="password"
             maxLength={6}
             value={newPin}
-            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => setNewPin(e.target.value.slice(0,6))}
             className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[18px] text-[#2d1b1b]
                        text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
             placeholder="6 ••••••"
@@ -178,7 +178,7 @@ export default function FirstPinSetup({
             type="password"
             maxLength={6}
             value={confirmPin}
-            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => setConfirmPin(e.target.value.slice(0,6))}
             className="w-full bg-white border-2 border-[#db8c8f] rounded-[10px] h-[54px] px-4 font-['Inter',sans-serif] text-[18px] text-[#2d1b1b]
                        text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-[#a31e46]"
             placeholder="6 ••••••"
@@ -195,8 +195,8 @@ export default function FirstPinSetup({
           onClick={handleCreatePin}
           disabled={
             isSubmitting ||
-            !/^\d{6}$/.test(newPin) ||
-            !/^\d{6}$/.test(confirmPin) ||
+            !/^[A-Za-z0-9]{6}$/.test(newPin) ||
+            !/^[A-Za-z0-9]{6}$/.test(confirmPin) ||
             (showEmailField && !validateEmail(email))
           }
           className="w-full bg-[#a31e46] hover:bg-[#8b1838] text-white font-['Inter',sans-serif] font-bold text-[18px]

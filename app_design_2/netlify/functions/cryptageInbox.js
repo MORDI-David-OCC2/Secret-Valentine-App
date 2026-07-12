@@ -2,10 +2,8 @@
 const crypto = require("crypto");
 const { seal, open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
 
 /**
  * Ensure the inbox has an encryption key wrapped by the recovery key.
@@ -65,8 +63,15 @@ async function getInboxKeyViaRecovery(db, inboxId) {
   return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
 }
 
-module.exports = {
-  ensureInboxCrypto,
-  storeInboxKeyInSession,
-  getInboxKeyViaRecovery,
-};
+async function getInboxKeyFromSession(db, inboxId, sessionToken) {
+  if (!sessionToken) return null;
+  const sessionHash = sha256Hex(sessionToken);
+  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
+  const snap = await sessionRef.get();
+  if (!snap.exists) return null;
+  const s = snap.data() || {};
+  if (!s.inboxKeyEnc) return null;
+  return open(sessionKey(sessionToken), s.inboxKeyEnc);
+}
+
+module.exports = { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery, getInboxKeyFromSession }

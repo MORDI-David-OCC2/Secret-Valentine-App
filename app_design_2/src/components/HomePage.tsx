@@ -8,7 +8,6 @@ interface HomePageProps {
 
 export default function HomePage({ onNavigate, language }: HomePageProps) {
   const { isAuthenticated } = useSession();
-  console.log(isAuthenticated);
   const translations = {
     en: {
       title: "Secret Valentine",

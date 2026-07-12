@@ -1,7 +1,7 @@
 // src/App.tsx
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Toaster } from "sonner@2.0.3";
+import { Toaster } from "sonner";
 import { SessionProvider, useSession } from "./contexts/SessionContext";
 
 import HomePage from "./components/HomePage";

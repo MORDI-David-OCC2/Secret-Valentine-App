@@ -1,38 +1,11 @@
-const admin = require("firebase-admin");
+const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX } = require('./utils/pinPolicy');
 const { PIN_LABEL } = require('./utils/pinPolicy');
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { pbkdf2Hash } = require("./utils/pinCrypto");
 
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON env var");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-
-function pbkdf2Hash(password, saltHex, iterations = 150000) {
-  const salt = Buffer.from(saltHex, "hex");
-  const dk = crypto.pbkdf2Sync(String(password), salt, iterations, 32, "sha256");
-  return dk.toString("hex");
-}
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -40,25 +13,6 @@ function normalizeEmail(email) {
 
 function isValidEmail(email) {
   return email.includes("@") && email.includes(".");
-}
-
-async function revokeAllSessions(db, inboxId) {
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions");
-  const snap = await sessionRef.get();
-  const batch = db.batch();
-  snap.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
-}
-
-async function requireValidSession(db, inboxId, sessionToken) {
-  if (!sessionToken) return false;
-  const sessionHash = sha256Hex(sessionToken);
-  const ref = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await ref.get();
-  if (!snap.exists) return false;
-  const d = snap.data() || {};
-  if (!d.expiresAt || !d.expiresAt.toDate) return false;
-  return d.expiresAt.toDate() > new Date();
 }
 
 async function linkInboxToEmail(db, inboxId, email) {
@@ -104,27 +58,14 @@ async function linkInboxToEmail(db, inboxId, email) {
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-           "access-control-allow-origin": CORS_ORIGIN,
-          "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type",
-        },
-        body: "",
-      };
+      return optionsResponse();
     }
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
 
-    let payload;
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
-    }
+    const payload = parseBody(event);
+    if (!payload) return jsonResponse(400, { ok: false, error: "Invalid JSON body" });
 
     const inboxId = String(payload.inboxId || "").trim();
     const pin = payload.pin; // string or null

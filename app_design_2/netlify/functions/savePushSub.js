@@ -1,37 +1,13 @@
 // netlify/functions/savePushSub.js
-const admin = require("firebase-admin");
-const crypto = require("crypto");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
-
-function sha256Hex(input) {
-  return crypto.createHash("sha256").update(String(input)).digest("hex");
-}
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-       "access-control-allow-origin": CORS_ORIGIN,
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
-    body: JSON.stringify(body),
-  };
-}
-function initAdmin() {
-  if (admin.apps.length) return;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON");
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-}
-
+const { getDb } = require("./utils/admin");
+const { jsonResponse, optionsResponse } = require("./utils/response");
+const sha256Hex = require("./utils/auth")
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod === "OPTIONS") return jsonResponse(204, {});
+    if (event.httpMethod === "OPTIONS") return optionsResponse();
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
-    initAdmin();
-    const db = admin.firestore();
+    const db = getDb();
     const { inboxId, sessionToken, subscription } = JSON.parse(event.body || "{}");
 
     if (!inboxId || !sessionToken || !subscription?.endpoint) {
@@ -42,6 +18,10 @@ exports.handler = async (event) => {
     const sessionHash = sha256Hex(sessionToken);
     const sessSnap = await db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash).get();
     if (!sessSnap.exists) return jsonResponse(401, { ok: false, error: "Invalid session" });
+    const sessData = sessSnap.data() || {};
+    if (sessData.expiresAt?.toDate && sessData.expiresAt.toDate() < new Date()) {
+      return jsonResponse(401, { ok: false, error: "Session expired" });
+}
 
     // Store by endpoint hash (so it's unique)
     const subId = sha256Hex(subscription.endpoint);

@@ -1,7 +1,7 @@
 // src/components/LettersPage.tsx
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { useSession } from "../contexts/SessionContext";
 import { listInbox, InboxMessage } from "../services/api";
 import svgPaths from "../imports/svg-01d0jglvrw";
@@ -9,6 +9,7 @@ import type { Letter } from "../App";
 import LetterDetailView from "./LetterDetailView";
 import AppFrame from "./ui/AppFrame";
 import { UnreadDot } from "./ui/UnreadDot";
+import type { ApiError } from "../services/api";
 
 function EnvelopeIcon() {
   return (
@@ -152,10 +153,11 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
       setMessages(response.messages);
     } catch (error: any) {
       const msg = String(error?.message || "");
-      if (msg.includes("401")) {
+      const apiError= error as ApiError;
+      if (apiError.statusCode === 401) {
         toast.error(language === "en" ? "Session expired" : "Session expirée");
         onBack();
-      } else if (msg.includes("429")) {
+      } else if (apiError.statusCode === 429) {
         toast.error(language === "en" ? "Too many requests" : "Trop de requêtes");
       } else {
         toast.error(error.message || (language === "en" ? "Failed to load" : "Échec du chargement"));
@@ -175,7 +177,7 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
     from: msg.fromName,
     to: "You",
     type: msg.type === "friendship" ? ("friend" as const) : (msg.type as any),
-    date: new Date(msg.lastActiveAt).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", {
+    date: new Date(msg.createdAt ?? msg.lastActiveAt).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", {
       month: "2-digit",
       day: "2-digit",
       year: "2-digit",

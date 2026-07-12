@@ -5,7 +5,7 @@ const { rateLimit } = require("./rateLimit");
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { getClientIp, requireValidSession, revokeAllSessions } = require("./utils/auth");
-const timingSafeEqualHex = require("./utils/pinCrypto")
+const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto")
 // ✅ You must have 6 digits
 
 exports.handler = async (event) => {
@@ -59,11 +59,6 @@ if (!/^[0-9a-f]{20,32}$/i.test(saltHex) || !/^[0-9a-f]{64}$/i.test(hashHex) || i
 }
 
 const computed = pbkdf2Hash(currentPin, saltHex, iter);
-
-      if (!saltBuf.length || iter <= 0 || storedHash.length !== 32) {
-        return jsonResponse(500, { ok: false, error: "Password data corrupted" });
-      }
-
       const ok = timingSafeEqualHex(computed, hashHex);
       if (!ok) return jsonResponse(403, { ok: false, error: "Wrong password" });
     } else if (action === "change" || action === "remove") {

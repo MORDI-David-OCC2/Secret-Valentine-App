@@ -1,7 +1,7 @@
 // netlify/functions/savePushSub.js
-const { getDb, admin } = require("./utils/admin");
-const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
-
+const { getDb } = require("./utils/admin");
+const { jsonResponse, optionsResponse } = require("./utils/response");
+const sha256Hex = require("./utils/auth")
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") return optionsResponse();

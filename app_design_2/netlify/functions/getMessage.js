@@ -1,42 +1,11 @@
 // netlify/functions/getMessage.js
 const { getDb, admin } = require("./utils/admin");
-const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { open } = require("./wrap");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
-const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
-function sessionKey(sessionToken) {
-  return crypto.createHash("sha256").update(String(sessionToken || "")).digest(); // 32 bytes
-}
+const { getClientIp, requireValidSession } = require("./utils/auth");
+const { getInboxKeyViaRecovery, getInboxKeyFromSession } = require("./cryptageInbox");
 
-function recoveryKey() {
-  const b64 = process.env.RECOVERY_KEY_B64;
-  if (!b64) throw new Error("Missing RECOVERY_KEY_B64 env var");
-  const k = Buffer.from(b64, "base64");
-  if (k.length !== 32) throw new Error("RECOVERY_KEY_B64 must be 32 bytes (base64)");
-  return k;
-}
-
-async function getInboxKeyFromSession(db, inboxId, sessionToken) {
-  if (!sessionToken) return null;
-  const sessionHash = sha256Hex(sessionToken);
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await sessionRef.get();
-  if (!snap.exists) return null;
-  const s = snap.data() || {};
-  if (!s.inboxKeyEnc) return null;
-  const sk = sessionKey(sessionToken);
-  return open(sk, s.inboxKeyEnc);
-}
-
-async function getInboxKeyViaRecovery(db, inboxId) {
-  const inboxRef = db.collection("inboxes").doc(inboxId);
-  const snap = await inboxRef.get();
-  if (!snap.exists) throw new Error("Inbox not found");
-  const d = snap.data() || {};
-  if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
-  return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
-}
 
 function toMillisMaybe(ts) {
   if (!ts) return null;

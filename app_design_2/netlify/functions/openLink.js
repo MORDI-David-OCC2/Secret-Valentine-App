@@ -4,10 +4,6 @@ const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = re
 const { sha256Hex, randomTokenBase64Url } = require("./utils/auth");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 
-function isValidEmail(e) {
-  return typeof e === "string" && e.includes("@") && e.includes(".");
-}
-
 async function createSession(inboxRef, inboxId, { days, purpose }) {
   const sessionToken = randomTokenBase64Url(32);
   const sessionHash = sha256Hex(sessionToken);

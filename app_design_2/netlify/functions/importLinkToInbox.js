@@ -1,28 +1,10 @@
 // netlify/functions/importLinkToInbox.js
 const { getDb, admin } = require("./utils/admin");
-const crypto = require("crypto");
 const { rateLimit } = require('./rateLimit');
 const { seal, open } = require("./wrap");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
-const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
-
-// --- crypto helpers (same as listInbox) ---
-function recoveryKey() {
-  const b64 = process.env.RECOVERY_KEY_B64;
-  if (!b64) throw new Error("Missing RECOVERY_KEY_B64 env var");
-  const k = Buffer.from(b64, "base64");
-  if (k.length !== 32) throw new Error("RECOVERY_KEY_B64 must be 32 bytes (base64)");
-  return k;
-}
-
-async function getInboxKeyViaRecovery(db, inboxId) {
-  const inboxRef = db.collection("inboxes").doc(inboxId);
-  const snap = await inboxRef.get();
-  if (!snap.exists) throw new Error("Inbox not found");
-  const d = snap.data() || {};
-  if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
-  return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
-}
+const { sha256Hex, getClientIp, requireValidSession } = require("./utils/auth");
+const { getInboxKeyViaRecovery } = require("./cryptageInbox");
 
 function decryptBodyMaybe(inboxKeyBuf, doc) {
   if (doc?.bodyEnc && doc?.dekWrapped) {
@@ -48,7 +30,6 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     const db = getDb();
-    const ip = (event.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
     const { allowed } = await rateLimit(db, { action: "importLinkToInbox", key: getClientIp(event), limit: 20, windowSec: 60 });
     if (!allowed) return jsonResponse(429, { ok: false, error: "Too many requests" });
     const payload = parseBody(event);
@@ -75,7 +56,7 @@ exports.handler = async (event) => {
       return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
     }
     if (tokenData.purpose !== 'import_link') {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Invalid token purpose' }) };
+      return jsonResponse(403, { ok: false, error: "Invalid token purpose" });
     }
     const sourceInboxId = String(tokenData.inboxId || "").trim();
     if (!sourceInboxId.startsWith("inbox_")) return jsonResponse(500, { ok: false, error: "Token missing inboxId" });

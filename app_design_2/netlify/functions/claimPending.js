@@ -1,39 +1,13 @@
 const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url } = require("./utils/auth");
 const { sendWithResend } = require("./utils/email");
 
-// ---------- helpers ----------
-function corsHeaders() {
-  return {
-    "content-type": "application/json; charset=utf-8",
-     "access-control-allow-origin": CORS_ORIGIN,
-    "access-control-allow-methods": "POST, OPTIONS",
-    "access-control-allow-headers": "content-type",
-  };
-}
-
-
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
-}
-
-function lowerCaseHeaders(event) {
-  const h = event.headers || {};
-  const out = {};
-  for (const [k, v] of Object.entries(h)) out[String(k).toLowerCase()] = v;
-  return out;
-}
-
-function getClientIp(event) {
-  const h = lowerCaseHeaders(event);
-  const xf = h["x-forwarded-for"];
-  if (xf) return String(xf).split(",")[0].trim();
-  return h["client-ip"] || "unknown";
 }
 
 function buildBaseUrl(event) {
@@ -46,9 +20,9 @@ function buildBaseUrl(event) {
 
   if (envBase) return String(envBase).replace(/\/+$/, "");
 
-  const h = lowerCaseHeaders(event);
+  const headers = event.headers || {};
   const proto = h["x-forwarded-proto"] || "https";
-  let host = h["x-forwarded-host"] || h["host"] || "";
+  let host = headers["x-forwarded-host"] || headers["host"] || "";
 
   // Netlify sometimes gives *.netlify (no .app)
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host += ".app";
@@ -73,13 +47,6 @@ function claimEmailHtml({ link }) {
     <hr style="border:none;border-top:1px solid #eee;margin:18px 0" />
     <p style="margin:0;color:#777;font-size:12px">This link expires in 7 days.</p>
   </div>`;
-}
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(`Resend error ${res.status}: ${JSON.stringify(data)}`);
-  }
-  return data;
 }
 
 // ---------- handler ----------

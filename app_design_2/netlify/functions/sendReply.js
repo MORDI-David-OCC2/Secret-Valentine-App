@@ -7,6 +7,7 @@ const { sessionKey, recoveryKey } = require("./keys");
 const { moderateText } = require("./moderation");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession } = require("./utils/auth");
+const { getInboxKeyFromSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
 const { sendWithResend } = require("./utils/email");
 
 function normalizeThreadId(messageId, msg) {
@@ -15,26 +16,6 @@ function normalizeThreadId(messageId, msg) {
   }
   const m = /^imp_inbox_[^_]+_(.+)$/.exec(String(messageId || ""));
   return m ? m[1] : messageId;
-}
-async function getInboxKeyFromSession(db, inboxId, sessionToken) {
-  if (!sessionToken) return null;
-  const sessionHash = sha256Hex(sessionToken);
-  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
-  const snap = await sessionRef.get();
-  if (!snap.exists) return null;
-  const s = snap.data() || {};
-  if (!s.inboxKeyEnc) return null;
-  const sk = sessionKey(sessionToken);
-  return open(sk, s.inboxKeyEnc);
-}
-
-async function getInboxKeyViaRecovery(db, inboxId) {
-  const inboxRef = db.collection("inboxes").doc(inboxId);
-  const snap = await inboxRef.get();
-  if (!snap.exists) throw new Error("Inbox not found");
-  const d = snap.data() || {};
-  if (!d.inboxKeyWrappedByRecovery) throw new Error("Inbox crypto not initialized");
-  return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
 }
 
 function encryptTextForInbox(inboxKeyBuf, text) {

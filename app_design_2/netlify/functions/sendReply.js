@@ -34,11 +34,6 @@ function buildBaseUrl(event) {
   return `${proto}://${host}`.replace(/\/+$/, "");
 }
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);
-  return data;
-}
-
 function escapeHtml(str) {
   return String(str || "")
     .replaceAll("&", "&amp;")

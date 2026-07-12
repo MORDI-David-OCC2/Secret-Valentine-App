@@ -63,8 +63,15 @@ async function getInboxKeyViaRecovery(db, inboxId) {
   return open(recoveryKey(), d.inboxKeyWrappedByRecovery);
 }
 
-module.exports = {
-  ensureInboxCrypto,
-  storeInboxKeyInSession,
-  getInboxKeyViaRecovery,
-};
+async function getInboxKeyFromSession(db, inboxId, sessionToken) {
+  if (!sessionToken) return null;
+  const sessionHash = sha256Hex(sessionToken);
+  const sessionRef = db.collection("inboxes").doc(inboxId).collection("sessions").doc(sessionHash);
+  const snap = await sessionRef.get();
+  if (!snap.exists) return null;
+  const s = snap.data() || {};
+  if (!s.inboxKeyEnc) return null;
+  return open(sessionKey(sessionToken), s.inboxKeyEnc);
+}
+
+module.exports = { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery, getInboxKeyFromSession }

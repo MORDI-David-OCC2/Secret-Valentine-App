@@ -61,6 +61,22 @@ exports.handler = async (event) => {
     const purpose = String(tokenData.purpose || "open");
     const isPinReset = purpose === "pin_reset";
 
+    const expiresAt = tokenData.expiresAt;
+    if (!expiresAt || expiresAt.toDate() < new Date()){
+      return jsonResponse(401, { ok: false, error: "Link expired" });
+    }
+
+    const inboxId = String(tokenData.inboxId || "").trim();
+    const inboxRef = db.collection("inboxes").doc(inboxId);
+    const inboxSnap = await inboxRef.get();
+
+    if (!inboxSnap.exists) {
+      return jsonResponse(404, { ok: false, error: "Inbox not found" });
+    }
+
+    const inbox = inboxSnap.data() || {};
+    const pinRequired = !!(inbox.passHash && inbox.passSalt && inbox.passIter);
+
     if (purpose === "claim_email") {
       const emailToClaim = String(tokenData.email || "").trim().toLowerCase();
       if (emailToClaim && emailToClaim.includes("@")) {
@@ -87,22 +103,7 @@ exports.handler = async (event) => {
         pinRequired, pinMustBeCreated: false, sessionToken: null, isPinReset: false,
       });
     }
-
-    const expiresAt = tokenData.expiresAt;
-    if (!expiresAt || expiresAt.toDate() < new Date()){
-      return jsonResponse(401, { ok: false, error: "Link expired" });
-    }
-
-    const inboxId = String(tokenData.inboxId || "").trim();
-    const inboxRef = db.collection("inboxes").doc(inboxId);
-    const inboxSnap = await inboxRef.get();
-
-    if (!inboxSnap.exists) {
-      return jsonResponse(404, { ok: false, error: "Inbox not found" });
-    }
-
-    const inbox = inboxSnap.data() || {};
-    const pinRequired = !!(inbox.passHash && inbox.passSalt && inbox.passIter);
+    
     const pinMustBeCreated = !pinRequired || isPinReset;
     let sessionToken = null;
 

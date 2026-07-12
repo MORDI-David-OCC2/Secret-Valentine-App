@@ -88,7 +88,6 @@ exports.handler = async (event) => {
       tx.set(emailIndexRef, { inboxId: newId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
       return newId;
     });
-    const inboxRef = db.collection("inboxes").doc(inboxId);
     if (!inboxId) return jsonResponse(409, { ok: false, error: "Email already has an inbox" });
 
     // ✅ crypto init + create session + attach key

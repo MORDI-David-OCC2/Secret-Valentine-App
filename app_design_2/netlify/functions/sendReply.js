@@ -6,7 +6,8 @@ const { seal, open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys");
 const { moderateText } = require("./moderation");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
-const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession } = require("./utils/auth");
+const { sendWithResend } = require("./utils/email");
 
 function normalizeThreadId(messageId, msg) {
   if (msg && typeof msg.originalMessageId === "string" && msg.originalMessageId.trim()) {
@@ -51,22 +52,6 @@ function buildBaseUrl(event) {
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
   return `${proto}://${host}`.replace(/\/+$/, "");
 }
-
-async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY_2;
-  const from = process.env.EMAIL_VALENTINE_2;
-
-  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
-  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);

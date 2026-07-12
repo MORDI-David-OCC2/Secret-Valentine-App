@@ -5,14 +5,8 @@ const { rateLimit } = require("./rateLimit");
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { getClientIp, requireValidSession, revokeAllSessions } = require("./utils/auth");
-
+const timingSafeEqualHex = require("./utils/pinCrypto")
 // ✅ You must have 6 digits
-
-
-function hashPin(password, saltBuf, iter) {
-  // pbkdf2 -> sha256
-  return crypto.pbkdf2Sync(password, saltBuf, iter, 32, "sha256"); // 32 bytes
-}
 
 exports.handler = async (event) => {
   try {
@@ -40,7 +34,8 @@ exports.handler = async (event) => {
     if (!["create", "change", "remove"].includes(action))
       return jsonResponse(400, { ok: false, error: "Invalid action" });
 
-    await requireValidSession(db, inboxId, sessionToken);
+    const sessionOk = await requireValidSession(db, inboxId, sessionToken);
+    if (!sessionOk) return jsonResponse(401, { ok: false, error: "Unauthorized"});
 
     const inboxRef = db.collection("inboxes").doc(inboxId);
 
@@ -56,22 +51,20 @@ exports.handler = async (event) => {
       if (!PIN_REGEX.test(currentPin)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
       const saltHex = String(d.passSalt || "");
-const hashHex = String(d.passHash || "");
-const iter = Number(d.passIter) || 0;
+    const hashHex = String(d.passHash || "");
+    const iter = Number(d.passIter) || 0;
 
 if (!/^[0-9a-f]{20,32}$/i.test(saltHex) || !/^[0-9a-f]{64}$/i.test(hashHex) || iter <= 0) {
   return jsonResponse(500, { ok: false, error: "Password data corrupted" });
 }
 
-const saltBuf = Buffer.from(saltHex, "hex");      // 16 bytes
-const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
+const computed = pbkdf2Hash(currentPin, saltHex, iter);
 
       if (!saltBuf.length || iter <= 0 || storedHash.length !== 32) {
         return jsonResponse(500, { ok: false, error: "Password data corrupted" });
       }
 
-      const testHash = hashPin(currentPin, saltBuf, iter);
-      const ok = crypto.timingSafeEqual(storedHash, testHash);
+      const ok = timingSafeEqualHex(computed, hashHex);
       if (!ok) return jsonResponse(403, { ok: false, error: "Wrong password" });
     } else if (action === "change" || action === "remove") {
       // change/remove requested but no Password in DB
@@ -95,15 +88,10 @@ const storedHash = Buffer.from(hashHex, "hex");   // 32 bytes
     // create/change: validate new password
     if (!PIN_REGEX.test(newPin)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
-    const salt = crypto.randomBytes(16);
-    const iter = 150000;
-    const h = hashPin(newPin, salt, iter);
-
-    await inboxRef.set(
-      {
-        passHash: h.toString("hex"),
-        passSalt: salt.toString("hex"),
-        passIter: iter,
+    const newSaltHex = crypto.randomBytes(16).toString("hex");
+    const newIter = 150_000;
+    const newHash = pbkdf2Hash(newPin, newSaltHex, newIter);
+    await inboxRef.set({ passHash: newHash, passSalt: newSaltHex, passIter: newIter,
         passUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }

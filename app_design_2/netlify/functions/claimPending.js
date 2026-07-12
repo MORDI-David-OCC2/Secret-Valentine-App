@@ -3,7 +3,8 @@ const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
-const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { sha256Hex, getClientIp, randomTokenBase64Url } = require("./utils/auth");
+const { sendWithResend } = require("./utils/email");
 
 // ---------- helpers ----------
 function corsHeaders() {
@@ -73,27 +74,6 @@ function claimEmailHtml({ link }) {
     <p style="margin:0;color:#777;font-size:12px">This link expires in 7 days.</p>
   </div>`;
 }
-
-async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY;
-  const from = process.env.EMAIL_VALENTINE;
-
-  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
-  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
-
-  // Netlify Node 20 has fetch. If you're on Node 18, upgrade to 20 or polyfill.
-  if (typeof fetch !== "function") {
-    throw new Error("fetch() is not available. Set NODE_VERSION=20 on Netlify.");
-  }
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

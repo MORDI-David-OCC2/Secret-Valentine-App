@@ -3,9 +3,10 @@ const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
-const { optionsResponse } = require("./utils/response");
-const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
-const { getClientIp, randomTokenBase64Url } = require("./utils/auth");
+const { pbkdf2Hash } = require("./utils/pinCrypto");
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
+const { sha256Hex, getClientIp, randomTokenBase64Url } = require("./utils/auth");
+const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -63,7 +64,7 @@ exports.handler = async (event) => {
     const sharedToken = String(payload.sharedToken || "").trim(); // <--- NEW: optional token from shared link
 
     if (!isValidEmail(email)) return jsonResponse(400, { ok: false, error: "Invalid email" });
-    if (password.length < 6) return jsonResponse(400, { ok: false, error: "Password must be at least 6 characters" });
+    if (!PIN_REGEX.test(password)) return jsonResponse(400, { ok: false, error: PIN_LABEL });
 
     const emailHash = sha256Hex(email);
     const emailIndexRef = db.collection("emailIndex").doc(emailHash);
@@ -87,22 +88,8 @@ exports.handler = async (event) => {
       tx.set(emailIndexRef, { inboxId: newId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
       return newId;
     });
-    if (!inboxId) return jsonResponse(409, { ok: false, error: "Email already has an inbox" });
     const inboxRef = db.collection("inboxes").doc(inboxId);
-
-    const batch = db.batch();
-    batch.set(inboxRef, {
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      activatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      primaryEmail: email,
-      passHash,
-      passSalt,
-      passIter,
-      passSetAt: admin.firestore.FieldValue.serverTimestamp(),
-      standalone: false,
-    });
-    batch.set(emailIndexRef, { inboxId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
-    await batch.commit();
+    if (!inboxId) return jsonResponse(409, { ok: false, error: "Email already has an inbox" });
 
     // ✅ crypto init + create session + attach key
     const sessionToken = await createSession(db, inboxId, 7, "open");

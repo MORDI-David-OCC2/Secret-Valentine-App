@@ -2,7 +2,8 @@
 const { getDb, admin } = require("./utils/admin");
 const { rateLimit } = require("./rateLimit");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
-const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { sha256Hex, getClientIp, randomTokenBase64Url } = require("./utils/auth");
+const { sendWithResend } = require("./utils/email");
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -16,22 +17,6 @@ function buildBaseUrl(event) {
   if (host.endsWith(".netlify") && !host.endsWith(".netlify.app")) host = host + ".app";
   return `${proto}://${host}`.replace(/\/+$/, "");
 }
-
-async function sendWithResend({ to, subject, html }) {
-  const apiKey = process.env.API_EMAIL_KEY;
-  const from = process.env.EMAIL_VALENTINE;
-
-  if (!apiKey) throw new Error("Missing API_EMAIL_KEY env var");
-  if (!from) throw new Error("Missing EMAIL_VALENTINE env var");
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`Resend error: ${res.status} ${JSON.stringify(data)}`);

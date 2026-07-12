@@ -3,7 +3,6 @@ const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { optionsResponse } = require("./utils/response");
 const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
 const { getClientIp, randomTokenBase64Url } = require("./utils/auth");

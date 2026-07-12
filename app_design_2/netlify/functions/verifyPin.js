@@ -1,9 +1,7 @@
 // netlify/functions/verifyPin.js
 const { getDb, admin } = require("./utils/admin");
-const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
 const { ensureInboxCrypto, storeInboxKeyInSession, getInboxKeyViaRecovery } = require("./cryptageInbox");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");

@@ -2,14 +2,14 @@
 const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const { rateLimit } = require("./rateLimit");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX, PIN_LABEL } = require('./utils/pinPolicy');
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
-const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
+const { pbkdf2Hash } = require("./utils/pinCrypto");
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: jsonResponse(204, {}).headers, body: "" };
+    if (event.httpMethod === "OPTIONS") return optionsResponse();
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     const db = getDb();

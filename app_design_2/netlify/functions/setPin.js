@@ -1,11 +1,10 @@
 const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { PIN_REGEX } = require('./utils/pinPolicy');
 const { PIN_LABEL } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
-const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
-const { pbkdf2Hash, timingSafeEqualHex } = require("./utils/pinCrypto");
+const { sha256Hex, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { pbkdf2Hash } = require("./utils/pinCrypto");
 
 
 function normalizeEmail(email) {

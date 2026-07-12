@@ -5,7 +5,6 @@ const { rateLimit } = require("./rateLimit");
 const { seal, open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys");
 const { moderateText } = require("./moderation");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
 

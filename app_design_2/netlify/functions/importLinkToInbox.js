@@ -1,7 +1,6 @@
 // netlify/functions/importLinkToInbox.js
 const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { rateLimit } = require('./rateLimit');
 const { seal, open } = require("./wrap");
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");

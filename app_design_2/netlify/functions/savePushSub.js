@@ -1,11 +1,10 @@
 // netlify/functions/savePushSub.js
 const { getDb, admin } = require("./utils/admin");
-const crypto = require("crypto");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
+const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod === "OPTIONS") return jsonResponse(204, {});
+    if (event.httpMethod === "OPTIONS") return optionsResponse();
     if (event.httpMethod !== "POST") return jsonResponse(405, { ok: false, error: "Use POST" });
 
     const db = getDb();

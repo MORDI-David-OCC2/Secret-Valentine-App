@@ -1,11 +1,9 @@
 // netlify/functions/listInbox.js
 const { getDb, admin } = require("./utils/admin");
-const crypto = require("crypto");
 const { open } = require("./wrap");
 const { sessionKey, recoveryKey } = require("./keys"); // ✅ IMPORTANT: use same derivation as cryptageInbox.js
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
-const { sha256Hex, getClientIp, randomTokenBase64Url, requireValidSession, revokeAllSessions } = require("./utils/auth");
+const { sha256Hex } = require("./utils/auth");
 
 
 async function isValidSession(db, inboxId, sessionToken) {

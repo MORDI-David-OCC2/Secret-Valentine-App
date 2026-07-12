@@ -1,7 +1,6 @@
 const { getDb, admin } = require("./utils/admin");
 const crypto = require("crypto");
 const webpush = require("web-push");
-const { CORS_ORIGIN } = require('./utils/pinPolicy');
 const { jsonResponse, optionsResponse, parseBody } = require("./utils/response");
 const { rateLimit } = require("./rateLimit");
 const { moderateText } = require("./moderation");

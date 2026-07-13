@@ -136,7 +136,7 @@ interface LettersPageProps {
   onInitialMessageOpened?: () => void;
 }
 
-export default function LettersPage({ onBack, language, onNavigate, initialOpenMessageId }: LettersPageProps) {
+export default function LettersPage({ onBack, language, onNavigate, initialOpenMessageId, onInitialMessageOpened }: LettersPageProps) {
   const { session } = useSession();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -193,6 +193,7 @@ export default function LettersPage({ onBack, language, onNavigate, initialOpenM
     if (!initialOpenMessageId) return;
     const match = letters.find((l) => l.id === initialOpenMessageId);
     if (match) setSelectedLetter({ letter: match, color: getThemeColor(match.type) });
+    onInitialMessageOpened?.();
   }, [initialOpenMessageId, letters.length]);
 
   const t = {

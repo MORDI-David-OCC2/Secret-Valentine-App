@@ -21,6 +21,7 @@ interface ClaimInboxPageProps {
   // if user came from a shared link, we keep it here and import after create/login
   pendingImportToken?: string | null;
   onConsumedPendingImportToken?: () => void;
+  onImportedMessage?: (id: string) => void;
 }
 
 export default function ClaimInboxPage({
@@ -30,6 +31,7 @@ export default function ClaimInboxPage({
   onNavigate,
   pendingImportToken,
   onConsumedPendingImportToken,
+  onImportedMessage
 }: ClaimInboxPageProps) {
   const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
 
@@ -116,12 +118,13 @@ export default function ClaimInboxPage({
     if (!pendingImportToken) return;
 
     try {
-      await importLinkToInbox({
+      const res = await importLinkToInbox({
         token: pendingImportToken,
         destInboxId,
         destSessionToken,
       });
       toast.success(t.imported);
+      return res.importedMessageId;
     } catch (e: any) {
       toast.error(e?.message || t.importFailed);
     } finally {
@@ -154,8 +157,10 @@ export default function ClaimInboxPage({
 
         toast.success(language === "fr" ? "Compte créé ✅" : "Account created ✅");
 
-        await maybeImportAfterAuth(res.inboxId, res.sessionToken);
-
+        const importedMessageId = await maybeImportAfterAuth(res.inboxId, res.sessionToken);
+        if (importedMessageId) {
+          onImportedMessage?.(importedMessageId);
+        }
         onNavigate?.("letters");
         if (!onNavigate) onBack();
       } catch (e: any) {
@@ -210,7 +215,15 @@ export default function ClaimInboxPage({
       setIsPinRequired(true);
       setIsLocked(false);
 
-      await maybeImportAfterAuth(inboxId, res.sessionToken);
+        const importedMessageId =
+      await maybeImportAfterAuth(
+          inboxId,
+          res.sessionToken
+      );
+
+      if (importedMessageId) {
+        onImportedMessage?.(importedMessageId);
+    }
 
       toast.success(language === "fr" ? "Connecté ✅" : "Logged in ✅");
       if (onNavigate) onNavigate("letters")

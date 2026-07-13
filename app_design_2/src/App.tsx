@@ -57,7 +57,7 @@ function AppContent() {
   const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
-
+  const [pendingOpenMessageId, setPendingOpenMessageId] = useState<string | null>(null);
   const [claimMode, setClaimMode] = useState<"login" | "create">("login");
 
   // keep these but they won't block opening inbox anymore
@@ -222,8 +222,9 @@ function AppContent() {
     return (
       <InboxLinkHandler
         token={linkToken}
-        onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
+        onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation, openMessageId) => {
           setLinkToken(null);
+          setPendingOpenMessageId(openMessageId ?? null);
 
           // needs password => go password
           if (needsPin) {
@@ -308,6 +309,7 @@ function AppContent() {
               onBack={() => setPage("home")}
               language={language}
               onNavigate={(page) => setPage(page as Page)}
+              initialOpenMessageId = {pendingOpenMessageId}
             />
           </motion.div>
         )}

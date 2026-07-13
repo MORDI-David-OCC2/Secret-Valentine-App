@@ -310,6 +310,7 @@ function AppContent() {
               language={language}
               onNavigate={(page) => setPage(page as Page)}
               initialOpenMessageId = {pendingOpenMessageId}
+              onInitialMessageOpened={() => setPendingOpenMessageId(null)}
             />
           </motion.div>
         )}
@@ -354,6 +355,7 @@ function AppContent() {
               }}
               language={language}
               onNavigate={(page) => setPage(page as Page)}
+              onImportedMessage={(id) => setPendingOpenMessageId(id)}
             />
           </motion.div>
         )}

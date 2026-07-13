@@ -93,12 +93,19 @@ exports.handler = async (event) => {
     delete clean.dekWrapped;
     delete clean.lastPreviewEnc;
     delete clean.lastPreviewDekWrapped;
-    delete clean.body; // we will set fresh plaintext
+    delete clean.body;
+
+    const bodyDEK = require("crypto").randomBytes(32);
+    const previewDEK = require("crypto").randomBytes(32);
 
     await destMessagesRef.doc(importedMessageId).set({
       ...clean,
-      body: seal(destInboxKey, Buffer.from(plainBody, "utf8")),
-      lastPreview: seal(destInboxKey, Buffer.from(plainPreview, "utf8")),
+
+      bodyEnc: seal(bodyDEK, Buffer.from(plainBody, "utf8")),
+      dekWrapped: seal(destInboxKey, bodyDEK),
+
+      lastPreviewEnc: seal(previewDEK, Buffer.from(plainPreview, "utf8")),
+      lastPreviewDekWrapped: seal(destInboxKey, previewDEK),
       importedFromInboxId: sourceInboxId,
       importedAt: admin.firestore.FieldValue.serverTimestamp(),
       unread: true,

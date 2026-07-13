@@ -132,9 +132,11 @@ interface LettersPageProps {
   onBack: () => void;
   language: "en" | "fr";
   onNavigate?: (page: "credits") => void;
+  initialOpenMessageId?: string | null;
+  onInitialMessageOpened?: () => void;
 }
 
-export default function LettersPage({ onBack, language, onNavigate }: LettersPageProps) {
+export default function LettersPage({ onBack, language, onNavigate, initialOpenMessageId }: LettersPageProps) {
   const { session } = useSession();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,6 +188,12 @@ export default function LettersPage({ onBack, language, onNavigate }: LettersPag
     isAnonymous: msg.fromName?.toLowerCase?.().includes("anonymous") || false,
     isUnread: msg.unread === true,
   }));
+
+  useEffect(() => {
+    if (!initialOpenMessageId) return;
+    const match = letters.find((l) => l.id === initialOpenMessageId);
+    if (match) setSelectedLetter({ letter: match, color: getThemeColor(match.type) });
+  }, [initialOpenMessageId, letters.length]);
 
   const t = {
     en: {

@@ -55,7 +55,7 @@ exports.handler = async (event) => {
     if (!tokenExpiresAt || tokenExpiresAt.toDate() < new Date()) {
       return jsonResponse(401, { ok: false, error: "Invalid or expired link" });
     }
-    if (tokenData.purpose !== 'import_link') {
+    if (tokenData.purpose !== 'open') {
       return jsonResponse(403, { ok: false, error: "Invalid token purpose" });
     }
     const sourceInboxId = String(tokenData.inboxId || "").trim();

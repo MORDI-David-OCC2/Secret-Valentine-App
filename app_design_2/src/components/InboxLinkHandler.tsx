@@ -14,7 +14,8 @@ interface InboxLinkHandlerProps {
     needsPin: boolean,
     sessionToken: string | null,
     pinMustBeCreated: boolean,
-    needsEmailAssociation: boolean
+    needsEmailAssociation: boolean,
+    openMessageId: string | null,
   ) => void;
   onError: () => void;
   onGoToLogin: () => void;
@@ -156,7 +157,7 @@ export default function InboxLinkHandler({
     if (shouldShowHub) return;
 
     applyLinkedInboxToSession();
-    onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation);
+    onSuccess(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation, null);
   }, [
     inboxId,
     loading,
@@ -178,14 +179,9 @@ export default function InboxLinkHandler({
 
     setIsImporting(true);
     try {
-      await importLinkToInbox({
-        token,
-        destInboxId: session.inboxId!,
-        destSessionToken: session.sessionToken!,
-      });
-
+      const res = await importLinkToInbox({token, destInboxId: session.inboxId!, destSessionToken: session.sessionToken!});
       toast.success(t.importDone);
-      onSuccess(session.inboxId!, false, session.sessionToken!, false, false);
+      onSuccess(session.inboxId!, false, session.sessionToken!, false, false, res?.importedMessageId ?? null);
     } catch (e: any) {
       toast.error(e?.message || t.importFailed);
     } finally {

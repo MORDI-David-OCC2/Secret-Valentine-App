@@ -112,8 +112,11 @@ exports.handler = async (event) => {
       await attachInboxKeyToSession(db, inboxId, sessionToken);
     }
 
-    await tokenRef.delete(); // ✅ ONE-TIME USE TOKEN
-
+    const isShareLink = tokenData.deliveryMode === "share" || tokenData.deliveryMode === "instagram";
+    if (!isShareLink) {
+      await tokenRef.delete(); // one-time use for personal/email/login links
+    }
+    
     return jsonResponse(200, {
       ok: true,
       inboxId,
@@ -121,6 +124,7 @@ exports.handler = async (event) => {
       pinMustBeCreated,
       sessionToken,
       isPinReset,
+      deliveryMode: tokenData.deliveryMode || "email",
     });
 
   } catch (err) {

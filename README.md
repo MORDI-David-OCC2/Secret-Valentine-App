@@ -34,6 +34,42 @@ Inside the `app_design_2` folder, this project has been reimagined with a modern
 - **Animations:** Framer Motion (for smooth, lovely transitions)
 - **Backend & Database:** Firebase (to support an active user base, ensuring reliable and scalable delivery of anonymous messages)
 
+## 🔒 Security Features
+
+Although designed as a fun Valentine's Day application, security was a major focus throughout development.
+
+- **Envelope encryption** using AES-256-GCM to protect each message's confidentiality.
+- **PBKDF2 password hashing** with salt and server-side pepper for PIN protection.
+- **Secure session management** with expiring session tokens.
+- **Rate limiting** on sensitive API endpoints to reduce abuse and brute-force attacks.
+- **Secure inbox recovery** through email verification workflows.
+- **Automatic content moderation** to reduce spam and inappropriate content.
+
+## 🏗️ Architecture
+
+The application follows a modern serverless architecture.
+
+```
+React (Frontend)
+        │
+        ▼
+Netlify Functions (Serverless Backend)
+        │
+        ▼
+Firebase Firestore
+        │
+        ├── Encrypted Messages
+        ├── Session Management
+        ├── Inbox Management
+        └── Rate Limiting
+
+External Services
+├── Resend (Email Notifications)
+└── Firebase Cloud Services
+```
+
+This architecture separates the frontend from all sensitive operations. Cryptographic operations, session management, and message processing are handled through serverless backend functions.
+
 ## 📦 Getting Started
 
 To run the application locally:

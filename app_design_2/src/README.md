@@ -225,7 +225,7 @@ Bob clique sur le lien email
 InboxLinkHandler
   ↓ Appelle openLink(token)
   ↓ Récupère inboxId + sessionToken
-  ↓ Si PIN requis → PinEntryScreen
+  ↓ Si Passwordrequis → PinEntryScreen
   ↓
 LettersPage
   ↓ Appelle listInbox()
@@ -285,8 +285,8 @@ Firestore → [AES-256-GCM decryption] → Message pour Bob
 
 2. **Réception et lecture**
    - Lien email → ouverture inbox
-   - Avec PIN → demande de code
-   - Sans PIN → accès direct
+   - Avec Password→ demande de code
+   - Sans Password→ accès direct
    - Preview dans liste
    - Message complet
 
@@ -298,7 +298,7 @@ Firestore → [AES-256-GCM decryption] → Message pour Bob
 4. **Sécurité**
    - Rate limiting (trop de requêtes)
    - Modération (mots bloqués)
-   - PIN incorrect → refus accès
+   - Passwordincorrect → refus accès
 
 ---
 

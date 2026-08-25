@@ -7,7 +7,7 @@ Tous les endpoints Netlify Functions sont maintenant intégrés:
 
 - ✅ **claimPending** - Réclamer inbox via email
 - ✅ **openLink** - Ouvrir un lien token
-- ✅ **verifyPin** - Vérifier PIN et créer session
+- ✅ **verifyPin** - Vérifier Passwordet créer session
 - ✅ **setPin** - Définir/supprimer PIN
 - ✅ **listInbox** - Liste des messages (preview)
 - ✅ **getMessage** - Message complet + replies
@@ -287,7 +287,7 @@ const handleVerify = async () => {
     if (error.message.includes('429')) {
       setError('Trop de tentatives. Réessayez plus tard.');
     } else {
-      setError('PIN incorrect');
+      setError('Passwordincorrect');
       setPin('');
     }
   } finally {
@@ -323,9 +323,9 @@ const handleSetPin = async (newPin: string | null) => {
     );
 
     if (response.updated) {
-      toast.success('PIN défini! 🔒');
+      toast.success('Passworddéfini! 🔒');
     } else if (response.removed) {
-      toast.success('PIN supprimé');
+      toast.success('Passwordsupprimé');
     }
 
     onPinCodeChange(newPin);
@@ -461,7 +461,7 @@ Va sur Firebase Console → Firestore Database pour voir les données.
 1. Click lien email `/#/inbox?t=abc123`
 2. App détecte token → `InboxLinkHandler`
 3. `openLink()` → retourne `inboxId` + `pinRequired`
-4. Si PIN requis → écran PIN
+4. Si Passwordrequis → écran PIN
 5. Sinon → charge messages via `listInbox()`
 
 ### Flux Utilisateur 3: Répondre à un message

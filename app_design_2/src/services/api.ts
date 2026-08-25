@@ -12,6 +12,11 @@ async function postJSON<T>(fnName: string, body: any): Promise<T> {
     body: JSON.stringify(body),
   });
 
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, data.error || res.statusText);
+  }
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
   return data as T;
@@ -36,7 +41,7 @@ export interface OpenLinkResponse {
   pinRequired: boolean;
   pinMustBeCreated: boolean;
 
-  // NOTE: can be null when PIN is required (user must verify PIN first)
+  // NOTE: can be null when Passwordis required (user must verify Passwordfirst)
   sessionToken: string | null;
 
   needsEmailAssociation: boolean;
@@ -46,7 +51,7 @@ export async function openLink(token: string): Promise<OpenLinkResponse> {
   return postJSON<OpenLinkResponse>("openLink", { token });
 }
 
-// ---------------- VERIFY PIN ----------------
+// ---------------- VERIFY Password----------------
 export interface VerifyPinResponse {
   ok: true;
   verified: boolean;
@@ -58,7 +63,7 @@ export async function verifyPin(inboxId: string, pin: string): Promise<VerifyPin
   return postJSON("verifyPin", { inboxId, pin, mode: "verify" });
 }
 
-// ---------------- SET PIN ----------------
+// ---------------- SET Password----------------
 export interface SetPinResponse {
   ok: true;
   updated?: boolean;
@@ -176,7 +181,7 @@ export async function savePushSub(params: { inboxId: string; sessionToken: strin
   return postJSON("savePushSub", params);
 }
 
-// ---------------- LOGIN BY EMAIL / PIN RESET ----------------
+// ---------------- LOGIN BY EMAIL / PasswordRESET ----------------
 export type RequestLoginLinkResponse =
   | { ok: true; action: "LINK_SENT" }
   | { ok: true; action: "PIN_REQUIRED"; inboxId: string };
@@ -257,4 +262,11 @@ export async function updateInboxPin(input: {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(String(data?.error || res.status));
   return data as { ok: true; pinRequired: boolean };
+}
+
+export class ApiError extends Error {
+  constructor(public statusCode: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+  }
 }

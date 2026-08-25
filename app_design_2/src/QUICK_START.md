@@ -156,7 +156,7 @@ const handleVerify = async () => {
 - [ ] handleVerify appelle `verifyPin()`
 - [ ] Appelle `unlock(sessionToken)` au succès
 - [ ] Gestion erreurs 401, 429
-- [ ] Clear PIN si incorrect
+- [ ] Clear Passwordsi incorrect
 
 ---
 
@@ -166,13 +166,13 @@ const handleVerify = async () => {
 ```tsx
 const handleSetPin = async () => {
   await setPin(session.inboxId!, newPin, session.sessionToken!);
-  toast.success('PIN set! 🔒');
+  toast.success('Passwordset! 🔒');
 };
 ```
 
 **Checklist**:
 - [ ] Import `setPin` et `useSession`
-- [ ] UI: inputs PIN + confirm + boutons
+- [ ] UI: inputs Password+ confirm + boutons
 - [ ] handleSetPin / handleRemovePin
 - [ ] Validation 4-8 digits
 - [ ] Gestion erreurs 401
@@ -256,10 +256,10 @@ App sur: http://localhost:8888
        └─► InboxLinkHandler
            └─► openLink(token)
                │
-               ├─► Si PIN requis → PinEntryScreen
+               ├─► Si Passwordrequis → PinEntryScreen
                │   └─► verifyPin(pin) → sessionToken
                │
-               └─► Si pas de PIN → sessionToken direct
+               └─► Si pas de Password→ sessionToken direct
                    
 3. Bob unlock + voit inbox
    └─► LettersPage
@@ -304,7 +304,7 @@ App sur: http://localhost:8888
 - [ ] Test local avec `netlify dev`
 - [ ] Test sendMessage (curl)
 - [ ] Test openLink via lien email
-- [ ] Test PIN verify/set
+- [ ] Test Passwordverify/set
 - [ ] Test listInbox
 - [ ] Test getMessage
 - [ ] Test sendReply
@@ -319,8 +319,8 @@ App sur: http://localhost:8888
 | Liste inbox | LettersPage | `listInbox()` |
 | Lire message | LetterDetailView | `getMessage()` |
 | Répondre | ReplyToLetterView | `sendReply()` |
-| Vérifier PIN | PinEntryScreen | `verifyPin()` |
-| Définir PIN | SettingsPage | `setPin()` |
+| Vérifier Password| PinEntryScreen | `verifyPin()` |
+| Définir Password| SettingsPage | `setPin()` |
 | Ouvrir lien | InboxLinkHandler | `openLink()` |
 | Réclamer inbox | ClaimInboxPage | `claimPending()` |
 
@@ -359,7 +359,7 @@ curl -X POST http://localhost:8888/.netlify/functions/sendMessage \
 
 1. **Commence par ComposePage** (le plus important)
 2. **Teste envoi + réception email** avant de continuer
-3. **Configure le PIN après** (pas prioritaire)
+3. **Configure le Passwordaprès** (pas prioritaire)
 4. **Utilise les snippets** dans `CODE_SNIPPETS_INTEGRATION.md`
 5. **Vérifie les logs Netlify** si erreur 500
 

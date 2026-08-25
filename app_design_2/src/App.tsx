@@ -1,7 +1,7 @@
 // src/App.tsx
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Toaster } from "sonner@2.0.3";
+import { Toaster } from "sonner";
 import { SessionProvider, useSession } from "./contexts/SessionContext";
 
 import HomePage from "./components/HomePage";
@@ -57,7 +57,7 @@ function AppContent() {
   const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
-
+  const [pendingOpenMessageId, setPendingOpenMessageId] = useState<string | null>(null);
   const [claimMode, setClaimMode] = useState<"login" | "create">("login");
 
   // keep these but they won't block opening inbox anymore
@@ -155,7 +155,7 @@ function AppContent() {
       return;
     }
 
-    // if need create pin
+    // if need create password
     if (session.mustCreatePin) {
       // If you have temp setup tokens, go first-pin, else user must reopen link or login
       if (tempInboxId && tempSessionToken) setPage("first-pin");
@@ -163,7 +163,7 @@ function AppContent() {
       return;
     }
 
-    // if locked => ask PIN
+    // if locked => ask Password
     if (session.isLocked) {
       setPage("pin");
       return;
@@ -222,10 +222,11 @@ function AppContent() {
     return (
       <InboxLinkHandler
         token={linkToken}
-        onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation) => {
+        onSuccess={(inboxId, needsPin, sessionToken, pinMustBeCreated, needsEmailAssociation, openMessageId) => {
           setLinkToken(null);
+          setPendingOpenMessageId(openMessageId ?? null);
 
-          // needs pin => go pin
+          // needs password => go password
           if (needsPin) {
             setInboxId(inboxId);          // ✅ obligatoire
             setIsPinRequired(true);       // ✅ cohérent avec ton système
@@ -308,6 +309,8 @@ function AppContent() {
               onBack={() => setPage("home")}
               language={language}
               onNavigate={(page) => setPage(page as Page)}
+              initialOpenMessageId = {pendingOpenMessageId}
+              onInitialMessageOpened={() => setPendingOpenMessageId(null)}
             />
           </motion.div>
         )}
@@ -352,6 +355,7 @@ function AppContent() {
               }}
               language={language}
               onNavigate={(page) => setPage(page as Page)}
+              onImportedMessage={(id) => setPendingOpenMessageId(id)}
             />
           </motion.div>
         )}

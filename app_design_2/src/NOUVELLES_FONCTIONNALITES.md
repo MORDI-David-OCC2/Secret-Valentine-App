@@ -1,40 +1,40 @@
 # Nouvelles Fonctionnalités Ajoutées ✨
 
-## 🔐 Création Obligatoire de PIN lors de la Première Connexion
+## 🔐 Création Obligatoire de Passwordlors de la Première Connexion
 
 ### Fonctionnalité
-Lorsqu'un utilisateur accède à sa boîte de réception pour la première fois via un lien email, il est maintenant **obligé de créer un code PIN à 4 chiffres** pour sécuriser sa boîte dès le début.
+Lorsqu'un utilisateur accède à sa boîte de réception pour la première fois via un lien email, il est maintenant **obligé de créer un code Passwordà 6 chiffres** pour sécuriser sa boîte dès le début.
 
 ### Flux Utilisateur
 1. L'utilisateur clique sur le lien reçu par email
 2. Le système détecte que c'est la première connexion
-3. Un écran de création de PIN s'affiche obligatoirement
-4. L'utilisateur doit créer et confirmer un PIN à 4 chiffres
-5. Une fois le PIN créé, l'accès à la boîte est autorisé
+3. Un écran de création de Passwords'affiche obligatoirement
+4. L'utilisateur doit créer et confirmer un Passwordà 6 chiffres
+5. Une fois le Passwordcréé, l'accès à la boîte est autorisé
 6. Les connexions suivantes nécessiteront la saisie du PIN
 
 ### Composants Créés
 - **`/components/FirstPinSetup.tsx`** : Nouvel écran de création obligatoire de PIN
   - Interface élégante avec animations
-  - Validation des champs (4 chiffres, confirmation)
+  - Validation des champs (6 chiffres, confirmation)
   - Messages d'erreur en français et anglais
   - Intégration avec l'API backend (fonction `setPin`)
 
 ### Fichiers Modifiés
 - **`/App.tsx`** : 
   - Ajout de l'état `first-pin` dans la navigation
-  - Gestion du flux de création de PIN obligatoire
+  - Gestion du flux de création de Passwordobligatoire
   - Stockage temporaire de `inboxId` et `sessionToken`
   - Handler `handleFirstPinCreated` pour finaliser la création
 
 - **`/hooks/useInboxLink.ts`** :
   - Ajout de `pinMustBeCreated` dans le résultat
-  - Distinction entre "PIN requis mais non défini" et "PIN déjà défini"
+  - Distinction entre "Passwordrequis mais non défini" et "Passworddéjà défini"
   - Gestion du `sessionToken` pour la création de PIN
 
 - **`/components/InboxLinkHandler.tsx`** :
   - Mise à jour de la signature de `onSuccess` pour inclure `sessionToken` et `pinMustBeCreated`
-  - Routage vers l'écran de création de PIN si nécessaire
+  - Routage vers l'écran de création de Passwordsi nécessaire
 
 ---
 
@@ -54,7 +54,7 @@ Les utilisateurs peuvent maintenant se déconnecter de leur boîte de réception
 2. Une confirmation est demandée
 3. Si confirmé :
    - Toutes les données de session sont effacées
-   - Le PIN local est supprimé
+   - Le Passwordlocal est supprimé
    - L'utilisateur est redirigé vers la page d'accueil
    - Les données `localStorage` sont nettoyées
 
@@ -99,12 +99,12 @@ Les utilisateurs peuvent maintenant se déconnecter de leur boîte de réception
 ### API Utilisées
 1. **`setPin(inboxId, pin, sessionToken)`** : Créer/modifier le PIN
 2. **`openLink(token)`** : Ouvrir un lien inbox avec détection du statut PIN
-3. **`verifyPin(inboxId, pin)`** : Vérifier le PIN lors des connexions suivantes
+3. **`verifyPin(inboxId, pin)`** : Vérifier le Passwordlors des connexions suivantes
 
 ### Sécurité
-- Le PIN est chiffré avec AES-GCM côté backend
+- Le Passwordest chiffré avec AES-GCM côté backend
 - Le `sessionToken` est temporaire et sécurisé
-- Validation stricte des données (4 chiffres uniquement)
+- Validation stricte des données (6 chiffres uniquement)
 - Rate limiting côté serveur pour éviter les attaques par force brute
 
 ---
@@ -120,15 +120,15 @@ Les utilisateurs peuvent maintenant se déconnecter de leur boîte de réception
 1. **Première connexion** :
    - [ ] Recevoir un email avec le lien inbox
    - [ ] Cliquer sur le lien
-   - [ ] Vérifier que l'écran de création de PIN s'affiche
-   - [ ] Créer un PIN et confirmer
+   - [ ] Vérifier que l'écran de création de Passwords'affiche
+   - [ ] Créer un Passwordet confirmer
    - [ ] Accéder à la boîte de réception
 
 2. **Connexions suivantes** :
    - [ ] Recevoir à nouveau le lien inbox
    - [ ] Cliquer sur le lien
-   - [ ] Vérifier que l'écran de saisie du PIN s'affiche
-   - [ ] Entrer le PIN et accéder à la boîte
+   - [ ] Vérifier que l'écran de saisie du Passwords'affiche
+   - [ ] Entrer le Passwordet accéder à la boîte
 
 3. **Déconnexion** :
    - [ ] Aller dans Paramètres
@@ -146,7 +146,7 @@ Les utilisateurs peuvent maintenant se déconnecter de leur boîte de réception
 ## 🎉 Résultat Final
 
 Votre application Secret Valentine est maintenant complète avec :
-- ✅ Sécurité renforcée avec PIN obligatoire
+- ✅ Sécurité renforcée avec Passwordobligatoire
 - ✅ Gestion de session complète avec déconnexion
 - ✅ Flux utilisateur intuitif et sécurisé
 - ✅ Interface élégante et animée

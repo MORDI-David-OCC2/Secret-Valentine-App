@@ -1,7 +1,7 @@
 // src/components/ClaimInboxPage.tsx
 import { useState } from "react";
 import { motion } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import AppFrame from "./ui/AppFrame";
 import {
   requestLoginLink,
@@ -21,6 +21,7 @@ interface ClaimInboxPageProps {
   // if user came from a shared link, we keep it here and import after create/login
   pendingImportToken?: string | null;
   onConsumedPendingImportToken?: () => void;
+  onImportedMessage?: (id: string) => void;
 }
 
 export default function ClaimInboxPage({
@@ -30,12 +31,13 @@ export default function ClaimInboxPage({
   onNavigate,
   pendingImportToken,
   onConsumedPendingImportToken,
+  onImportedMessage
 }: ClaimInboxPageProps) {
   const { setInboxId, setSessionToken, setIsLocked, setIsPinRequired } = useSession();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); // create mode
-  const [pin, setPin] = useState(""); // login mode PIN step
+  const [pin, setPin] = useState(""); // login mode Passwordstep
 
   const [step, setStep] = useState<"email" | "pin" | "sent">("email");
   const [inboxId, setLocalInboxId] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export default function ClaimInboxPage({
 
       pinTitle: "Enter your PIN",
       pinLabel: "Password",
-      pinPlaceholder: "••••",
+      pinPlaceholder: "6 ••••••",
       login: "Log in",
       forgot: "Forgot PIN?",
       loginByLink: "Log in by link instead",
@@ -97,12 +99,12 @@ export default function ClaimInboxPage({
 
       pinTitle: "Entre ton PIN",
       pinLabel: "Mot de passe",
-      pinPlaceholder: "••••",
+      pinPlaceholder: "6 ••••••",
       login: "Se connecter",
       forgot: "Mot de passe oublié ?",
       loginByLink: "Me connecter par lien à la place",
       resetSent: "Lien de reset envoyé ✅",
-      wrongPin: "PIN incorrect",
+      wrongPin: "Passwordincorrect",
       footer: "créé par D&F avec",
 
       imported: "Lettre ajoutée à ta boîte ✅",
@@ -116,12 +118,13 @@ export default function ClaimInboxPage({
     if (!pendingImportToken) return;
 
     try {
-      await importLinkToInbox({
+      const res = await importLinkToInbox({
         token: pendingImportToken,
         destInboxId,
         destSessionToken,
       });
       toast.success(t.imported);
+      return res.importedMessageId;
     } catch (e: any) {
       toast.error(e?.message || t.importFailed);
     } finally {
@@ -154,8 +157,10 @@ export default function ClaimInboxPage({
 
         toast.success(language === "fr" ? "Compte créé ✅" : "Account created ✅");
 
-        await maybeImportAfterAuth(res.inboxId, res.sessionToken);
-
+        const importedMessageId = await maybeImportAfterAuth(res.inboxId, res.sessionToken);
+        if (importedMessageId) {
+          onImportedMessage?.(importedMessageId);
+        }
         onNavigate?.("letters");
         if (!onNavigate) onBack();
       } catch (e: any) {
@@ -166,10 +171,10 @@ export default function ClaimInboxPage({
       return;
     }
 
-    // LOGIN MODE: prefer PIN if inbox has one
+    // LOGIN MODE: prefer Passwordif inbox has one
     setIsSubmitting(true);
     try {
-      const res = await requestLoginLink(email.trim().toLowerCase(), { preferPin: true });
+      const res = await requestLoginLink(email.trim().toLowerCase());
 
       if (res.action === "PIN_REQUIRED") {
         setLocalInboxId(res.inboxId);
@@ -196,8 +201,8 @@ export default function ClaimInboxPage({
       toast.error(language === "fr" ? "Inbox introuvable. Réessaie." : "Inbox not found. Try again.");
       return;
     }
-    if (!/^\d{6}$/.test(pin)) {
-      toast.error(language === "fr" ? "Le PIN doit faire 6 caractères" : "PIN must be 6 characters");
+    if (!/^[A-Za-z0-9]{6}$/.test(pin)) {
+      toast.error(language === "fr" ? "Le Passworddoit faire 6 caractères" : "Passwordmust be 6 characters");
       return;
     }
 
@@ -210,7 +215,15 @@ export default function ClaimInboxPage({
       setIsPinRequired(true);
       setIsLocked(false);
 
-      await maybeImportAfterAuth(inboxId, res.sessionToken);
+        const importedMessageId =
+      await maybeImportAfterAuth(
+          inboxId,
+          res.sessionToken
+      );
+
+      if (importedMessageId) {
+        onImportedMessage?.(importedMessageId);
+    }
 
       toast.success(language === "fr" ? "Connecté ✅" : "Logged in ✅");
       if (onNavigate) onNavigate("letters")

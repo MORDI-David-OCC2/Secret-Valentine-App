@@ -4,7 +4,7 @@ interface SessionData {
   inboxId: string | null;
   sessionToken: string | null;
 
-  isLocked: boolean;       // true si Passwordrequis mais pas vérifié
+  isLocked: boolean;       // true si Passwordrequired but not verified
   isPinRequired: boolean;  // backend dit "Passwordexiste"
   mustCreatePin: boolean;  // backend dit "Passwordn'existe pas encore"
 }
